@@ -1,10 +1,12 @@
-// Mock services - in real app, fetch from database
+import { Service } from "./services/service-service";
+
+// Mock services - in real app, fetch from database using getServices()
 export const SERVICES = [
-  { id: 1, name: "Corte Clásico", duration: 60, price: 15000 },
-  { id: 2, name: "Corte + Barba", duration: 60, price: 20000 },
-  { id: 3, name: "Afeitado Tradicional", duration: 60, price: 12000 },
-  { id: 4, name: "Corte Niño", duration: 60, price: 10000 },
-];
+  { id: 1, nombre: "Corte Clásico", descripcion: null, precio: 15000 },
+  { id: 2, nombre: "Corte + Barba", descripcion: null, precio: 20000 },
+  { id: 3, nombre: "Afeitado Tradicional", descripcion: null, precio: 12000 },
+  { id: 4, nombre: "Corte Niño", descripcion: null, precio: 10000 },
+] as Service[];
 
 // Available time slots
 export const TIME_SLOTS = [
@@ -12,4 +14,4 @@ export const TIME_SLOTS = [
   "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"
 ];
 
-export type Service = typeof SERVICES[number];
+export type { Service };

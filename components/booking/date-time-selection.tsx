@@ -12,9 +12,9 @@ import { cn } from "@/lib/utils";
 
 interface Service {
   id: number;
-  name: string;
-  duration: number;
-  price: number;
+  nombre: string;
+  descripcion: string | null;
+  precio: number;
 }
 
 interface DateTimeSelectionProps {
@@ -42,24 +42,24 @@ export function DateTimeSelection({
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card className="border-2">
         <CardHeader>
-          <CardTitle>Selecciona Fecha y Hora</CardTitle>
-          <CardDescription>
-            Servicio: {selectedService.name} - ${selectedService.price.toLocaleString()}
+          <CardTitle className="text-xl md:text-2xl">Selecciona Fecha y Hora</CardTitle>
+          <CardDescription className="text-sm">
+            Servicio: {selectedService.nombre} - ${selectedService.precio.toLocaleString()}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <Label className="mb-3 block">Fecha</Label>
+            <Label className="mb-3 block text-sm md:text-base">Fecha</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal text-sm md:text-base",
                     !selectedDate && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                   {selectedDate ? (
                     format(selectedDate, "PPP", { locale: es })
                   ) : (
@@ -83,14 +83,14 @@ export function DateTimeSelection({
           </div>
 
           <div>
-            <Label className="mb-3 block">Horario</Label>
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+            <Label className="mb-3 block text-sm md:text-base">Horario</Label>
+            <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
               {timeSlots.map((time) => (
                 <Button
                   key={time}
                   variant={selectedTime === time ? "default" : "outline"}
                   onClick={() => onTimeSelect(time)}
-                  className="w-full"
+                  className="w-full text-sm md:text-base"
                 >
                   {time}
                 </Button>
@@ -98,7 +98,7 @@ export function DateTimeSelection({
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-2 md:gap-3 pt-4">
             <Button variant="outline" onClick={onBack} className="flex-1">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Atrás
