@@ -1,4 +1,5 @@
-import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -13,6 +14,11 @@ export default function Home() {
         <p className="mt-6 text-lg text-zinc-700 dark:text-zinc-300">
           Test
         </p>
+        <div>
+            <Link href="/agendar">
+              <Button>Agendar</Button>
+            </Link>
+        </div>
       </main>
     </div>
   );
