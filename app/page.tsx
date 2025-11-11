@@ -11,7 +11,7 @@ export default function Home() {
           </span>
         </h1>
         <p className="mt-6 text-lg text-zinc-700 dark:text-zinc-300">
-          Your go-to platform for managing your barber shop appointments and clients with ease.
+          Test
         </p>
       </main>
     </div>
