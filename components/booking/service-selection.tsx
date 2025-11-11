@@ -1,0 +1,60 @@
+"use client"
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Service {
+  id: number;
+  name: string;
+  duration: number;
+  price: number;
+}
+
+interface ServiceSelectionProps {
+  services: Service[];
+  selectedService: Service | null;
+  onServiceSelect: (service: Service) => void;
+}
+
+export function ServiceSelection({ services, selectedService, onServiceSelect }: ServiceSelectionProps) {
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle>Selecciona un Servicio</CardTitle>
+          <CardDescription>Elige el servicio que deseas agendar</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {services.map((service) => (
+              <div
+                key={service.id}
+                onClick={() => onServiceSelect(service)}
+                className={cn(
+                  "p-6 border-2 rounded-lg cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02]",
+                  selectedService?.id === service.id
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                    : "border-zinc-200 dark:border-zinc-800 hover:border-blue-300"
+                )}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                    {service.name}
+                  </h3>
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                    ${service.price.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center text-sm text-zinc-600 dark:text-zinc-400">
+                  <Clock className="h-4 w-4 mr-1" />
+                  {service.duration} min
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
