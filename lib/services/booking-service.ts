@@ -5,6 +5,7 @@ export type Reserva = Database["public"]["Tables"]["reserva"]["Row"];
 export type ReservaInsert = Database["public"]["Tables"]["reserva"]["Insert"];
 
 export interface BookingData {
+  barberoId: string;
   serviceId: number;
   date: Date;
   time: string;
@@ -21,57 +22,54 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
   const supabase = createClient();
 
   try {
-    // First, create or get the guest user (cliente)
-    const { data: userData, error: userError } = await supabase
-      .from("usuario")
+    // Check if guest user already exists
+    const { data: guestData, error: guestCheckError } = await supabase
+      .from("guest_usuario")
       .select("id")
       .eq("correo", bookingData.customerInfo.email)
       .maybeSingle();
 
-    let clienteId: string;
+    let guestClienteId: string;
 
-    if (userData) {
-      // User already exists
-      clienteId = userData.id;
+    if (guestData) {
+      // Guest user already exists
+      guestClienteId = guestData.id;
     } else {
-      // Create a new guest user with UUID
-      const userId = crypto.randomUUID();
-      
-      const { data: newUser, error: createUserError } = await supabase
-        .from("usuario")
+      // Create a new guest user
+      const { data: newGuest, error: createGuestError } = await supabase
+        .from("guest_usuario")
         .insert({
-          id: userId,
           nombre: bookingData.customerInfo.firstName,
           apellido: bookingData.customerInfo.lastName,
           correo: bookingData.customerInfo.email,
           telefono: bookingData.customerInfo.phone,
-          rol: "cliente"
         })
         .select()
         .single();
 
-      if (createUserError) {
-        console.error("Error creating user:", createUserError);
-        return { success: false, error: "No se pudo crear el usuario" };
+      if (createGuestError) {
+        console.error("Error creating guest user:", createGuestError);
+        return { success: false, error: "No se pudo crear el usuario invitado" };
       }
 
-      clienteId = newUser.id;
+      guestClienteId = newGuest.id;
     }
 
     // Format date and time for PostgreSQL
     const fecha = bookingData.date.toISOString().split('T')[0]; // YYYY-MM-DD
     const hora = bookingData.time; // HH:MM format
 
-    // Create the reservation
+    // Create the reservation with guest_cliente
     const { data: reservaData, error: reservaError } = await supabase
       .from("reserva")
       .insert({
         fecha,
         hora,
         estado: "pendiente",
-        cliente: clienteId,
+        guest_cliente: guestClienteId,
+        cliente: null,
         servicio: bookingData.serviceId,
-        barbero: null // Can be assigned later
+        barbero: bookingData.barberoId
       })
       .select()
       .single();

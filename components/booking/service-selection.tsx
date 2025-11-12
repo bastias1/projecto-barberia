@@ -1,23 +1,19 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Service {
-  id: number;
-  nombre: string;
-  descripcion: string | null;
-  precio: number;
-}
+import { Service } from "@/lib/services/service-service";
 
 interface ServiceSelectionProps {
   services: Service[];
   selectedService: Service | null;
   onServiceSelect: (service: Service) => void;
+  onBack?: () => void;
 }
 
-export function ServiceSelection({ services, selectedService, onServiceSelect }: ServiceSelectionProps) {
+export function ServiceSelection({ services, selectedService, onServiceSelect, onBack }: ServiceSelectionProps) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card className="border-2">
@@ -25,7 +21,12 @@ export function ServiceSelection({ services, selectedService, onServiceSelect }:
           <CardTitle className="text-xl md:text-2xl">Selecciona un Servicio</CardTitle>
           <CardDescription className="text-sm">Elige el servicio que deseas agendar</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {services.length === 0 && (
+            <p className="text-center text-zinc-500 dark:text-zinc-400 py-8">
+              No hay servicios disponibles para este barbero
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             {services.map((service) => (
               <div
@@ -53,6 +54,14 @@ export function ServiceSelection({ services, selectedService, onServiceSelect }:
               </div>
             ))}
           </div>
+          {onBack && (
+            <div className="flex justify-start pt-4">
+              <Button variant="outline" onClick={onBack} className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Cambiar Barbero
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -3,22 +3,27 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
+import { BarberSelection } from "@/components/booking/barber-selection";
 import { ServiceSelection } from "@/components/booking/service-selection";
 import { DateTimeSelection } from "@/components/booking/date-time-selection";
 import { ContactForm } from "@/components/booking/contact-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { ProgressSteps } from "@/components/booking/progress-steps";
-import { Service } from "@/lib/booking-data";
-import { getServices } from "@/lib/services/service-service";
+import { getBarberos, Barbero } from "@/lib/services/barber-service";
+import { getServicesByBarber, Service } from "@/lib/services/service-service";
 import { createBooking, getAvailableTimeSlots } from "@/lib/services/booking-service";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 export default function AgendarPage() {
   const [step, setStep] = useState(1);
+  const [barbers, setBarbers] = useState<Barbero[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedBarber, setSelectedBarber] = useState<Barbero | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState<string>("");
@@ -30,20 +35,46 @@ export default function AgendarPage() {
     phone: ""
   });
 
-  // Fetch services on component mount
+  // Fetch barbers on component mount
   useEffect(() => {
-    async function fetchServices() {
+    async function fetchBarbers() {
       try {
-        const data = await getServices();
-        setServices(data);
+        setLoading(true);
+        setError(null);
+        console.log("Starting to fetch barbers...");
+        const data = await getBarberos();
+        console.log("Fetched barbers:", data);
+        setBarbers(data);
       } catch (error) {
-        console.error("Error loading services:", error);
+        console.error("Error loading barbers:", error);
+        setError("No se pudieron cargar los barberos. Por favor, intenta de nuevo.");
       } finally {
         setLoading(false);
       }
     }
-    fetchServices();
+    fetchBarbers();
   }, []);
+
+  // Fetch services when barber is selected
+  useEffect(() => {
+    async function fetchServices() {
+      if (selectedBarber) {
+        try {
+          setLoadingServices(true);
+          console.log("Fetching services for barber:", selectedBarber.id);
+          const data = await getServicesByBarber(selectedBarber.id);
+          console.log("Fetched services:", data);
+          setServices(data);
+        } catch (error) {
+          console.error("Error loading services:", error);
+          setError("No se pudieron cargar los servicios. Por favor, intenta de nuevo.");
+        } finally {
+          setLoadingServices(false);
+        }
+      }
+    }
+    fetchServices();
+  }, [selectedBarber]);
 
   // Fetch available time slots when date changes
   useEffect(() => {
@@ -60,26 +91,33 @@ export default function AgendarPage() {
     fetchAvailableSlots();
   }, [selectedDate]);
 
+  const handleBarberSelect = (barber: Barbero) => {
+    setSelectedBarber(barber);
+    setSelectedService(null); // Reset service when barber changes
+    setStep(2);
+  };
+
   const handleServiceSelect = (service: Service) => {
     setSelectedService(service);
-    setStep(2);
+    setStep(3);
   };
 
   const handleDateTimeSubmit = () => {
     if (selectedDate && selectedTime) {
-      setStep(3);
+      setStep(4);
     }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedService || !selectedDate || !selectedTime) return;
+    if (!selectedBarber || !selectedService || !selectedDate || !selectedTime) return;
 
     setSubmitting(true);
 
     try {
       const result = await createBooking({
+        barberoId: selectedBarber.id,
         serviceId: selectedService.id,
         date: selectedDate,
         time: selectedTime,
@@ -87,7 +125,7 @@ export default function AgendarPage() {
       });
 
       if (result.success) {
-        setStep(4);
+        setStep(5);
       } else {
         alert(result.error || "Error al crear la reserva");
       }
@@ -101,6 +139,7 @@ export default function AgendarPage() {
 
   const resetBooking = () => {
     setStep(1);
+    setSelectedBarber(null);
     setSelectedService(null);
     setSelectedDate(undefined);
     setSelectedTime("");
@@ -113,7 +152,24 @@ export default function AgendarPage() {
       <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-zinc-600 dark:text-zinc-400">Cargando servicios...</p>
+          <p className="text-zinc-600 dark:text-zinc-400">Cargando barberos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">⚠️</span>
+          </div>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Error</h2>
+          <p className="text-zinc-600 dark:text-zinc-400 mb-6">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Reintentar
+          </Button>
         </div>
       </div>
     );
@@ -144,7 +200,7 @@ export default function AgendarPage() {
             Agendar Cita
           </h1>
           <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 px-4">
-            Reserva tu cita en 3 simples pasos
+            Reserva tu cita en 4 simples pasos
           </p>
         </div>
 
@@ -153,14 +209,32 @@ export default function AgendarPage() {
 
         {/* Step Components */}
         {step === 1 && (
-          <ServiceSelection
-            services={services}
-            selectedService={selectedService}
-            onServiceSelect={handleServiceSelect}
+          <BarberSelection
+            barbers={barbers}
+            selectedBarber={selectedBarber}
+            onBarberSelect={handleBarberSelect}
           />
         )}
 
-        {step === 2 && selectedService && (
+        {step === 2 && selectedBarber && (
+          <>
+            {loadingServices ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">Cargando servicios...</p>
+              </div>
+            ) : (
+              <ServiceSelection
+                services={services}
+                selectedService={selectedService}
+                onServiceSelect={handleServiceSelect}
+                onBack={() => setStep(1)}
+              />
+            )}
+          </>
+        )}
+
+        {step === 3 && selectedBarber && selectedService && (
           <DateTimeSelection
             selectedService={selectedService}
             selectedDate={selectedDate}
@@ -168,22 +242,23 @@ export default function AgendarPage() {
             timeSlots={availableTimeSlots.length > 0 ? availableTimeSlots : []}
             onDateSelect={setSelectedDate}
             onTimeSelect={setSelectedTime}
-            onBack={() => setStep(1)}
+            onBack={() => setStep(2)}
             onContinue={handleDateTimeSubmit}
           />
         )}
 
-        {step === 3 && (
+        {step === 4 && selectedBarber && selectedService && (
           <ContactForm
             formData={formData}
             onFormChange={setFormData}
-            onBack={() => setStep(2)}
+            onBack={() => setStep(3)}
             onSubmit={handleFormSubmit}
           />
         )}
 
-        {step === 4 && selectedService && selectedDate && (
+        {step === 5 && selectedBarber && selectedService && selectedDate && (
           <BookingConfirmation
+            selectedBarber={selectedBarber}
             selectedService={selectedService}
             selectedDate={selectedDate}
             selectedTime={selectedTime}

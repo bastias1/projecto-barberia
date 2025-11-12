@@ -14,7 +14,14 @@ interface Service {
   precio: number;
 }
 
+interface Barbero {
+  id: string;
+  nombre: string | null;
+  especialidad: string | null;
+}
+
 interface BookingConfirmationProps {
+  selectedBarber: Barbero;
   selectedService: Service;
   selectedDate: Date;
   selectedTime: string;
@@ -28,6 +35,7 @@ interface BookingConfirmationProps {
 }
 
 export function BookingConfirmation({
+  selectedBarber,
   selectedService,
   selectedDate,
   selectedTime,
@@ -46,6 +54,10 @@ export function BookingConfirmation({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-zinc-100 dark:bg-zinc-800 p-4 md:p-6 rounded-lg space-y-2 md:space-y-3">
+            <div className="flex justify-between text-sm md:text-base">
+              <span className="text-zinc-600 dark:text-zinc-400">Barbero:</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">{selectedBarber.nombre || "Barbero"}</span>
+            </div>
             <div className="flex justify-between text-sm md:text-base">
               <span className="text-zinc-600 dark:text-zinc-400">Servicio:</span>
               <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">{selectedService.nombre}</span>

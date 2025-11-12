@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle";
 import Link from "next/link";
-import { Calendar, ShoppingBag, Clock, MapPin, Instagram } from "lucide-react";
+import { Calendar, ShoppingBag, Clock, MapPin, Instagram, LogIn } from "lucide-react";
 
 export default function Home() {
   return (
@@ -12,6 +12,16 @@ export default function Home() {
       {/* Theme Toggle - Positioned at top right */}
       <div className="absolute top-4 right-4">
         <ModeToggle />
+      </div>
+
+      {/* Login Link - Positioned at top left */}
+      <div className="absolute top-4 left-4">
+        <Link href="/login">
+          <Button variant="ghost" className="gap-2">
+            <LogIn className="h-4 w-4" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </Button>
+        </Link>
       </div>
 
       <main className="w-full max-w-md">
