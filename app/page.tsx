@@ -89,13 +89,30 @@ export default function Home() {
                 <Clock className="h-5 w-5 mr-3 text-zinc-400" />
                 <span className="text-sm">Lun - Sáb: 9:00 AM - 8:00 PM</span>
               </div>
-              <div className="flex items-center text-zinc-600 dark:text-zinc-400">
-                <MapPin className="h-5 w-5 mr-3 text-zinc-400" />
-                <span className="text-sm">Tu ubicación aquí</span>
+              <div className="flex flex-col text-zinc-600 dark:text-zinc-400">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-3 text-zinc-400" />
+                  <span className="text-sm">Haverbeck 1815, Valdivia</span>
+                </div>
+
+                {/* Mapa  */}
+                <div className="mt-3 rounded-lg overflow-hidden">
+                  <iframe
+                    title="Ubicación en Google Maps"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3238.866827182495!2d-73.240!3d-39.820!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9615ef8cba8f4c15%3A0x5c2b7ed6f1c2b7b5!2sHaverbeck%201815%2C%20Valdivia!5e0!3m2!1ses!2scl!4v1700000000000!5m2!1ses!2scl"
+                    width="100%"
+                    height="200"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  ></iframe>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
+
 
         {/* Social Links */}
         <div className="flex justify-center gap-3 mb-8 animate-in fade-in duration-1000 delay-500">
