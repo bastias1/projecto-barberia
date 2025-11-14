@@ -56,10 +56,10 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
     }
 
     // Format date and time for PostgreSQL
-    const fecha = bookingData.date.toISOString().split('T')[0]; // YYYY-MM-DD
-    const hora = bookingData.time; // HH:MM format
+    const fecha = bookingData.date.toISOString().split('T')[0];
+    const hora = bookingData.time;
 
-    // Create the reservation with guest_cliente
+    // Create the reservation - el webhook se dispara automáticamente
     const { data: reservaData, error: reservaError } = await supabase
       .from("reserva")
       .insert({
@@ -71,13 +71,19 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
         servicio: bookingData.serviceId,
         barbero: bookingData.barberoId
       })
-      .select()
+      .select(`
+        *,
+        barbero:barbero(nombre, apellido),
+        servicio:servicio(nombre, precio, duracion)
+      `)
       .single();
 
     if (reservaError) {
       console.error("Error creating reservation:", reservaError);
       return { success: false, error: "No se pudo crear la reserva" };
     }
+
+    console.log("✅ Reserva creada exitosamente. Email enviándose automáticamente vía webhook...");
 
     return { success: true, data: reservaData };
   } catch (error) {
@@ -92,7 +98,6 @@ export async function getAvailableTimeSlots(date: Date): Promise<string[]> {
   
   const fecha = date.toISOString().split('T')[0];
 
-  // Get all bookings for the selected date
   const { data: bookings, error } = await supabase
     .from("reserva")
     .select("hora")
@@ -104,13 +109,11 @@ export async function getAvailableTimeSlots(date: Date): Promise<string[]> {
     return [];
   }
 
-  // All possible time slots
   const allTimeSlots = [
     "09:00", "10:00", "11:00", "12:00", "13:00",
     "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"
   ];
 
-  // Filter out booked time slots
   const bookedTimes = bookings?.map(b => b.hora.substring(0, 5)) || [];
   const availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
 
@@ -136,5 +139,5 @@ export async function isTimeSlotAvailable(date: Date, time: string): Promise<boo
     return false;
   }
 
-  return !data; // If no data, slot is available
+  return !data;
 }
