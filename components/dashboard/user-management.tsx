@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Loader2, KeyRound, Users, Trash2, X } from "lucide-react";
+import { UserPlus, Loader2, KeyRound, Users, Trash2, X, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
 
@@ -28,6 +29,8 @@ export function UserManagement() {
   const [resettingPassword, setResettingPassword] = useState<string | null>(null);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<Barber | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     nombre: "",
@@ -163,6 +166,104 @@ export function UserManagement() {
       toast.error("Error al eliminar usuario");
     } finally {
       setDeletingUser(null);
+    }
+  };
+
+  const handleEditUser = (barber: Barber) => {
+    setEditingUser(barber);
+    setFormData({
+      email: barber.usuario?.correo || '',
+      nombre: barber.nombre,
+      apellido: barber.apellido || '',
+      telefono: '', // We don't have telefono in the Barber interface, would need to fetch from usuario table
+      rol: barber.usuario?.rol || 'barbero',
+      especialidad: barber.especialidad || '',
+    });
+    setShowEditForm(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    setLoading(true);
+
+    try {
+      const supabase = createClient();
+
+      console.log('Updating user:', {
+        id: editingUser.id,
+        email: formData.email,
+        telefono: formData.telefono,
+        rol: formData.rol
+      });
+
+      // Update usuario record
+      const { data: updateData, error: usuarioError } = await supabase
+        .from('usuario')
+        .update({
+          correo: formData.email,
+          telefono: formData.telefono || null,
+          rol: formData.rol,
+        })
+        .eq('id', editingUser.id)
+        .select();
+
+      console.log('Update result:', { updateData, usuarioError });
+
+      if (usuarioError) {
+        console.error('Error updating usuario:', usuarioError);
+        toast.error(`Error al actualizar usuario: ${usuarioError.message}`);
+        return;
+      }
+
+      if (!updateData || updateData.length === 0) {
+        console.error('No data returned from update - may be RLS policy issue');
+        toast.warning('Actualización completada pero no se pudo verificar');
+      } else {
+        console.log('Usuario updated successfully:', updateData);
+      }
+
+      // Update auth user email if changed
+      if (formData.email !== editingUser.usuario?.correo) {
+        console.log('Email changed, updating auth user...');
+        const response = await fetch('/api/admin/update-user-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: editingUser.id,
+            newEmail: formData.email,
+          })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          console.error('Error updating auth email:', data);
+          toast.warning('Usuario actualizado pero hubo un error al actualizar el email de autenticación');
+        } else {
+          console.log('Auth email updated successfully');
+        }
+      }
+
+      toast.success('Usuario actualizado exitosamente');
+      fetchBarbers();
+      setShowEditForm(false);
+      setEditingUser(null);
+      setFormData({
+        email: '',
+        nombre: '',
+        apellido: '',
+        telefono: '',
+        rol: 'barbero',
+        especialidad: '',
+      });
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast.error(error?.message || 'Error inesperado al actualizar usuario');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -302,7 +403,14 @@ export function UserManagement() {
                       Rol: {barber.usuario?.rol}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <ButtonGroup>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditUser(barber)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -310,36 +418,24 @@ export function UserManagement() {
                       disabled={resettingPassword === barber.id}
                     >
                       {resettingPassword === barber.id ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Reseteando...
-                        </>
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <>
-                          <KeyRound className="mr-2 h-4 w-4" />
-                          Resetear Contraseña
-                        </>
+                        <KeyRound className="h-4 w-4" />
                       )}
                     </Button>
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
                       onClick={() => handleDeleteUser(barber.id, `${barber.nombre} ${barber.apellido}`)}
                       disabled={deletingUser === barber.id}
                     >
                       {deletingUser === barber.id ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Eliminando...
-                        </>
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Eliminar
-                        </>
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       )}
                     </Button>
-                  </div>
+                  </ButtonGroup>
                 </div>
               ))}
             </div>
@@ -466,6 +562,122 @@ export function UserManagement() {
                       <>
                         <UserPlus className="mr-2 h-4 w-4" />
                         Crear Usuario
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit User Modal/Form */}
+      {showEditForm && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Edit className="h-5 w-5" />
+                  Editar Usuario
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowEditForm(false);
+                    setEditingUser(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>
+                Actualiza la información del usuario
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleUpdateUser} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="edit-email">Correo Electrónico *</Label>
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-telefono">Teléfono</Label>
+                    <Input
+                      id="edit-telefono"
+                      type="tel"
+                      value={formData.telefono}
+                      onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-rol">Rol *</Label>
+                    <Select
+                      value={formData.rol}
+                      onValueChange={(value) => setFormData({ ...formData, rol: value })}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="barbero">Barbero</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="owner">Propietario</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-100 dark:bg-zinc-800 p-4 rounded-lg">
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <strong>Nombre:</strong> {editingUser.nombre} {editingUser.apellido}
+                  </p>
+                  {editingUser.especialidad && (
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                      <strong>Especialidad:</strong> {editingUser.especialidad}
+                    </p>
+                  )}
+                  <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-2">
+                    Los datos de nombre, apellido y especialidad no se pueden editar aquí
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditForm(false);
+                      setEditingUser(null);
+                    }}
+                    disabled={loading}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Actualizando...
+                      </>
+                    ) : (
+                      <>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Actualizar Usuario
                       </>
                     )}
                   </Button>
