@@ -107,7 +107,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 truncate">
-                  Dashboard
+                  Bienvenido
                 </h2>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
                   {barber.nombre || "Barbero"}
