@@ -147,7 +147,26 @@ export async function getAvailableTimeSlots(date: Date, barberId?: string): Prom
       .neq("estado", "cancelada");
 
     const bookedTimes = bookings?.map(b => b.hora.substring(0, 5)) || [];
-    const availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
+    let availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
+
+    // Filter out slots that are less than 2 hours from now for same-day bookings
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    if (checkDate.getTime() === today.getTime()) {
+      // Same day booking - require 2 hours advance
+      const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      const minHour = twoHoursFromNow.getHours();
+      const minMinute = twoHoursFromNow.getMinutes();
+      
+      availableSlots = availableSlots.filter(slot => {
+        const [slotHour, slotMinute] = slot.split(':').map(Number);
+        return slotHour > minHour || (slotHour === minHour && slotMinute >= minMinute);
+      });
+    }
 
     return availableSlots.sort();
   }

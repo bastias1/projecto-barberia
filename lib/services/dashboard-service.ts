@@ -180,6 +180,37 @@ export async function getUpcomingAppointments(barberId: string, limit = 10): Pro
 }
 
 /**
+ * Get today's appointments for a barber
+ */
+export async function getTodayAppointments(barberId: string): Promise<Appointment[]> {
+  const supabase = await createClient();
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const { data, error } = await supabase
+    .from('reserva')
+    .select(`
+      *,
+      servicio (nombre, precio),
+      guest_usuario:guest_cliente (nombre, apellido, correo, telefono)
+    `)
+    .eq('barbero', barberId)
+    .gte('fecha', today.toISOString())
+    .lt('fecha', tomorrow.toISOString())
+    .order('hora', { ascending: true });
+
+  if (error) {
+    console.error("Error fetching today's appointments:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
  * Get recent bookings for a barber
  */
 export async function getRecentBookings(barberId: string, limit = 5): Promise<Booking[]> {
