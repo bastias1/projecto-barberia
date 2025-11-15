@@ -10,6 +10,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Scissors, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function SignupPage() {
       // Check if email confirmation is required
       if (!authData.session) {
         // Email confirmation is required - profiles will be created via callback
-        alert("¡Cuenta creada exitosamente! Por favor revisa tu correo electrónico y haz clic en el enlace de confirmación para activar tu cuenta.");
+        toast.success("¡Cuenta creada exitosamente! Por favor revisa tu correo electrónico y haz clic en el enlace de confirmación para activar tu cuenta.");
         router.push('/login');
         return;
       }
@@ -126,7 +127,7 @@ export default function SignupPage() {
       }
 
       // Success - redirect to dashboard or login
-      alert("Cuenta creada exitosamente! Ya puedes iniciar sesión.");
+      toast.success("Cuenta creada exitosamente! Ya puedes iniciar sesión.");
       router.push('/login');
     } catch (error) {
       console.error("Signup error:", error);

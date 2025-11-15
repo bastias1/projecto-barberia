@@ -14,6 +14,7 @@ import { getServicesByBarber, Service } from "@/lib/services/service-service";
 import { createBooking, getAvailableTimeSlots } from "@/lib/services/booking-service";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AgendarPage() {
   const [step, setStep] = useState(1);
@@ -79,8 +80,8 @@ export default function AgendarPage() {
   // Fetch available time slots when date changes
   useEffect(() => {
     async function fetchAvailableSlots() {
-      if (selectedDate) {
-        const slots = await getAvailableTimeSlots(selectedDate);
+      if (selectedDate && selectedBarber) {
+        const slots = await getAvailableTimeSlots(selectedDate, selectedBarber.id);
         setAvailableTimeSlots(slots);
         // Reset selected time if it's no longer available
         if (selectedTime && !slots.includes(selectedTime)) {
@@ -89,7 +90,7 @@ export default function AgendarPage() {
       }
     }
     fetchAvailableSlots();
-  }, [selectedDate]);
+  }, [selectedDate, selectedBarber]);
 
   const handleBarberSelect = (barber: Barbero) => {
     setSelectedBarber(barber);
@@ -127,11 +128,11 @@ export default function AgendarPage() {
       if (result.success) {
         setStep(5);
       } else {
-        alert(result.error || "Error al crear la reserva");
+        toast.error(result.error || "Error al crear la reserva");
       }
     } catch (error) {
       console.error("Error submitting booking:", error);
-      alert("Error inesperado al crear la reserva");
+      toast.error("Error inesperado al crear la reserva");
     } finally {
       setSubmitting(false);
     }

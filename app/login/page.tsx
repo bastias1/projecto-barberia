@@ -10,6 +10,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Scissors, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -186,7 +187,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   className="text-blue-600 dark:text-blue-400 hover:underline"
-                  onClick={() => alert("Contacta al administrador para recuperar tu contraseña")}
+                  onClick={() => toast.info("Contacta al administrador para recuperar tu contraseña")}
                 >
                   Recuperar contraseña
                 </button>

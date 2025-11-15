@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload, Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface AvatarUploadProps {
   userId: string;
@@ -60,7 +61,7 @@ export function AvatarUpload({ userId, currentImage, userName }: AvatarUploadPro
       router.refresh();
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      alert('Error al subir la imagen. Intenta de nuevo.');
+      toast.error('Error al subir la imagen. Intenta de nuevo.');
     } finally {
       setUploading(false);
     }

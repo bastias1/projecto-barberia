@@ -1,57 +1,87 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Clock, Calendar as CalendarIcon, Sun, Moon } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ArrowLeft, Clock, CalendarX } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
+import { getBarberSchedules, getBlockedDates } from "@/lib/services/schedule-service";
+import { WeeklySchedule } from "@/components/dashboard/weekly-schedule";
+import { BlockedDates } from "@/components/dashboard/blocked-dates";
 
 export default async function HorariosPage() {
+  const supabase = await createClient();
+  
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
+    redirect('/login');
+  }
+
+  // Get barber schedules and blocked dates
+  const schedules = await getBarberSchedules(user.id);
+  const blockedDates = await getBlockedDates(user.id);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header with back button */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 md:gap-4">
         <Link href="/dashboard">
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" className="h-9 w-9 md:h-10 md:w-10">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100">
             Horarios
           </h1>
-          <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-            Configurar tu disponibilidad
+          <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 mt-0.5 md:mt-1">
+            Configura tu disponibilidad semanal
           </p>
         </div>
       </div>
 
-      {/* Coming Soon Card */}
-      <Card className="border-2">
-        <CardHeader className="text-center pb-4">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mb-4">
-            <Clock className="h-8 w-8 text-white" />
-          </div>
-          <CardTitle className="text-2xl">Gestión de Horarios</CardTitle>
-          <CardDescription>Esta función estará disponible próximamente</CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-zinc-600 dark:text-zinc-400 mb-6">
-            Aquí podrás configurar tus horarios de trabajo, días libres y bloques de tiempo disponibles para reservas.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg">
-              <CalendarIcon className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
-              <p className="text-sm font-medium">Días Laborales</p>
+      {/* Desktop Layout */}
+      <div className="hidden md:block space-y-6">
+        <WeeklySchedule barberId={user.id} initialSchedules={schedules} />
+        <BlockedDates barberId={user.id} initialBlockedDates={blockedDates} />
+      </div>
+
+      {/* Mobile Layout - Accordion */}
+      <Accordion type="single" collapsible defaultValue="schedule" className="md:hidden space-y-2">
+        <AccordionItem value="schedule" className="border rounded-lg bg-white dark:bg-zinc-900">
+          <AccordionTrigger className="hover:no-underline px-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="text-left">
+                <div className="font-semibold">Horario Semanal</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">Días y horarios disponibles</div>
+              </div>
             </div>
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg">
-              <Sun className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
-              <p className="text-sm font-medium">Horario Diurno</p>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <WeeklySchedule barberId={user.id} initialSchedules={schedules} />
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="blocked" className="border rounded-lg bg-white dark:bg-zinc-900">
+          <AccordionTrigger className="hover:no-underline px-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
+                <CalendarX className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="text-left">
+                <div className="font-semibold">Fechas Bloqueadas</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">Vacaciones y días no laborables</div>
+              </div>
             </div>
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg">
-              <Moon className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
-              <p className="text-sm font-medium">Días Libres</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <BlockedDates barberId={user.id} initialBlockedDates={blockedDates} />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }

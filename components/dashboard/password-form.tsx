@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 export function PasswordForm() {
   const [loading, setLoading] = useState(false);
@@ -19,12 +20,12 @@ export function PasswordForm() {
     e.preventDefault();
     
     if (passwords.newPassword !== passwords.confirmPassword) {
-      alert('Las contraseñas no coinciden');
+      toast.error('Las contraseñas no coinciden');
       return;
     }
 
     if (passwords.newPassword.length < 6) {
-      alert('La contraseña debe tener al menos 6 caracteres');
+      toast.error('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
@@ -37,11 +38,11 @@ export function PasswordForm() {
 
       if (error) throw error;
 
-      alert('Contraseña actualizada correctamente');
+      toast.success('Contraseña actualizada correctamente');
       setPasswords({ newPassword: '', confirmPassword: '' });
     } catch (error) {
       console.error('Error updating password:', error);
-      alert('Error al actualizar la contraseña. Intenta de nuevo.');
+      toast.error('Error al actualizar la contraseña. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }

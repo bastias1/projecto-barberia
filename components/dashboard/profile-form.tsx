@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface ProfileFormProps {
   userId: string;
@@ -64,11 +65,11 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
         if (barberError) throw barberError;
       }
 
-      alert('Perfil actualizado correctamente');
+      toast.success('Perfil actualizado correctamente');
       router.refresh();
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Error al actualizar el perfil. Intenta de nuevo.');
+      toast.error('Error al actualizar el perfil. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }

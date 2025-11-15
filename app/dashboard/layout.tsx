@@ -76,12 +76,9 @@ export default async function DashboardLayout({
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
-        <div className="fixed top-4 right-4 z-50">
-          <ModeToggle />
-        </div>
         <div className="flex h-screen overflow-hidden">
           <DashboardSidebar barber={finalBarberData} />
-          <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          <main className="flex-1 overflow-y-auto p-3 md:p-6 lg:p-8">
             {children}
           </main>
         </div>
@@ -91,18 +88,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ModeToggle />
-      </div>
-
       {/* Main Layout with Sidebar */}
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
         <DashboardSidebar barber={barberData} />
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto p-3 md:p-6 lg:p-8">
           {children}
         </main>
       </div>

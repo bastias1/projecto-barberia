@@ -92,12 +92,67 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
   }
 }
 
-// Get available time slots for a specific date
-export async function getAvailableTimeSlots(date: Date): Promise<string[]> {
+// Get available time slots for a specific date and barber
+export async function getAvailableTimeSlots(date: Date, barberId?: string): Promise<string[]> {
   const supabase = createClient();
   
   const fecha = date.toISOString().split('T')[0];
+  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
 
+  // If barber is specified, check if date is blocked
+  if (barberId) {
+    const { data: blockedDate } = await supabase
+      .from('dia_bloqueado')
+      .select('id')
+      .eq('barbero', barberId)
+      .eq('fecha', fecha)
+      .maybeSingle();
+
+    if (blockedDate) {
+      return []; // Date is blocked
+    }
+
+    // Get barber's schedule for this day
+    const { data: schedules } = await supabase
+      .from('horario_barbero')
+      .select('hora_inicio, hora_fin')
+      .eq('barbero', barberId)
+      .eq('dia_semana', dayOfWeek)
+      .eq('activo', true);
+
+    if (!schedules || schedules.length === 0) {
+      return []; // No schedule configured for this day
+    }
+
+    // Generate time slots based on barber's schedule
+    const allTimeSlots: string[] = [];
+    schedules.forEach(schedule => {
+      const startHour = parseInt(schedule.hora_inicio.split(':')[0]);
+      const endHour = parseInt(schedule.hora_fin.split(':')[0]);
+      
+      for (let hour = startHour; hour < endHour; hour++) {
+        const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+        if (!allTimeSlots.includes(timeSlot)) {
+          allTimeSlots.push(timeSlot);
+        }
+      }
+    });
+
+    // Get already booked times for this barber
+    const { data: bookings } = await supabase
+      .from("reserva")
+      .select("hora")
+      .eq("fecha", fecha)
+      .eq("barbero", barberId)
+      .neq("estado", "cancelada");
+
+    const bookedTimes = bookings?.map(b => b.hora.substring(0, 5)) || [];
+    const availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
+
+    return availableSlots.sort();
+  }
+
+  // Fallback to default slots if no barber specified
   const { data: bookings, error } = await supabase
     .from("reserva")
     .select("hora")
