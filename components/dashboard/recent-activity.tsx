@@ -48,7 +48,7 @@ export async function RecentActivity() {
                   <p className="text-xs text-muted-foreground">
                     {appointment.servicio?.nombre || "Sin servicio"}
                   </p>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     <Badge variant="outline" className="text-xs">
                       <Clock className="h-3 w-3 mr-1" />
                       {appointment.hora}
@@ -56,6 +56,9 @@ export async function RecentActivity() {
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(appointment.fecha), "dd MMM", { locale: es })}
                     </span>
+                    <Badge className={appointment.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 text-xs" : appointment.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 text-xs" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 text-xs"}>
+                      {appointment.estado === "confirmada" ? "✓" : appointment.estado === "cancelada" ? "✗" : "⏳"}
+                    </Badge>
                   </div>
                 </div>
                 <div className="text-right">

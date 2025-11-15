@@ -41,6 +41,9 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
                   <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 text-xs">
                     ${appointment.servicio?.precio.toLocaleString()}
                   </Badge>
+                  <Badge className={appointment.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 text-xs" : appointment.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 text-xs" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 text-xs"}>
+                    {appointment.estado === "confirmada" ? "✓ Confirmada" : appointment.estado === "cancelada" ? "✗ Cancelada" : "⏳ Pendiente"}
+                  </Badge>
                 </div>
               </div>
             </div>

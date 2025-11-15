@@ -17,6 +17,7 @@ export interface Appointment {
   id: number;
   fecha: string;
   hora: string;
+  estado: string;
   servicio: {
     nombre: string;
     precio: number;
@@ -33,6 +34,7 @@ export interface Booking {
   id: number;
   fecha: string;
   hora: string;
+  estado: string;
   created_at: string;
   servicio: {
     nombre: string;

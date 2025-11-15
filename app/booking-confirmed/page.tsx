@@ -1,6 +1,13 @@
 import Link from 'next/link'
 
-export default function BookingConfirmed() {
+export default async function BookingConfirmed({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>
+}) {
+  const params = await searchParams;
+  const bookingId = params.id;
+  
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950">
       <div className="max-w-md w-full bg-white dark:bg-zinc-900 rounded-lg shadow-xl p-8 text-center border border-zinc-200 dark:border-zinc-800">

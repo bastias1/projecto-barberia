@@ -8,6 +8,7 @@ interface Booking {
   id: number;
   fecha: string;
   hora: string;
+  estado: string;
   created_at: string;
   servicio: {
     nombre: string;
@@ -54,8 +55,8 @@ export function RecentBookings({ bookings }: RecentBookingsProps) {
                       Reservado {format(new Date(booking.created_at), "dd MMM", { locale: es })}
                     </p>
                   </div>
-                  <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50">
-                    Nueva
+                  <Badge className={booking.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : booking.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"}>
+                    {booking.estado === "confirmada" ? "✓ Confirmada" : booking.estado === "cancelada" ? "✗ Cancelada" : "⏳ Pendiente"}
                   </Badge>
                 </div>
                 <div className="space-y-1 text-sm">

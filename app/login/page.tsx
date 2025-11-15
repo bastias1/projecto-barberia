@@ -75,7 +75,7 @@ export default function LoginPage() {
         console.log("Barber check:", { barberData, barberError });
 
         if (barberError || !barberData) {
-          setError("No tienes acceso al dashboard. Solo los barberos pueden iniciar sesión.");
+          setError("No tienes acceso al dashboard. Esta página es solo para barberos.");
           await supabase.auth.signOut();
           return;
         }
@@ -182,7 +182,7 @@ export default function LoginPage() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 pt-2 space-y-2">
+              <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 pt-2">
                 <p>¿Olvidaste tu contraseña?</p>
                 <button
                   type="button"
@@ -191,12 +191,6 @@ export default function LoginPage() {
                 >
                   Recuperar contraseña
                 </button>
-                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 mt-4">
-                  <p className="mb-1">¿No tienes una cuenta?</p>
-                  <Link href="/signup" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
-                    Crear cuenta de barbero
-                  </Link>
-                </div>
               </div>
             </form>
           </CardContent>

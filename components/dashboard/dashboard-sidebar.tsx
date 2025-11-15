@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home } from "lucide-react";
+import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
@@ -33,10 +33,27 @@ const navItems = [
   { href: "/dashboard/configuracion", icon: Settings, label: "Configuración" },
 ];
 
+const adminNavItem = { href: "/dashboard/usuarios", icon: UserPlus, label: "Usuarios" };
+
 export function DashboardSidebar({ barber }: DashboardSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function checkAdminRole() {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("usuario")
+        .select("rol")
+        .eq("id", barber.id)
+        .single();
+      
+      setIsAdmin(data?.rol === "admin" || data?.rol === "owner");
+    }
+    checkAdminRole();
+  }, [barber.id]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -44,6 +61,8 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
     router.push("/login");
     router.refresh();
   };
+
+  const allNavItems = isAdmin ? [...navItems, adminNavItem] : navItems;
 
   return (
     <>
@@ -99,7 +118,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
+            {allNavItems.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
