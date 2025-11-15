@@ -1,7 +1,8 @@
 // app/tienda/checkout/page.tsx
 "use client";
-
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft, ShoppingCart, Star, Droplets, Scissors } from "lucide-react";
 import { useCartStore } from "../../lib/cart-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,18 +16,35 @@ export default function CheckoutPage() {
 
   if (cart.length === 0)
     return (
-      <p className="p-16 text-center text-lg text-zinc-700 dark:text-zinc-300">
-        Tu carrito está vacío.
-      </p>
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+        <Link
+          href="/tienda"
+          className="inline-flex items-center gap-2 text-sm font-medium text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Volver a la tienda</span>
+        </Link>
+
+        <p className="text-lg sm:text-xl text-zinc-700 dark:text-zinc-300">
+          Tu carrito está vacío.
+        </p>
+      </div>
     );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black p-4 py-10">
       <main className="mx-auto w-full max-w-4xl">
+          <Link
+            href="/tienda"
+            className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Volver a la tienda</span>
+          </Link>
+        <br></br>
         <h1 className="mb-8 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
           Checkout
         </h1>
-
         <div className="space-y-6">
           {cart.map((item) => (
             <Card
