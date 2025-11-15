@@ -4,7 +4,8 @@ import { create } from "zustand";
 export type CartItem = {
   id: number;
   name: string;
-  priceLabel: string; // ejemplo: "$9.990"
+  price: number;      
+  priceLabel: string; 
   image?: string;
   quantity: number;
 };
@@ -17,13 +18,6 @@ type CartState = {
   updateQuantity: (id: number, quantity: number) => void;
   total: () => number;
 };
-
-function parsePrice(priceLabel: string): number {
-  // "$27.990" → 27990
-  const cleaned = priceLabel.replace("$", "").replace(/\./g, "").replace(",", ".");
-  const value = Number(cleaned);
-  return Number.isNaN(value) ? 0 : value;
-}
 
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
@@ -62,7 +56,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   total: () => {
     const { items } = get();
     return items.reduce(
-      (sum, item) => sum + parsePrice(item.priceLabel) * item.quantity,
+      (sum, item) => sum + item.price * item.quantity,
       0
     );
   },
