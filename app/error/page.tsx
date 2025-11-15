@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
+export const dynamic = 'force-dynamic';
+
 function ErrorContent() {
   const searchParams = useSearchParams();
   const message = searchParams.get('message') || 'Algo salió mal. Por favor, intenta de nuevo.';
