@@ -19,7 +19,7 @@ export default async function DashboardLayout({
   // Verify user is a barber
   const { data: barberData, error } = await supabase
     .from('barbero')
-    .select('*')
+    .select('*, usuario!inner(profile_image)')
     .eq('id', user.id)
     .single();
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
@@ -12,6 +13,9 @@ interface Barbero {
   id: string;
   nombre: string | null;
   especialidad: string | null;
+  usuario?: {
+    profile_image?: string | null;
+  };
 }
 
 interface DashboardSidebarProps {
@@ -69,9 +73,18 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           {/* Logo and Brand */}
           <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <Scissors className="h-6 w-6 text-white" />
-              </div>
+              <Avatar className="h-12 w-12 flex-shrink-0">
+                <AvatarImage 
+                  src={barber.usuario?.profile_image || undefined} 
+                  alt={barber.nombre || "Barbero"} 
+                />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                  {barber.nombre 
+                    ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                    : 'BB'
+                  }
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 truncate">
                   Dashboard

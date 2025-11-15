@@ -52,7 +52,7 @@ export async function getBarberInfo(userId: string) {
   
   const { data, error } = await supabase
     .from('barbero')
-    .select('*')
+    .select('*, usuario!inner(profile_image)')
     .eq('id', userId)
     .single();
 
