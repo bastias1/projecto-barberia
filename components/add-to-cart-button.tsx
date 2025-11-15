@@ -7,6 +7,7 @@ import { useCartStore } from "@/lib/cart-store";
 type Props = {
   id: number;
   name: string;
+  price: number;
   priceLabel: string;
   image?: string;
   fullWidth?: boolean;
@@ -15,6 +16,7 @@ type Props = {
 export function AddToCartButton({
   id,
   name,
+  price,        
   priceLabel,
   image,
   fullWidth = true,
@@ -22,8 +24,8 @@ export function AddToCartButton({
   const addItem = useCartStore((state) => state.addItem);
 
   const handleClick = () => {
-    addItem({ id, name, priceLabel, image });
-    console.log("✅ Agregado al carrito:", { id, name, priceLabel });
+    addItem({ id, name, price, priceLabel, image });
+    console.log("✅ Agregado al carrito:", { id, name, price, priceLabel });
     alert("Producto agregado al carrito (demo)");
   };
 

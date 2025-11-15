@@ -181,13 +181,13 @@ export default async function ProductPage({ params }: PageProps) {
               </div>
 
               <AddToCartButton
-                id={product.id}
-                name={product.name}
-                price={product.price}
-                priceLabel={product.priceLabel}
-                image={product.image}
-                fullWidth={false}
-              />
+              id={product.id}
+              name={product.name}
+              price={product.price}
+              priceLabel={product.priceLabel}
+              image={product.image}
+              fullWidth={false}
+            />
             </div>
 
             {/* Características */}
