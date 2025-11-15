@@ -32,8 +32,24 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
     let guestClienteId: string;
 
     if (guestData) {
-      // Guest user already exists
-      guestClienteId = guestData.id;
+      // Guest user already exists - update their information
+      const { data: updatedGuest, error: updateError } = await supabase
+        .from("guest_usuario")
+        .update({
+          nombre: bookingData.customerInfo.firstName,
+          apellido: bookingData.customerInfo.lastName,
+          telefono: bookingData.customerInfo.phone,
+        })
+        .eq("id", guestData.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Error updating guest user:", updateError);
+        return { success: false, error: "No se pudo actualizar el usuario invitado" };
+      }
+
+      guestClienteId = updatedGuest.id;
     } else {
       // Create a new guest user
       const { data: newGuest, error: createGuestError } = await supabase
