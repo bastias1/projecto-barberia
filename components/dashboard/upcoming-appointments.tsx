@@ -1,0 +1,81 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Clock, User } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+interface Appointment {
+  id: number;
+  fecha: string;
+  hora: string;
+  servicio: {
+    nombre: string;
+    precio: number;
+  } | null;
+  guest_usuario: {
+    nombre: string;
+    apellido: string;
+    telefono: string;
+  } | null;
+}
+
+interface UpcomingAppointmentsProps {
+  appointments: Appointment[];
+}
+
+export function UpcomingAppointments({ appointments }: UpcomingAppointmentsProps) {
+  return (
+    <Card className="border-2">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="h-5 w-5" />
+          Próximas Citas
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {appointments.length === 0 ? (
+          <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
+            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>No hay citas próximas</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {appointments.map((appointment) => (
+              <div
+                key={appointment.id}
+                className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-zinc-500" />
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      {appointment.guest_usuario?.nombre} {appointment.guest_usuario?.apellido}
+                    </span>
+                  </div>
+                  <Badge variant="secondary">
+                    {appointment.servicio?.nombre}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(appointment.fecha), "dd MMM yyyy", { locale: es })}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {appointment.hora}
+                  </div>
+                </div>
+                {appointment.guest_usuario?.telefono && (
+                  <div className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    📱 {appointment.guest_usuario.telefono}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
