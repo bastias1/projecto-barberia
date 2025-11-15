@@ -6,7 +6,21 @@ import { ModeToggle } from "@/components/mode-toggle";
 import Link from "next/link";
 import { Calendar, ShoppingBag, Clock, MapPin, Instagram, LogIn } from "lucide-react";
 
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+
 export default function Home() {
+  const images = [
+    "https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgstest/xdd.png",
+    "https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgstest/foto3.png",
+    "https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgstest/foto2.png",
+  ];
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black p-4 py-12 relative">
 
@@ -47,6 +61,33 @@ export default function Home() {
             Tu estilo, nuestra pasión. Descubre nuestros servicios y productos.
           </p>
         </div>
+
+        <div className="w-full mb-8">
+          <Carousel className="w-full max-w-xs mx-auto">
+            <CarouselContent>
+              {images.map((src, index) => (
+                <CarouselItem key={index}>
+                  <div className="p-1">
+                    <Card className="overflow-hidden">
+                      <CardContent className="flex items-center justify-center p-0">
+                        <div className="w-full aspect-square overflow-hidden flex items-center justify-center">
+                          <img
+                            src={src}
+                            alt={`Foto ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        </div>
+        {/* --- FIN CARRUSEL --- */}
 
         {/* Main Links Section */}
         <div className="space-y-4 mb-6 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-150 w-full">
