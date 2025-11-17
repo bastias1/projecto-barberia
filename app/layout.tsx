@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Barbería BENJVMIN - Reservas Online",
-  description: "Sistema de reservas online para Barbería BENJVMIN. Agenda tu cita, elige tu barbero y servicio. Profesionalismo y estilo en Valdivia.",
+  description:
+    "Sistema de reservas online para Barbería BENJVMIN. Agenda tu cita, elige tu barbero y servicio. Profesionalismo y estilo en Valdivia.",
   keywords: ["barbería", "peluquería", "cortes", "Valdivia", "reservas", "BENJVMIN", "barbero"],
   authors: [{ name: "Barbería BENJVMIN" }],
   openGraph: {
@@ -33,16 +35,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
+          <Toaster position="bottom-center" />
         </ThemeProvider>
       </body>
     </html>

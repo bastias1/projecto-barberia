@@ -77,7 +77,6 @@ export default function CheckoutPage() {
               Total: ${total.toLocaleString()}
             </p>
             <Button
-              onClick={() => alert("Aquí podrías integrar Stripe / PayPal")}
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-lg rounded-xl"
             >
               Pagar
