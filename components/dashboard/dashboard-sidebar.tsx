@@ -1,17 +1,22 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
+import { ModeToggle } from "@/components/mode-toggle";
 
 interface Barbero {
   id: string;
   nombre: string | null;
   especialidad: string | null;
+  usuario?: {
+    profile_image?: string | null;
+  };
 }
 
 interface DashboardSidebarProps {
@@ -28,10 +33,27 @@ const navItems = [
   { href: "/dashboard/configuracion", icon: Settings, label: "Configuración" },
 ];
 
+const adminNavItem = { href: "/dashboard/usuarios", icon: UserPlus, label: "Usuarios" };
+
 export function DashboardSidebar({ barber }: DashboardSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function checkAdminRole() {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("usuario")
+        .select("rol")
+        .eq("id", barber.id)
+        .single();
+      
+      setIsAdmin(data?.rol === "admin" || data?.rol === "owner");
+    }
+    checkAdminRole();
+  }, [barber.id]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -40,10 +62,12 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
     router.refresh();
   };
 
+  const allNavItems = isAdmin ? [...navItems, adminNavItem] : navItems;
+
   return (
     <>
       {/* Mobile Menu Button */}
-      <div className="fixed top-4 left-4 z-50 md:hidden">
+      <div className="fixed top-4 right-4 z-50 md:hidden">
         <Button
           variant="outline"
           size="icon"
@@ -69,12 +93,21 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           {/* Logo and Brand */}
           <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <Scissors className="h-6 w-6 text-white" />
-              </div>
+              <Avatar className="h-12 w-12 flex-shrink-0">
+                <AvatarImage 
+                  src={barber.usuario?.profile_image || undefined} 
+                  alt={barber.nombre || "Barbero"} 
+                />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                  {barber.nombre 
+                    ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                    : 'BB'
+                  }
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 truncate">
-                  Dashboard
+                  Bienvenido
                 </h2>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
                   {barber.nombre || "Barbero"}
@@ -85,7 +118,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
+            {allNavItems.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
@@ -107,7 +140,11 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           </nav>
 
           {/* Logout Button */}
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
+          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 space-y-2">
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">Tema</span>
+              <ModeToggle />
+            </div>
             <Button
               variant="ghost"
               onClick={handleLogout}

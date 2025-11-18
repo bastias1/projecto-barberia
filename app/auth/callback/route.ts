@@ -12,14 +12,14 @@ export async function GET(request: Request) {
 
     if (!error && data.user) {
       // User is now confirmed and has a session
-      // Check if usuario and barbero records exist, create if not
       const userId = data.user.id;
       const email = data.user.email || "";
-      const nombre = data.user.user_metadata?.nombre || email.split("@")[0];
-      const apellido = data.user.user_metadata?.apellido || "";
-      const especialidad = data.user.user_metadata?.especialidad || null;
+      const userMetadata = data.user.user_metadata || {};
+      const nombre = userMetadata.nombre || email.split("@")[0];
+      const apellido = userMetadata.apellido || "";
+      const especialidad = userMetadata.especialidad || null;
 
-      // Check/create usuario
+      // Check/create usuario (for regular signups)
       const { data: usuarioData } = await supabase
         .from("usuario")
         .select("*")

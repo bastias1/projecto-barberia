@@ -22,38 +22,24 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
   const supabase = createClient();
 
   try {
-    // Check if guest user already exists
-    const { data: guestData, error: guestCheckError } = await supabase
+    // Create a new guest user for each booking
+    const { data: newGuest, error: createGuestError } = await supabase
       .from("guest_usuario")
-      .select("id")
-      .eq("correo", bookingData.customerInfo.email)
-      .maybeSingle();
+      .insert({
+        nombre: bookingData.customerInfo.firstName,
+        apellido: bookingData.customerInfo.lastName,
+        correo: bookingData.customerInfo.email,
+        telefono: bookingData.customerInfo.phone,
+      })
+      .select()
+      .single();
 
-    let guestClienteId: string;
-
-    if (guestData) {
-      // Guest user already exists
-      guestClienteId = guestData.id;
-    } else {
-      // Create a new guest user
-      const { data: newGuest, error: createGuestError } = await supabase
-        .from("guest_usuario")
-        .insert({
-          nombre: bookingData.customerInfo.firstName,
-          apellido: bookingData.customerInfo.lastName,
-          correo: bookingData.customerInfo.email,
-          telefono: bookingData.customerInfo.phone,
-        })
-        .select()
-        .single();
-
-      if (createGuestError) {
-        console.error("Error creating guest user:", createGuestError);
-        return { success: false, error: "No se pudo crear el usuario invitado" };
-      }
-
-      guestClienteId = newGuest.id;
+    if (createGuestError) {
+      console.error("Error creating guest user:", createGuestError);
+      return { success: false, error: "No se pudo crear el usuario invitado" };
     }
+
+    const guestClienteId = newGuest.id;
 
     // Format date and time for PostgreSQL
     const fecha = bookingData.date.toISOString().split('T')[0];
@@ -92,12 +78,86 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
   }
 }
 
-// Get available time slots for a specific date
-export async function getAvailableTimeSlots(date: Date): Promise<string[]> {
+// Get available time slots for a specific date and barber
+export async function getAvailableTimeSlots(date: Date, barberId?: string): Promise<string[]> {
   const supabase = createClient();
   
   const fecha = date.toISOString().split('T')[0];
+  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
 
+  // If barber is specified, check if date is blocked
+  if (barberId) {
+    const { data: blockedDate } = await supabase
+      .from('dia_bloqueado')
+      .select('id')
+      .eq('barbero', barberId)
+      .eq('fecha', fecha)
+      .maybeSingle();
+
+    if (blockedDate) {
+      return []; // Date is blocked
+    }
+
+    // Get barber's schedule for this day
+    const { data: schedules } = await supabase
+      .from('horario_barbero')
+      .select('hora_inicio, hora_fin')
+      .eq('barbero', barberId)
+      .eq('dia_semana', dayOfWeek)
+      .eq('activo', true);
+
+    if (!schedules || schedules.length === 0) {
+      return []; // No schedule configured for this day
+    }
+
+    // Generate time slots based on barber's schedule
+    const allTimeSlots: string[] = [];
+    schedules.forEach(schedule => {
+      const startHour = parseInt(schedule.hora_inicio.split(':')[0]);
+      const endHour = parseInt(schedule.hora_fin.split(':')[0]);
+      
+      for (let hour = startHour; hour < endHour; hour++) {
+        const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+        if (!allTimeSlots.includes(timeSlot)) {
+          allTimeSlots.push(timeSlot);
+        }
+      }
+    });
+
+    // Get already booked times for this barber
+    const { data: bookings } = await supabase
+      .from("reserva")
+      .select("hora")
+      .eq("fecha", fecha)
+      .eq("barbero", barberId)
+      .neq("estado", "cancelada");
+
+    const bookedTimes = bookings?.map(b => b.hora.substring(0, 5)) || [];
+    let availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
+
+    // Filter out slots that are less than 2 hours from now for same-day bookings
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    if (checkDate.getTime() === today.getTime()) {
+      // Same day booking - require 2 hours advance
+      const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      const minHour = twoHoursFromNow.getHours();
+      const minMinute = twoHoursFromNow.getMinutes();
+      
+      availableSlots = availableSlots.filter(slot => {
+        const [slotHour, slotMinute] = slot.split(':').map(Number);
+        return slotHour > minHour || (slotHour === minHour && slotMinute >= minMinute);
+      });
+    }
+
+    return availableSlots.sort();
+  }
+
+  // Fallback to default slots if no barber specified
   const { data: bookings, error } = await supabase
     .from("reserva")
     .select("hora")

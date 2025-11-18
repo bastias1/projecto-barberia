@@ -17,6 +17,7 @@ export interface Appointment {
   id: number;
   fecha: string;
   hora: string;
+  estado: string;
   servicio: {
     nombre: string;
     precio: number;
@@ -33,6 +34,7 @@ export interface Booking {
   id: number;
   fecha: string;
   hora: string;
+  estado: string;
   created_at: string;
   servicio: {
     nombre: string;
@@ -52,7 +54,7 @@ export async function getBarberInfo(userId: string) {
   
   const { data, error } = await supabase
     .from('barbero')
-    .select('*')
+    .select('*, usuario!inner(profile_image)')
     .eq('id', userId)
     .single();
 
@@ -173,6 +175,37 @@ export async function getUpcomingAppointments(barberId: string, limit = 10): Pro
 
   if (error) {
     console.error("Error fetching upcoming appointments:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
+ * Get today's appointments for a barber
+ */
+export async function getTodayAppointments(barberId: string): Promise<Appointment[]> {
+  const supabase = await createClient();
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const { data, error } = await supabase
+    .from('reserva')
+    .select(`
+      *,
+      servicio (nombre, precio),
+      guest_usuario:guest_cliente (nombre, apellido, correo, telefono)
+    `)
+    .eq('barbero', barberId)
+    .gte('fecha', today.toISOString())
+    .lt('fecha', tomorrow.toISOString())
+    .order('hora', { ascending: true });
+
+  if (error) {
+    console.error("Error fetching today's appointments:", error);
     return [];
   }
 

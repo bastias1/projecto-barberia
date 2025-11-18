@@ -8,7 +8,7 @@ export interface BarberoWithServices extends Barbero {
 }
 
 // Fetch all barbers
-export async function getBarberos(): Promise<Barbero[]> {
+export async function getBarberos(): Promise<any[]> {
   try {
     const supabase = createClient();
     
@@ -16,7 +16,7 @@ export async function getBarberos(): Promise<Barbero[]> {
     
     const { data, error } = await supabase
       .from("barbero")
-      .select("*")
+      .select("*, usuario(profile_image)")
       .order("nombre", { ascending: true });
 
     if (error) {

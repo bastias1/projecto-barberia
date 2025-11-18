@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Barbero } from "@/lib/services/barber-service";
 
@@ -33,9 +33,15 @@ export function BarberSelection({ barbers, selectedBarber, onBarberSelect }: Bar
                 )}
               >
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-                    <User className="h-6 w-6 text-white" />
-                  </div>
+                  <Avatar className="h-12 w-12 flex-shrink-0">
+                    <AvatarImage 
+                      src={(barber as any).usuario?.profile_image || undefined} 
+                      alt={barber.nombre || "Barbero"} 
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                      {barber.nombre ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'BB'}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1">
                     <h3 className="text-base md:text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                       {barber.nombre || "Barbero"}

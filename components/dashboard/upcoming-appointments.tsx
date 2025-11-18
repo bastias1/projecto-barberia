@@ -8,6 +8,7 @@ interface Appointment {
   id: number;
   fecha: string;
   hora: string;
+  estado: string;
   servicio: {
     nombre: string;
     precio: number;
@@ -52,9 +53,14 @@ export function UpcomingAppointments({ appointments }: UpcomingAppointmentsProps
                       {appointment.guest_usuario?.nombre} {appointment.guest_usuario?.apellido}
                     </span>
                   </div>
-                  <Badge variant="secondary">
-                    {appointment.servicio?.nombre}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <Badge variant="secondary">
+                      {appointment.servicio?.nombre}
+                    </Badge>
+                    <Badge className={appointment.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : appointment.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"}>
+                      {appointment.estado === "confirmada" ? "✓ Confirmada" : appointment.estado === "cancelada" ? "✗ Cancelada" : "⏳ Pendiente"}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
                   <div className="flex items-center gap-1">

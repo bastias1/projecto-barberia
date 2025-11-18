@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Scissors, Loader2, ArrowLeft } from "lucide-react";
+import { Scissors, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +76,7 @@ export default function LoginPage() {
         console.log("Barber check:", { barberData, barberError });
 
         if (barberError || !barberData) {
-          setError("No tienes acceso al dashboard. Solo los barberos pueden iniciar sesión.");
+          setError("No tienes acceso al dashboard. Esta página es solo para barberos.");
           await supabase.auth.signOut();
           return;
         }
@@ -111,8 +113,17 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <Card className="border-2 shadow-2xl">
           <CardHeader className="text-center space-y-4 pb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-              <Scissors className="h-8 w-8 text-white" />
+            <div className="w-80 h-32 mx-auto flex items-center justify-center">
+              <img
+                src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/BLACK.png"
+                alt="Logo Barbería BENJVMIN"
+                className="w-full h-full object-contain dark:hidden"
+              />
+              <img
+                src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/WHITE.png"
+                alt="Logo Barbería BENJVMIN"
+                className="w-full h-full object-contain hidden dark:block"
+              />
             </div>
             <div>
               <CardTitle className="text-2xl md:text-3xl font-bold">
@@ -154,16 +165,32 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-11"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-11 pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-11 px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-zinc-500" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-zinc-500" />
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <Button
@@ -181,21 +208,15 @@ export default function LoginPage() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 pt-2 space-y-2">
+              <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 pt-2">
                 <p>¿Olvidaste tu contraseña?</p>
                 <button
                   type="button"
                   className="text-blue-600 dark:text-blue-400 hover:underline"
-                  onClick={() => alert("Contacta al administrador para recuperar tu contraseña")}
+                  onClick={() => toast.info("Contacta al administrador para recuperar tu contraseña")}
                 >
                   Recuperar contraseña
                 </button>
-                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 mt-4">
-                  <p className="mb-1">¿No tienes una cuenta?</p>
-                  <Link href="/signup" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
-                    Crear cuenta de barbero
-                  </Link>
-                </div>
               </div>
             </form>
           </CardContent>
