@@ -10,6 +10,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Scissors, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -18,8 +19,7 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     nombre: "",
-    apellido: "",
-    especialidad: ""
+    apellido: ""
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,12 +50,11 @@ export default function SignupPage() {
         email: formData.email.trim(),
         password: formData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/`,
           data: {
             nombre: formData.nombre,
             apellido: formData.apellido,
-            especialidad: formData.especialidad,
-            role: 'barbero'
+            role: 'cliente'
           }
         }
       });
@@ -77,15 +76,15 @@ export default function SignupPage() {
       // Check if email confirmation is required
       if (!authData.session) {
         // Email confirmation is required - profiles will be created via callback
-        alert("¡Cuenta creada exitosamente! Por favor revisa tu correo electrónico y haz clic en el enlace de confirmación para activar tu cuenta.");
+        toast.success("¡Cuenta creada exitosamente! Por favor revisa tu correo electrónico y haz clic en el enlace de confirmación para activar tu cuenta.");
         router.push('/login');
         return;
       }
 
-      // If we have a session (no email confirmation required), create the profiles now
+      // If we have a session (no email confirmation required), create the profile now
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Step 1: Create usuario record first (required by barbero foreign key)
+      // Create usuario record as cliente
       const { error: usuarioError } = await supabase
         .from('usuario')
         .insert({
@@ -94,7 +93,7 @@ export default function SignupPage() {
           apellido: formData.apellido || '',
           correo: formData.email.trim(),
           telefono: '',
-          rol: 'barbero'
+          rol: 'cliente'
         });
 
       if (usuarioError) {
@@ -104,30 +103,11 @@ export default function SignupPage() {
         return;
       }
 
-      console.log("Usuario created successfully");
+      console.log("Cliente created successfully");
 
-      // Step 2: Create barber record (references usuario)
-      const { error: barberError } = await supabase
-        .from('barbero')
-        .insert({
-          id: authData.user.id,
-          nombre: formData.nombre,
-          apellido: formData.apellido || '',
-          especialidad: formData.especialidad || null
-        });
-
-      if (barberError) {
-        console.error("Barber creation error:", barberError);
-        // Try to clean up the usuario record
-        await supabase.from('usuario').delete().eq('id', authData.user.id);
-        await supabase.auth.signOut();
-        setError("Error al crear el perfil de barbero: " + barberError.message);
-        return;
-      }
-
-      // Success - redirect to dashboard or login
-      alert("Cuenta creada exitosamente! Ya puedes iniciar sesión.");
-      router.push('/login');
+      // Success - redirect to home
+      toast.success("Cuenta creada exitosamente! Ya puedes iniciar sesión para agendar citas.");
+      router.push('/');
     } catch (error) {
       console.error("Signup error:", error);
       setError("Error inesperado al crear la cuenta");
@@ -162,10 +142,10 @@ export default function SignupPage() {
             </div>
             <div>
               <CardTitle className="text-2xl md:text-3xl font-bold">
-                Crear Cuenta Barbero
+                Crear Cuenta
               </CardTitle>
               <CardDescription className="text-sm mt-2">
-                Registra tu cuenta para acceder al dashboard
+                Regístrate para gestionar tus citas
               </CardDescription>
             </div>
           </CardHeader>
@@ -200,19 +180,6 @@ export default function SignupPage() {
                   value={formData.apellido}
                   onChange={(e) => setFormData({...formData, apellido: e.target.value})}
                   required
-                  disabled={loading}
-                  className="h-11"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="especialidad">Especialidad (Opcional)</Label>
-                <Input
-                  id="especialidad"
-                  type="text"
-                  placeholder="Cortes clásicos, Barbas, etc."
-                  value={formData.especialidad}
-                  onChange={(e) => setFormData({...formData, especialidad: e.target.value})}
                   disabled={loading}
                   className="h-11"
                 />

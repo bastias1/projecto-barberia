@@ -72,9 +72,18 @@ export function DateTimeSelection({
                   mode="single"
                   selected={selectedDate}
                   onSelect={onDateSelect}
-                  disabled={(date) =>
-                    date < new Date() || date.getDay() === 0
-                  }
+                  disabled={(date) => {
+                    // Block Sundays
+                    if (date.getDay() === 0) return true;
+                    
+                    // Block dates before today (but allow today)
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const checkDate = new Date(date);
+                    checkDate.setHours(0, 0, 0, 0);
+                    
+                    return checkDate < today;
+                  }}
                   initialFocus
                   locale={es}
                 />
@@ -84,18 +93,31 @@ export function DateTimeSelection({
 
           <div>
             <Label className="mb-3 block text-sm md:text-base">Horario</Label>
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
-              {timeSlots.map((time) => (
-                <Button
-                  key={time}
-                  variant={selectedTime === time ? "default" : "outline"}
-                  onClick={() => onTimeSelect(time)}
-                  className="w-full text-sm md:text-base"
-                >
-                  {time}
-                </Button>
-              ))}
-            </div>
+            {!selectedDate ? (
+              <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
+                <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Selecciona una fecha primero</p>
+              </div>
+            ) : timeSlots.length === 0 ? (
+              <div className="text-center py-8 text-zinc-500 dark:text-zinc-400 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg">
+                <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-semibold mb-1">No hay horarios disponibles</p>
+                <p className="text-xs">El barbero no tiene horarios configurados para este día o está completamente reservado</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
+                {timeSlots.map((time) => (
+                  <Button
+                    key={time}
+                    variant={selectedTime === time ? "default" : "outline"}
+                    onClick={() => onTimeSelect(time)}
+                    className="w-full text-sm md:text-base"
+                  >
+                    {time}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 md:gap-3 pt-4">
