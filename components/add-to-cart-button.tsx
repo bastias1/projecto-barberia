@@ -3,6 +3,7 @@
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/lib/cart-store";
+import toast from "react-hot-toast";
 
 type Props = {
   id: number;
@@ -16,7 +17,7 @@ type Props = {
 export function AddToCartButton({
   id,
   name,
-  price,        
+  price,
   priceLabel,
   image,
   fullWidth = true,
@@ -26,7 +27,7 @@ export function AddToCartButton({
   const handleClick = () => {
     addItem({ id, name, price, priceLabel, image });
     console.log("✅ Agregado al carrito:", { id, name, price, priceLabel });
-    alert("Producto agregado al carrito (demo)");
+    toast.success("Producto agregado al carrito");
   };
 
   return (
