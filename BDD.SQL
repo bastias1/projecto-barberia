@@ -27,14 +27,34 @@ CREATE TABLE public.detalle_venta (
   CONSTRAINT detalle_venta_id_fkey FOREIGN KEY (id) REFERENCES public.venta(id),
   CONSTRAINT detalle_venta_producto_fkey FOREIGN KEY (producto) REFERENCES public.producto(id)
 );
+CREATE TABLE public.dia_bloqueado (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  barbero uuid NOT NULL,
+  fecha date NOT NULL,
+  motivo text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT dia_bloqueado_pkey PRIMARY KEY (id),
+  CONSTRAINT dia_bloqueado_barbero_fkey FOREIGN KEY (barbero) REFERENCES public.barbero(id)
+);
 CREATE TABLE public.guest_usuario (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   nombre character varying NOT NULL,
   apellido character varying NOT NULL,
-  correo character varying NOT NULL UNIQUE,
+  correo character varying NOT NULL,
   telefono text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT guest_usuario_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.horario_barbero (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  barbero uuid NOT NULL,
+  dia_semana integer NOT NULL CHECK (dia_semana >= 0 AND dia_semana <= 6),
+  hora_inicio time without time zone NOT NULL,
+  hora_fin time without time zone NOT NULL,
+  activo boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT horario_barbero_pkey PRIMARY KEY (id),
+  CONSTRAINT horario_barbero_barbero_fkey FOREIGN KEY (barbero) REFERENCES public.barbero(id)
 );
 CREATE TABLE public.producto (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
