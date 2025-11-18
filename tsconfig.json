@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "app/tienda/[id]"  ],
   "exclude": ["node_modules"]
 }

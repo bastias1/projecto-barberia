@@ -16,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Barbería BENJVMIN - Reservas Online",
-  description: "Sistema de reservas online para Barbería BENJVMIN. Agenda tu cita, elige tu barbero y servicio. Profesionalismo y estilo en Valdivia.",
+  description:
+    "Sistema de reservas online para Barbería BENJVMIN. Agenda tu cita, elige tu barbero y servicio. Profesionalismo y estilo en Valdivia.",
   keywords: ["barbería", "peluquería", "cortes", "Valdivia", "reservas", "BENJVMIN", "barbero"],
   authors: [{ name: "Barbería BENJVMIN" }],
   openGraph: {
@@ -34,15 +35,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
           <Toaster />
         </ThemeProvider>
