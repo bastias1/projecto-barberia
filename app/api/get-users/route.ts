@@ -4,10 +4,10 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const supabase = await createClient();
-    
+
     // Check if user is authenticated and is admin/owner
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -42,12 +42,12 @@ export async function GET() {
     }
 
     // Transform data
-    const transformedData = (data || []).map((user: any) => ({
+    const transformedData = (data || []).map((user) => ({
       id: user.id,
       nombre: user.nombre,
       apellido: user.apellido,
-      especialidad: Array.isArray(user.barbero) && user.barbero.length > 0 
-        ? user.barbero[0].especialidad 
+      especialidad: user.barbero && Array.isArray(user.barbero) && user.barbero.length > 0
+        ? user.barbero[0].especialidad
         : null,
       usuario: {
         correo: user.correo,
@@ -56,8 +56,9 @@ export async function GET() {
     }));
 
     return NextResponse.json({ users: transformedData });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

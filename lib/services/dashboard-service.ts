@@ -51,7 +51,7 @@ export interface Booking {
  */
 export async function getBarberInfo(userId: string) {
   const supabase = await createClient();
-  
+
   const { data, error } = await supabase
     .from('barbero')
     .select('*, usuario!inner(profile_image)')
@@ -71,7 +71,7 @@ export async function getBarberInfo(userId: string) {
  */
 export async function getDashboardStats(barberId: string): Promise<DashboardStats> {
   const supabase = await createClient();
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -123,8 +123,12 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
     .gte('fecha', monthStart.toISOString())
     .lt('fecha', monthEnd.toISOString());
 
-  const monthlyRevenue = monthlyAppointments?.reduce((total, apt: any) => {
-    return total + ((apt.servicio?.precio as number) || 0);
+  const monthlyRevenue = monthlyAppointments?.reduce((total, apt) => {
+    const serviceData = apt.servicio as { precio: number } | { precio: number }[] | null;
+    const precio = Array.isArray(serviceData)
+      ? serviceData[0]?.precio
+      : serviceData?.precio;
+    return total + (precio || 0);
   }, 0) || 0;
 
   // Get next appointment time for today
@@ -153,7 +157,7 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
  */
 export async function getUpcomingAppointments(barberId: string, limit = 10): Promise<Appointment[]> {
   const supabase = await createClient();
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const weekEnd = new Date(today);
@@ -186,7 +190,7 @@ export async function getUpcomingAppointments(barberId: string, limit = 10): Pro
  */
 export async function getTodayAppointments(barberId: string): Promise<Appointment[]> {
   const supabase = await createClient();
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -242,7 +246,7 @@ export async function getRecentBookings(barberId: string, limit = 5): Promise<Bo
  */
 export async function getAllAppointments(barberId: string): Promise<Appointment[]> {
   const supabase = await createClient();
-  
+
   const { data, error } = await supabase
     .from('reserva')
     .select(`

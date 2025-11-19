@@ -30,6 +30,7 @@ const navItems = [
   { href: "/dashboard/clientes", icon: Users, label: "Clientes" },
   { href: "/dashboard/horarios", icon: Clock, label: "Horarios" },
   { href: "/dashboard/estadisticas", icon: TrendingUp, label: "Estadísticas" },
+  { href: "/dashboard/servicios", icon: Scissors, label: "Servicios" },
   { href: "/dashboard/configuracion", icon: Settings, label: "Configuración" },
 ];
 
@@ -49,7 +50,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
         .select("rol")
         .eq("id", barber.id)
         .single();
-      
+
       setIsAdmin(data?.rol === "admin" || data?.rol === "owner");
     }
     checkAdminRole();
@@ -94,12 +95,12 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center gap-3 mb-4">
               <Avatar className="h-12 w-12 flex-shrink-0">
-                <AvatarImage 
-                  src={barber.usuario?.profile_image || undefined} 
-                  alt={barber.nombre || "Barbero"} 
+                <AvatarImage
+                  src={barber.usuario?.profile_image || undefined}
+                  alt={barber.nombre || "Barbero"}
                 />
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-                  {barber.nombre 
+                  {barber.nombre
                     ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                     : 'BB'
                   }

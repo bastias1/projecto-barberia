@@ -11,9 +11,9 @@ export function CartButton() {
   const { items, removeItem } = useCartStore();
   const itemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
+
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   // Cerrar al hacer click fuera
   useEffect(() => {
@@ -84,7 +84,7 @@ export function CartButton() {
                   className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800"
                 >
                   <Image
-                    src={item.image}
+                    src={item.image || "/placeholder.png"}
                     alt={item.name}
                     width={60}
                     height={60}
