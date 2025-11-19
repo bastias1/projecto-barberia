@@ -3,7 +3,7 @@
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/lib/cart-store";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type Props = {
   id: number;
@@ -33,9 +33,8 @@ export function AddToCartButton({
   return (
     <Button
       onClick={handleClick}
-      className={`cursor-pointer justify-center gap-2 text-sm ${
-        fullWidth ? "w-full" : ""
-      }`}
+      className={`cursor-pointer justify-center gap-2 text-sm ${fullWidth ? "w-full" : ""
+        }`}
       type="button"
     >
       <ShoppingCart className="h-4 w-4" />
