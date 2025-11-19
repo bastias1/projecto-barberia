@@ -22,7 +22,7 @@ export default function Home() {
         <Link href="/login">
           <Button variant="ghost" className="gap-2">
             <LogIn className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
+            <span className="hidden sm:inline">Iniciar Sesión</span>
           </Button>
         </Link>
       </div>

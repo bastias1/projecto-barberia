@@ -6,8 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { CartButton } from "@/components/cart-button";
-import { SearchInput } from "@/components/shop/search-input";
 import { getProducts } from "@/lib/services/product-service";
+
+import { StoreHeader } from "@/components/shop/store-header";
+import { ProductCarousel } from "@/components/shop/product-carousel";
 
 export const dynamic = 'force-dynamic';
 
@@ -22,37 +24,29 @@ export default async function StorePage({
 
   return (
     <div className="relative bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black text-zinc-900 dark:text-zinc-100 min-h-screen">
-      <div className="relative z-30 max-w-5xl mx-auto px-4 py-8 md:py-12">
-        <header className="flex items-center justify-between mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Volver al inicio</span>
-          </Link>
-          <CartButton />
-        </header>
+      <div className="relative z-30 max-w-[1600px] mx-auto px-6 py-8 md:py-12">
+        <StoreHeader />
 
-        <div className="space-y-4">
-          <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-none px-3 py-1">
-            Tienda Oficial
-          </Badge>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-            Productos <span className="text-blue-400">Premium</span>
-          </h1>
-          <p className="text-lg text-zinc-700 dark:text-zinc-400 max-w-2xl">
-            Eleva tu rutina de cuidado personal con nuestra selección exclusiva de productos profesionales. Calidad de barbería en tu hogar.
-          </p>
+        <div className="flex flex-col items-center text-center space-y-6 mb-10">
+
+
+          {/* Carousel */}
+          <div className="w-full">
+            <ProductCarousel products={products} />
+          </div>
+
+          <div className="max-w-2xl mx-auto space-y-4">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Catálogo <span className="text-blue-400">Completo</span>
+            </h1>
+            <p className="text-base text-zinc-700 dark:text-zinc-400">
+              Explora nuestra colección de productos premium para el cuidado personal.
+            </p>
+          </div>
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-5xl px-4 py-8 -mt-8 relative z-20">
-
-        {/* Filtros y Búsqueda */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-lg p-4 mb-10 border border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
-          <SearchInput />
-        </div>
+      <main className="mx-auto w-full max-w-[1600px] px-6 py-8 -mt-8 relative z-20">
 
         {/* Grid de productos */}
         {products.length === 0 ? (
@@ -60,7 +54,7 @@ export default async function StorePage({
             <p className="text-zinc-500 dark:text-zinc-400 text-lg">No hay productos disponibles en este momento.</p>
           </div>
         ) : (
-          <section className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          <section className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {products.map((product) => {
               const priceLabel = `$${product.precio.toLocaleString("es-CL")}`;
               const imageUrl = product.imagen_url || "/placeholder.png";
@@ -68,12 +62,12 @@ export default async function StorePage({
               return (
                 <Card
                   key={product.id}
-                  className="group relative overflow-hidden rounded-2xl border-zinc-200 bg-white shadow-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+                  className="group relative overflow-hidden rounded-xl border-zinc-200 bg-white shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
                 >
                   {/* Badge Flotante */}
                   {product.tag && (
-                    <div className="absolute top-3 right-3 z-10">
-                      <Badge className="bg-blue-600 text-white border-none shadow-lg">
+                    <div className="absolute top-2 right-2 z-10">
+                      <Badge className="bg-blue-600 text-white border-none shadow-md text-xs px-2 py-0.5">
                         {product.tag}
                       </Badge>
                     </div>
@@ -81,7 +75,7 @@ export default async function StorePage({
 
                   {/* Imagen */}
                   <Link href={`/tienda/${product.id}`} className="block overflow-hidden">
-                    <div className="relative h-64 w-full bg-zinc-100 dark:bg-zinc-800">
+                    <div className="relative h-48 w-full bg-zinc-100 dark:bg-zinc-800">
                       <Image
                         src={imageUrl}
                         alt={product.nombre}

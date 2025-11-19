@@ -40,11 +40,11 @@ export function CartButton() {
       {/* Botón del carrito */}
       <Button
         variant="outline"
-        size="icon"
-        className="relative rounded-full hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all duration-300"
+        className="relative rounded-full hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all duration-300 px-4 gap-2"
         onClick={() => setOpen((v) => !v)}
       >
         <ShoppingCart className="h-5 w-5" />
+        <span className="font-medium">Carrito</span>
         {itemsCount > 0 && (
           <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
             {itemsCount}
