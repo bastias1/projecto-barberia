@@ -13,13 +13,19 @@ export interface Product {
     tag?: string;
 }
 
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts(query?: string): Promise<Product[]> {
     const supabase = createClient();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
         .from('productos')
         .select('*')
         .order('created_at', { ascending: false });
+
+    if (query) {
+        queryBuilder = queryBuilder.ilike('nombre', `%${query}%`);
+    }
+
+    const { data, error } = await queryBuilder;
 
     if (error) {
         console.error('Error fetching products:', error);

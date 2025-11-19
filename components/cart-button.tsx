@@ -41,12 +41,12 @@ export function CartButton() {
       <Button
         variant="outline"
         size="icon"
-        className="relative rounded-full hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-all duration-300"
+        className="relative rounded-full hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all duration-300"
         onClick={() => setOpen((v) => !v)}
       >
         <ShoppingCart className="h-5 w-5" />
         {itemsCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+          <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
             {itemsCount}
           </span>
         )}
@@ -117,13 +117,13 @@ export function CartButton() {
                   <span className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
                     Total:
                   </span>
-                  <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
                     ${total.toLocaleString("es-CL")}
                   </span>
                 </div>
                 <Link href="/checkout" className="block">
                   <Button
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
                     onClick={() => setOpen(false)}
                   >
                     Ir al checkout
