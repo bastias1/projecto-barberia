@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus } from "lucide-react";
+import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,7 @@ const navItems = [
   { href: "/dashboard/horarios", icon: Clock, label: "Horarios" },
   { href: "/dashboard/estadisticas", icon: TrendingUp, label: "Estadísticas" },
   { href: "/dashboard/servicios", icon: Scissors, label: "Servicios" },
+  { href: "/dashboard/productos", icon: Package, label: "Productos" },
   { href: "/dashboard/configuracion", icon: Settings, label: "Configuración" },
 ];
 

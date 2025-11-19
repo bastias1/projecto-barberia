@@ -25,7 +25,7 @@ CREATE TABLE public.detalle_venta (
   producto bigint NOT NULL,
   CONSTRAINT detalle_venta_pkey PRIMARY KEY (id),
   CONSTRAINT detalle_venta_id_fkey FOREIGN KEY (id) REFERENCES public.venta(id),
-  CONSTRAINT detalle_venta_producto_fkey FOREIGN KEY (producto) REFERENCES public.producto(id)
+  CONSTRAINT detalle_venta_producto_fkey FOREIGN KEY (producto) REFERENCES public.productos(id)
 );
 CREATE TABLE public.dia_bloqueado (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -56,13 +56,18 @@ CREATE TABLE public.horario_barbero (
   CONSTRAINT horario_barbero_pkey PRIMARY KEY (id),
   CONSTRAINT horario_barbero_barbero_fkey FOREIGN KEY (barbero) REFERENCES public.barbero(id)
 );
-CREATE TABLE public.producto (
+CREATE TABLE public.productos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  nombre character varying NOT NULL,
+  nombre text NOT NULL,
   descripcion text,
   precio numeric NOT NULL,
-  stock numeric,
-  CONSTRAINT producto_pkey PRIMARY KEY (id)
+  imagen_url text,
+  categoria text NOT NULL,
+  stock integer DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  rating numeric,
+  tag text,
+  CONSTRAINT productos_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.resena (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -75,7 +80,7 @@ CREATE TABLE public.resena (
   CONSTRAINT resena_pkey PRIMARY KEY (id),
   CONSTRAINT resena_servicio_fkey FOREIGN KEY (servicio) REFERENCES public.servicio(id),
   CONSTRAINT resena_barbero_fkey FOREIGN KEY (barbero) REFERENCES public.barbero(id),
-  CONSTRAINT resena_producto_fkey FOREIGN KEY (producto) REFERENCES public.producto(id),
+  CONSTRAINT resena_producto_fkey FOREIGN KEY (producto) REFERENCES public.productos(id),
   CONSTRAINT resena_cliente_fkey FOREIGN KEY (cliente) REFERENCES public.usuario(id)
 );
 CREATE TABLE public.reserva (

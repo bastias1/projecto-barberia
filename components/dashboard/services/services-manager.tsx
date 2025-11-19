@@ -19,6 +19,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { DashboardTableSkeleton } from "@/components/dashboard/loading-skeletons";
 
 interface ServicesManagerProps {
     barberId: string;
@@ -130,11 +131,7 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
     );
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
+        return <DashboardTableSkeleton />;
     }
 
     return (

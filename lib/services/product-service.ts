@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/utils/supabase/client";
 
 export interface Product {
     id: number;
@@ -14,7 +14,7 @@ export interface Product {
 }
 
 export async function getProducts(): Promise<Product[]> {
-    const supabase = await createClient();
+    const supabase = createClient();
 
     const { data, error } = await supabase
         .from('productos')
@@ -30,7 +30,7 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function getProductById(id: number): Promise<Product | null> {
-    const supabase = await createClient();
+    const supabase = createClient();
 
     const { data, error } = await supabase
         .from('productos')
@@ -44,4 +44,79 @@ export async function getProductById(id: number): Promise<Product | null> {
     }
 
     return data;
+}
+
+export async function createProduct(product: Omit<Product, 'id' | 'created_at'>): Promise<Product | null> {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+        .from('productos')
+        .insert(product)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating product:', error);
+        throw error;
+    }
+
+    return data;
+}
+
+export async function updateProduct(id: number, updates: Partial<Product>): Promise<Product | null> {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+        .from('productos')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating product:', error);
+        throw error;
+    }
+
+    return data;
+}
+
+export async function deleteProduct(id: number): Promise<boolean> {
+    const supabase = createClient();
+
+    const { error } = await supabase
+        .from('productos')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting product:', error);
+        throw error;
+    }
+
+    return true;
+}
+
+export async function uploadProductImage(file: File): Promise<string | null> {
+    const supabase = createClient();
+
+    // Create a unique file name
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    const filePath = `productos/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('imgs')
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        throw uploadError;
+    }
+
+    const { data } = supabase.storage
+        .from('imgs')
+        .getPublicUrl(filePath);
+
+    return data.publicUrl;
 }
