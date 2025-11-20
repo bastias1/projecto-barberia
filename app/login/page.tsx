@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Scissors, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
 
@@ -119,7 +120,7 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-4xl">
-        <Card className="border-2 shadow-2xl overflow-hidden">
+        <Card className="border-2 shadow-2xl overflow-hidden p-0">
           <div className="grid md:grid-cols-2">
 
             {/* Left Side: Login Form */}
@@ -210,8 +211,14 @@ export default function LoginPage() {
 
             {/* Right Side: Sign Up Call to Action */}
             <div className="p-8 md:p-12 bg-zinc-100 dark:bg-zinc-900 flex flex-col items-center justify-center text-center border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800">
-              <div className="w-24 h-24 mb-6 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm">
-                <Scissors className="h-10 w-10 text-zinc-900 dark:text-white" />
+              <div className="w-32 h-32 mb-6 relative flex items-center justify-center">
+                <Image
+                  src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/design.png"
+                  alt="Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                />
               </div>
 
               <h2 className="text-2xl font-bold mb-4">¿Eres nuevo aquí?</h2>
