@@ -112,3 +112,61 @@ export function PageHeaderLoading() {
     </div>
   );
 }
+
+export function DashboardTableSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {[...Array(2)].map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <Skeleton className="h-5 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-9 w-16 mb-1" />
+              <Skeleton className="h-3 w-24" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Actions Bar */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <Skeleton className="h-10 w-full sm:w-72" />
+        <Skeleton className="h-10 w-full sm:w-32" />
+      </div>
+
+      {/* Table/Grid */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="rounded-md border">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 gap-4 p-4 border-b bg-muted/50">
+              <Skeleton className="col-span-2 h-4 w-full" />
+              <Skeleton className="col-span-4 h-4 w-full" />
+              <Skeleton className="col-span-2 h-4 w-full" />
+              <Skeleton className="col-span-2 h-4 w-full" />
+              <Skeleton className="col-span-2 h-4 w-full" />
+            </div>
+            {/* Table Rows */}
+            <div className="divide-y">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="grid grid-cols-12 gap-4 p-4 items-center">
+                  <Skeleton className="col-span-2 h-10 w-10 rounded-md" />
+                  <div className="col-span-4 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                  <Skeleton className="col-span-2 h-4 w-16" />
+                  <Skeleton className="col-span-2 h-4 w-16" />
+                  <Skeleton className="col-span-2 h-8 w-8 rounded-md ml-auto" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

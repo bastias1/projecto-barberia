@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { AppointmentCard } from "@/components/dashboard/appointment-card";
 
 async function TodayAppointments() {
   const supabase = await createClient();
@@ -35,38 +36,7 @@ async function TodayAppointments() {
         ) : (
           <div className="space-y-3">
             {todayAppointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="flex items-start gap-3 p-3 rounded-lg border-2 hover:bg-accent transition-colors"
-              >
-                <div className="flex-shrink-0 mt-1">
-                  <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                    <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">
-                    {appointment.guest_usuario?.nombre} {appointment.guest_usuario?.apellido}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {appointment.servicio?.nombre || "Sin servicio"}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <Badge variant="default" className="text-xs">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {appointment.hora}
-                    </Badge>
-                    <Badge className={appointment.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 text-xs" : appointment.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 text-xs" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 text-xs"}>
-                      {appointment.estado === "confirmada" ? "✓ Confirmada" : appointment.estado === "cancelada" ? "✗ Cancelada" : "⏳ Pendiente"}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">
-                    ${appointment.servicio?.precio.toFixed(2) || "0.00"}
-                  </p>
-                </div>
-              </div>
+              <AppointmentCard key={appointment.id} appointment={appointment} />
             ))}
           </div>
         )}

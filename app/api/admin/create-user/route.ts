@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       });
 
       const edgeData = await edgeResponse.json();
-      
+
       if (!edgeResponse.ok) {
         console.error('Edge function error:', edgeData);
         // User created but email failed
@@ -167,10 +167,11 @@ export async function POST(request: NextRequest) {
       especialidad,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in create-user route:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

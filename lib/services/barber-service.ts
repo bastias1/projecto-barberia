@@ -8,12 +8,12 @@ export interface BarberoWithServices extends Barbero {
 }
 
 // Fetch all barbers
-export async function getBarberos(): Promise<any[]> {
+export async function getBarberos(): Promise<Barbero[]> {
   try {
     const supabase = createClient();
-    
+
     console.log("Fetching barbers from Supabase...");
-    
+
     const { data, error } = await supabase
       .from("barbero")
       .select("*, usuario(profile_image)")
@@ -36,7 +36,7 @@ export async function getBarberos(): Promise<any[]> {
 export async function getBarberServices(barberoId: string): Promise<number[]> {
   try {
     const supabase = createClient();
-    
+
     const { data, error } = await supabase
       .from("barbero_servicio")
       .select("servicio")
@@ -57,7 +57,7 @@ export async function getBarberServices(barberoId: string): Promise<number[]> {
 // Fetch barber by ID
 export async function getBarberoById(id: string): Promise<Barbero | null> {
   const supabase = createClient();
-  
+
   const { data, error } = await supabase
     .from("barbero")
     .select("*")

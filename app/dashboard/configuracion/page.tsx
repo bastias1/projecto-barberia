@@ -11,9 +11,9 @@ import { AvatarUpload } from "@/components/dashboard/avatar-upload";
 
 export default async function ConfiguracionPage() {
   const supabase = await createClient();
-  
+
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !user) {
     redirect('/login');
   }
@@ -57,27 +57,39 @@ export default async function ConfiguracionPage() {
 
       {/* Desktop Layout */}
       <div className="hidden md:grid gap-6 md:grid-cols-2">
-        <Card className="md:col-span-2">
+        {/* Row 1: Profile Image & Password */}
+        <Card className="md:col-span-1 h-full">
           <CardHeader>
             <CardTitle>Foto de Perfil</CardTitle>
             <CardDescription>Actualiza tu imagen de perfil</CardDescription>
           </CardHeader>
-          <CardContent>
-            <AvatarUpload 
-              userId={user.id} 
-              currentImage={profile?.profile_image} 
+          <CardContent className="flex justify-center py-6">
+            <AvatarUpload
+              userId={user.id}
+              currentImage={profile?.profile_image}
               userName={profile?.nombre || 'Usuario'}
             />
           </CardContent>
         </Card>
 
+        <Card className="md:col-span-1 h-full">
+          <CardHeader>
+            <CardTitle>Cambiar Contraseña</CardTitle>
+            <CardDescription>Actualiza tu contraseña de acceso</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PasswordForm />
+          </CardContent>
+        </Card>
+
+        {/* Row 2: Personal Info (Full Width) */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Información Personal</CardTitle>
             <CardDescription>Actualiza tus datos personales</CardDescription>
           </CardHeader>
           <CardContent>
-            <ProfileForm 
+            <ProfileForm
               userId={user.id}
               initialData={{
                 nombre: profile?.nombre || '',
@@ -88,16 +100,6 @@ export default async function ConfiguracionPage() {
                 rol: profile?.rol || '',
               }}
             />
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Cambiar Contraseña</CardTitle>
-            <CardDescription>Actualiza tu contraseña de acceso</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PasswordForm />
           </CardContent>
         </Card>
       </div>
@@ -117,9 +119,9 @@ export default async function ConfiguracionPage() {
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
-            <AvatarUpload 
-              userId={user.id} 
-              currentImage={profile?.profile_image} 
+            <AvatarUpload
+              userId={user.id}
+              currentImage={profile?.profile_image}
               userName={profile?.nombre || 'Usuario'}
             />
           </AccordionContent>
@@ -138,7 +140,7 @@ export default async function ConfiguracionPage() {
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
-            <ProfileForm 
+            <ProfileForm
               userId={user.id}
               initialData={{
                 nombre: profile?.nombre || '',

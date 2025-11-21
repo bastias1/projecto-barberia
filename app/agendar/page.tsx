@@ -90,7 +90,7 @@ export default function AgendarPage() {
       }
     }
     fetchAvailableSlots();
-  }, [selectedDate, selectedBarber]);
+  }, [selectedDate, selectedBarber, selectedTime]);
 
   const handleBarberSelect = (barber: Barbero) => {
     setSelectedBarber(barber);
@@ -111,7 +111,7 @@ export default function AgendarPage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedBarber || !selectedService || !selectedDate || !selectedTime) return;
 
     setSubmitting(true);
