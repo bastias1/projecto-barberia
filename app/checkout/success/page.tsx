@@ -1,18 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, ShoppingBag, ArrowRight } from "lucide-react";
+import { CheckCircle2, ShoppingBag, ArrowRight, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useEffect } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useCartStore } from "@/lib/cart-store";
+import { useSearchParams } from "next/navigation";
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
     const clearCart = useCartStore((state) => state.clearCart);
+    const searchParams = useSearchParams();
+    const [paymentDetails, setPaymentDetails] = useState({
+        payment_id: "",
+        status: "",
+        external_reference: "",
+        merchant_order_id: ""
+    });
 
     useEffect(() => {
         clearCart();
-    }, [clearCart]);
+
+        // Get Mercado Pago parameters from URL
+        setPaymentDetails({
+            payment_id: searchParams.get("payment_id") || "",
+            status: searchParams.get("status") || "",
+            external_reference: searchParams.get("external_reference") || "",
+            merchant_order_id: searchParams.get("merchant_order_id") || ""
+        });
+    }, [clearCart, searchParams]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-green-100 to-zinc-100 dark:from-green-950/30 dark:via-zinc-900 dark:to-black p-4">
@@ -34,6 +50,30 @@ export default function PaymentSuccessPage() {
                         </p>
                     </div>
 
+                    {/* Payment Details */}
+                    {paymentDetails.payment_id && (
+                        <div className="w-full bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4 space-y-2 text-sm">
+                            <div className="flex items-center justify-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium mb-2">
+                                <Receipt className="h-4 w-4" />
+                                Detalles del Pago
+                            </div>
+                            <div className="flex justify-between text-left">
+                                <span className="text-zinc-500 dark:text-zinc-400">ID de Pago:</span>
+                                <span className="font-mono text-zinc-900 dark:text-zinc-100">{paymentDetails.payment_id}</span>
+                            </div>
+                            <div className="flex justify-between text-left">
+                                <span className="text-zinc-500 dark:text-zinc-400">Estado:</span>
+                                <span className="font-medium text-green-600 dark:text-green-400 capitalize">{paymentDetails.status}</span>
+                            </div>
+                            {paymentDetails.external_reference && (
+                                <div className="flex justify-between text-left">
+                                    <span className="text-zinc-500 dark:text-zinc-400">Orden:</span>
+                                    <span className="font-mono text-zinc-900 dark:text-zinc-100">#{paymentDetails.external_reference}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <div className="w-full space-y-3 pt-4">
                         <Link href="/tienda" className="w-full block">
                             <Button className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base rounded-xl group">
@@ -46,5 +86,17 @@ export default function PaymentSuccessPage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function PaymentSuccessPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+            </div>
+        }>
+            <PaymentSuccessContent />
+        </Suspense>
     );
 }

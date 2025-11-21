@@ -75,6 +75,7 @@ export async function POST(request: Request) {
             body: {
                 items: body.items,
                 external_reference: venta.id.toString(),
+                notification_url: "https://bastias.dev/api/webhooks/mercadopago",
                 back_urls: {
                     success: "https://bastias.dev/checkout/success",
                     failure: "https://bastias.dev/checkout/failure",
