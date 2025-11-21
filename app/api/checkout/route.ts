@@ -2,7 +2,7 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 // Agrega credenciales
-const client = new MercadoPagoConfig({ accessToken: 'APP_USR-5244847329230484-112115-45d93bd206aa0f03321a39e3f7508d37-3007735698' });
+const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN! });
 
 import { createClient } from "@/utils/supabase/server";
 
@@ -57,7 +57,6 @@ export async function POST(request: Request) {
         }
 
         // 5. Create Preference with external_reference and proper item formatting
-        // Note: notification_url is configured in Mercado Pago dashboard
         const preference = new Preference(client);
         const result = await preference.create({
             body: {
@@ -68,6 +67,7 @@ export async function POST(request: Request) {
                     currency_id: 'CLP'
                 })),
                 external_reference: venta.id.toString(),
+                notification_url: "https://bastias.dev/api/webhooks/mercadopago",
                 back_urls: {
                     success: "https://bastias.dev/checkout/success",
                     failure: "https://bastias.dev/checkout/failure",

@@ -49,7 +49,7 @@ export default function CheckoutPage() {
 
   // Initialize MP
   useEffect(() => {
-    initMercadoPago("APP_USR-b3031121-06fe-4e47-a4bf-6df94bcdddbb", {
+    initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY!, {
       locale: "es-CL",
     });
   }, []);
