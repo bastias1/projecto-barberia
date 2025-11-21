@@ -121,8 +121,12 @@ export default function CartPage() {
 
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                                        <span>Subtotal</span>
-                                        <span>${total.toLocaleString()}</span>
+                                        <span>Subtotal (sin IVA)</span>
+                                        <span>${Math.round(total / 1.19).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
+                                        <span>IVA (19%)</span>
+                                        <span>${Math.round(total - (total / 1.19)).toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
                                         <span>Envío</span>
@@ -131,10 +135,13 @@ export default function CartPage() {
                                 </div>
 
                                 <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                                    <div className="flex justify-between items-end">
+                                    <div className="flex justify-between items-end mb-2">
                                         <span className="text-base font-medium text-zinc-900 dark:text-zinc-100">Total</span>
                                         <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">${total.toLocaleString()}</span>
                                     </div>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
+                                        * Precios incluyen IVA
+                                    </p>
                                 </div>
 
                                 <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 h-12 text-lg rounded-xl" asChild>

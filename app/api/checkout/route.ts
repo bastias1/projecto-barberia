@@ -26,7 +26,7 @@ export async function POST(request: Request) {
             .insert({
                 usuario: user.id,
                 total: total,
-                fecha: new Date().toISOString(),
+                estado_pago: 'pending',
                 estado: 'pending',
                 tipo_entrega: body.delivery_method,
                 direccion_envio: body.shipping_address ? JSON.stringify(body.shipping_address) : null
@@ -42,39 +42,32 @@ export async function POST(request: Request) {
         // 4. Create Sale Details
         const saleDetails = body.items.map((item: any) => ({
             venta_id: venta.id,
-            producto: 1, // Placeholder: You need to send the real product ID from frontend
+            producto: item.id,
             cantidad: item.quantity,
             subtotal: item.unit_price * item.quantity
         }));
 
-        // Note: We need the product ID. The current frontend cart might not be sending it.
-        // For now, we will assume the frontend sends 'id' in the item object.
-        // We need to update the frontend to send 'id' if it's not already doing so.
-
-        // Let's try to insert details. If product ID is missing, this might fail if we don't have a default.
-        // Ideally, we should fetch product IDs or ensure frontend sends them.
-        // For this iteration, I'll comment out the detail insertion if we don't have product IDs, 
-        // OR I will assume the frontend sends them.
-        // Looking at checkout/page.tsx, we map cart items. Cart items usually have IDs.
-        // Let's update the API to expect 'id' in items.
-
-        /* 
         const { error: detailsError } = await supabase
             .from('detalle_venta')
             .insert(saleDetails);
 
         if (detailsError) {
-             console.error('Error creating sale details:', detailsError);
-             // We might want to delete the sale if details fail, or just log it.
+            console.error('Error creating sale details:', detailsError);
+            // Continue anyway - we have the venta record
         }
-        */
 
-        // 5. Create Preference with external_reference
+        // 5. Create Preference with external_reference and proper item formatting
         const preference = new Preference(client);
         const result = await preference.create({
             body: {
-                items: body.items,
+                items: body.items.map((item: any) => ({
+                    title: item.title,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    currency_id: 'CLP'
+                })),
                 external_reference: venta.id.toString(),
+                notification_url: "https://bastias.dev/api/webhooks/mercadopago",
                 back_urls: {
                     success: "https://bastias.dev/checkout/success",
                     failure: "https://bastias.dev/checkout/failure",
