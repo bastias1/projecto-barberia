@@ -44,7 +44,7 @@ export default function SignupPage() {
       }
 
       const supabase = createClient();
-      
+
       // Create auth user with email confirmation
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email.trim(),
@@ -61,7 +61,11 @@ export default function SignupPage() {
 
       if (authError) {
         console.error("Signup error:", authError);
-        setError(authError.message);
+        if (authError.message.includes("Error sending confirmation email")) {
+          setError("Error al enviar el correo de confirmación. Es posible que se haya alcanzado el límite de correos de prueba de Supabase. Por favor intenta más tarde o contacta al administrador.");
+        } else {
+          setError(authError.message);
+        }
         return;
       }
 
@@ -164,7 +168,7 @@ export default function SignupPage() {
                   type="text"
                   placeholder="Juan"
                   value={formData.nombre}
-                  onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   required
                   disabled={loading}
                   className="h-11"
@@ -178,7 +182,7 @@ export default function SignupPage() {
                   type="text"
                   placeholder="Pérez"
                   value={formData.apellido}
-                  onChange={(e) => setFormData({...formData, apellido: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
                   required
                   disabled={loading}
                   className="h-11"
@@ -192,7 +196,7 @@ export default function SignupPage() {
                   type="email"
                   placeholder="barbero@ejemplo.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                   disabled={loading}
                   className="h-11"
@@ -206,7 +210,7 @@ export default function SignupPage() {
                   type="password"
                   placeholder="Mínimo 6 caracteres"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
                   disabled={loading}
                   className="h-11"
@@ -220,7 +224,7 @@ export default function SignupPage() {
                   type="password"
                   placeholder="Repite tu contraseña"
                   value={formData.confirmPassword}
-                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   required
                   disabled={loading}
                   className="h-11"

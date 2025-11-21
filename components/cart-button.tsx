@@ -121,12 +121,12 @@ export function CartButton() {
                     ${total.toLocaleString("es-CL")}
                   </span>
                 </div>
-                <Link href="/checkout" className="block">
+                <Link href="/cart" className="block">
                   <Button
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
                     onClick={() => setOpen(false)}
                   >
-                    Ir al checkout
+                    Ver Carrito
                   </Button>
                 </Link>
               </div>
