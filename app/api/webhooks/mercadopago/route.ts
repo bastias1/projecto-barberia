@@ -61,7 +61,8 @@ export async function POST(request: Request) {
             console.log('External reference:', paymentData.external_reference);
 
             if (paymentData.external_reference) {
-                const supabase = await createClient();
+                const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
+                const supabase = createServiceRoleClient();
 
                 // Map Mercado Pago status to your database status
                 let estado_pago = 'pending';
@@ -72,6 +73,8 @@ export async function POST(request: Request) {
                 } else if (paymentData.status === 'cancelled') {
                     estado_pago = 'cancelled';
                 }
+
+                console.log(`Attempting to update sale ${paymentData.external_reference} to ${estado_pago}`);
 
                 const { error } = await supabase
                     .from('venta')
