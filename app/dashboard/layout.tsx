@@ -16,6 +16,17 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  // First check if user is a cliente - redirect them to their profile
+  const { data: usuarioData } = await supabase
+    .from('usuario')
+    .select('rol')
+    .eq('id', user.id)
+    .single();
+
+  if (usuarioData?.rol === 'cliente') {
+    redirect("/profile");
+  }
+
   // Verify user is a barber
   const { data: barberData, error } = await supabase
     .from('barbero')

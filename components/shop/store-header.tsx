@@ -128,25 +128,29 @@ export function StoreHeader() {
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             {(profile?.rol === 'admin' || profile?.rol === 'owner' || profile?.rol === 'barbero') && (
+                                <>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/dashboard">
+                                            <User className="mr-2 h-4 w-4" />
+                                            <span>Dashboard</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/dashboard/configuracion">
+                                            <User className="mr-2 h-4 w-4" />
+                                            <span>Mi Cuenta</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                            {profile?.rol === 'cliente' && (
                                 <DropdownMenuItem asChild>
-                                    <Link href="/dashboard">
+                                    <Link href="/profile">
                                         <User className="mr-2 h-4 w-4" />
-                                        <span>Dashboard</span>
+                                        <span>Mi Perfil</span>
                                     </Link>
                                 </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem asChild>
-                                <Link href="/dashboard/configuracion">
-                                    <User className="mr-2 h-4 w-4" />
-                                    <span>Mi Cuenta</span>
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href="/tienda">
-                                    <ShoppingBag className="mr-2 h-4 w-4" />
-                                    <span>Mis Pedidos</span>
-                                </Link>
-                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={handleLogout} className="text-red-600 dark:text-red-400">
                                 <LogOut className="mr-2 h-4 w-4" />
