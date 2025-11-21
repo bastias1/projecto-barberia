@@ -57,6 +57,7 @@ export async function POST(request: Request) {
         }
 
         // 5. Create Preference with external_reference and proper item formatting
+        // Note: notification_url is configured in Mercado Pago dashboard
         const preference = new Preference(client);
         const result = await preference.create({
             body: {
@@ -67,7 +68,6 @@ export async function POST(request: Request) {
                     currency_id: 'CLP'
                 })),
                 external_reference: venta.id.toString(),
-                notification_url: "https://bastias.dev/api/webhooks/mercadopago",
                 back_urls: {
                     success: "https://bastias.dev/checkout/success",
                     failure: "https://bastias.dev/checkout/failure",
