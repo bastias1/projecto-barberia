@@ -52,43 +52,52 @@ export async function POST(request: Request) {
         const { type, data } = body;
 
         if (type === 'payment') {
-            const payment = new Payment(client);
-            const paymentData = await payment.get({ id: data.id });
+            try {
+                const payment = new Payment(client);
+                const paymentData = await payment.get({ id: data.id });
 
-            console.log('Webhook received: payment');
-            console.log('Payment ID:', data.id);
-            console.log('Payment status:', paymentData.status);
-            console.log('External reference:', paymentData.external_reference);
+                console.log('Webhook received: payment');
+                console.log('Payment ID:', data.id);
+                console.log('Payment status:', paymentData.status);
+                console.log('External reference:', paymentData.external_reference);
 
-            if (paymentData.external_reference) {
-                const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
-                const supabase = createServiceRoleClient();
+                if (paymentData.external_reference) {
+                    const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
+                    const supabase = createServiceRoleClient();
 
-                // Map Mercado Pago status to your database status
-                let estado_pago = 'pending';
-                if (paymentData.status === 'approved') {
-                    estado_pago = 'approved';
-                } else if (paymentData.status === 'rejected') {
-                    estado_pago = 'rejected';
-                } else if (paymentData.status === 'cancelled') {
-                    estado_pago = 'cancelled';
+                    // Map Mercado Pago status to your database status
+                    let estado_pago = 'pending';
+                    if (paymentData.status === 'approved') {
+                        estado_pago = 'approved';
+                    } else if (paymentData.status === 'rejected') {
+                        estado_pago = 'rejected';
+                    } else if (paymentData.status === 'cancelled') {
+                        estado_pago = 'cancelled';
+                    }
+
+                    console.log(`Attempting to update sale ${paymentData.external_reference} to ${estado_pago}`);
+
+                    const { error } = await supabase
+                        .from('venta')
+                        .update({
+                            estado_pago: estado_pago,
+                            estado: paymentData.status === 'approved' ? 'completed' : 'pending'
+                        })
+                        .eq('id', paymentData.external_reference);
+
+                    if (error) {
+                        console.error('Error updating sale status:', error);
+                    } else {
+                        console.log(`Sale ${paymentData.external_reference} updated to ${estado_pago}`);
+                    }
                 }
-
-                console.log(`Attempting to update sale ${paymentData.external_reference} to ${estado_pago}`);
-
-                const { error } = await supabase
-                    .from('venta')
-                    .update({
-                        estado_pago: estado_pago,
-                        estado: paymentData.status === 'approved' ? 'completed' : 'pending'
-                    })
-                    .eq('id', paymentData.external_reference);
-
-                if (error) {
-                    console.error('Error updating sale status:', error);
-                } else {
-                    console.log(`Sale ${paymentData.external_reference} updated to ${estado_pago}`);
+            } catch (error: any) {
+                // Handle test payments or payment not found gracefully
+                if (error?.status === 404 || error?.cause?.[0]?.code === 2000) {
+                    console.log('Test webhook or payment not found - ignoring:', data.id);
+                    return new Response(null, { status: 200 }); // Return 200 for test webhooks
                 }
+                throw error; // Re-throw other errors
             }
         }
 
