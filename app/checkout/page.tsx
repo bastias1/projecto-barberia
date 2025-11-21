@@ -107,6 +107,7 @@ export default function CheckoutPage() {
         },
         body: JSON.stringify({
           items: cart.map((item) => ({
+            id: item.id,
             title: item.name,
             quantity: item.quantity,
             unit_price: item.price,
@@ -304,6 +305,9 @@ export default function CheckoutPage() {
                     <span>Total</span>
                     <span>${total.toLocaleString()}</span>
                   </div>
+                  <p className="text-xs text-muted-foreground text-right pt-1">
+                    * Precios incluyen IVA
+                  </p>
                 </div>
 
                 {step === 'delivery' && (

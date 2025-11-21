@@ -55,19 +55,36 @@ export async function POST(request: Request) {
             const payment = new Payment(client);
             const paymentData = await payment.get({ id: data.id });
 
-            console.log('Payment received:', paymentData);
+            console.log('Webhook received: payment');
+            console.log('Payment ID:', data.id);
+            console.log('Payment status:', paymentData.status);
+            console.log('External reference:', paymentData.external_reference);
 
-            if (paymentData.status === 'approved' && paymentData.external_reference) {
+            if (paymentData.external_reference) {
                 const supabase = await createClient();
+
+                // Map Mercado Pago status to your database status
+                let estado_pago = 'pending';
+                if (paymentData.status === 'approved') {
+                    estado_pago = 'approved';
+                } else if (paymentData.status === 'rejected') {
+                    estado_pago = 'rejected';
+                } else if (paymentData.status === 'cancelled') {
+                    estado_pago = 'cancelled';
+                }
+
                 const { error } = await supabase
                     .from('venta')
-                    .update({ estado: 'completed' })
+                    .update({
+                        estado_pago: estado_pago,
+                        estado: paymentData.status === 'approved' ? 'completed' : 'pending'
+                    })
                     .eq('id', paymentData.external_reference);
 
                 if (error) {
                     console.error('Error updating sale status:', error);
                 } else {
-                    console.log(`Sale ${paymentData.external_reference} marked as completed`);
+                    console.log(`Sale ${paymentData.external_reference} updated to ${estado_pago}`);
                 }
             }
         }
