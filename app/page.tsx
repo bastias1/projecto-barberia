@@ -99,6 +99,21 @@ export default function Home() {
           <RecentCutsCarousel />
         </div>
 
+        {/* Descripción de la Barbería*/}
+        <Card className="mt-6 mb-6 border-2 dark:border-zinc-800 animate-in fade-in duration-700 w-full">
+          <CardContent className="p-6 text-center space-y-3">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+            Sobre BENJVMIN
+            </h3>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+           BENJVMIN es una marca dedicada al corte de cabello con un enfoque a público masculino, llegando a un acuerdo mutuo entre el deseo y la realidad.
+            </p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            Trabajamos con pasión, innovación y un compromiso constante por mejorar y brindar una experiencia premium y personalizada.
+            </p>
+          </CardContent>
+        </Card>
+
         <Separator className="my-8 w-full" />
 
         {/* Info Section */}
