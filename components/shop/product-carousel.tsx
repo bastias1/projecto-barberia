@@ -1,99 +1,113 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Autoplay from "embla-carousel-autoplay"
-import Image from "next/image"
-import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-} from "@/components/ui/carousel"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import * as React from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 
 interface Product {
-    id: number
-    nombre: string
-    descripcion: string | null
-    precio: number
-    imagen_url: string | null
-    categoria: string
-    tag?: string
+    id: string;
+    nombre: string;
+    precio: number;
+    imagen_url: string | null;
+    categoria: string;
+    descripcion: string | null;
+    tag?: string | null;
 }
 
 interface ProductCarouselProps {
-    products: Product[]
+    products: Product[];
 }
 
 export function ProductCarousel({ products }: ProductCarouselProps) {
-    const plugin = React.useRef(
-        Autoplay({ delay: 4000, stopOnInteraction: true })
-    )
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-    // Filter for featured products or just take the first 5
-    const featuredProducts = products.slice(0, 5)
+    const scroll = (direction: "left" | "right") => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = 300; // Adjust scroll amount as needed
+            const newScrollLeft =
+                direction === "left"
+                    ? scrollContainerRef.current.scrollLeft - scrollAmount
+                    : scrollContainerRef.current.scrollLeft + scrollAmount;
 
-    if (featuredProducts.length === 0) return null
+            scrollContainerRef.current.scrollTo({
+                left: newScrollLeft,
+                behavior: "smooth",
+            });
+        }
+    };
+
+    if (!products || products.length === 0) return null;
 
     return (
-        <Carousel
-            plugins={[plugin.current]}
-            className="w-full max-w-5xl mx-auto"
-            onMouseEnter={plugin.current.stop}
-            onMouseLeave={plugin.current.reset}
-        >
-            <CarouselContent>
-                {featuredProducts.map((product) => (
-                    <CarouselItem key={product.id}>
-                        <div className="p-1">
-                            <Card className="border-none shadow-none bg-transparent">
-                                <CardContent className="flex flex-col md:flex-row items-center justify-center p-6 gap-8">
-                                    {/* Image Section */}
-                                    <div className="relative w-full md:w-1/2 aspect-square md:aspect-[4/3] max-h-[400px] rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                                        <Image
-                                            src={product.imagen_url || "/placeholder.png"}
-                                            alt={product.nombre}
-                                            fill
-                                            className="object-cover"
-                                            priority
-                                        />
-                                    </div>
+        <div className="relative group">
+            <Button
+                variant="outline"
+                size="icon"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm shadow-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                onClick={() => scroll("left")}
+            >
+                <ChevronLeft className="h-5 w-5" />
+            </Button>
 
-                                    {/* Content Section */}
-                                    <div className="w-full md:w-1/2 text-center md:text-left space-y-4">
-                                        <Badge className="bg-blue-600 text-white border-none px-3 py-1 text-sm">
-                                            Destacado
-                                        </Badge>
-                                        <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                                            {product.nombre}
-                                        </h2>
-                                        <p className="text-lg text-zinc-600 dark:text-zinc-400 line-clamp-3">
-                                            {product.descripcion}
-                                        </p>
-                                        <div className="flex items-center justify-center md:justify-start gap-4 pt-2">
-                                            <span className="text-3xl font-bold text-zinc-900 dark:text-white">
-                                                ${product.precio.toLocaleString("es-CL")}
-                                            </span>
-                                            <Link href={`/tienda/${product.id}`}>
-                                                <Button size="lg" className="gap-2">
-                                                    Ver Producto <ArrowRight className="h-4 w-4" />
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </CarouselItem>
+            <div
+                ref={scrollContainerRef}
+                className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide snap-x snap-mandatory px-1"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+                {products.map((product) => (
+                    <div
+                        key={product.id}
+                        className="min-w-[260px] max-w-[260px] snap-start"
+                    >
+                        <Card className="h-full overflow-hidden rounded-xl border-zinc-200 bg-white shadow-sm hover:shadow-md transition-shadow dark:border-zinc-800 dark:bg-zinc-900">
+                            <Link href={`/tienda/${product.id}`} className="block relative h-48 bg-zinc-100 dark:bg-zinc-800">
+                                <Image
+                                    src={product.imagen_url || "/placeholder.png"}
+                                    alt={product.nombre}
+                                    fill
+                                    className="object-cover"
+                                />
+                            </Link>
+                            <CardContent className="p-4">
+                                <Link href={`/tienda/${product.id}`}>
+                                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 truncate mb-1 hover:text-blue-600 transition-colors">
+                                        {product.nombre}
+                                    </h3>
+                                </Link>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3 truncate">
+                                    {product.categoria}
+                                </p>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                                        ${product.precio.toLocaleString("es-CL")}
+                                    </span>
+                                    <AddToCartButton
+                                        id={product.id}
+                                        name={product.nombre}
+                                        price={product.precio}
+                                        priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
+                                        image={product.imagen_url || "/placeholder.png"}
+                                        size="sm"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden md:flex -left-4" />
-            <CarouselNext className="hidden md:flex -right-4" />
-        </Carousel>
-    )
+            </div>
+
+            <Button
+                variant="outline"
+                size="icon"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm shadow-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                onClick={() => scroll("right")}
+            >
+                <ChevronRight className="h-5 w-5" />
+            </Button>
+        </div>
+    );
 }

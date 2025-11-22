@@ -71,19 +71,19 @@ export function StoreHeader() {
                     <span className="hidden sm:inline">Inicio</span>
                 </Link>
 
-                <div className="w-12 h-12 relative">
+                <div className="relative h-12 w-40">
                     <Image
                         src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/BLACK.png"
                         alt="Barbería BENJVMIN Logo"
                         fill
-                        className="object-contain dark:hidden"
+                        className="object-contain object-left dark:hidden"
                         priority
                     />
                     <Image
                         src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/WHITE.png"
                         alt="Barbería BENJVMIN Logo"
                         fill
-                        className="object-contain hidden dark:block"
+                        className="object-contain object-left hidden dark:block"
                         priority
                     />
                 </div>

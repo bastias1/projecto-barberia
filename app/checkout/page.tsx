@@ -38,6 +38,7 @@ export default function CheckoutPage() {
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [isWalletReady, setIsWalletReady] = useState(false);
 
   // New Address Form
   const [newAddress, setNewAddress] = useState({
@@ -257,7 +258,17 @@ export default function CheckoutPage() {
                   <CardTitle>Pago</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {preferenceId && <Wallet initialization={{ preferenceId: preferenceId }} />}
+                  {!isWalletReady && (
+                    <div className="w-full h-12 bg-zinc-100 dark:bg-zinc-800 animate-pulse rounded-md" />
+                  )}
+                  <div className={!isWalletReady ? 'hidden' : 'block'}>
+                    {preferenceId && (
+                      <Wallet
+                        initialization={{ preferenceId: preferenceId }}
+                        onReady={() => setIsWalletReady(true)}
+                      />
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}
