@@ -2,7 +2,7 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 import crypto from 'crypto';
 import { createClient } from "@/utils/supabase/server";
 
-const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN! });
+const client = new MercadoPagoConfig({ accessToken: 'APP_USR-5244847329230484-112115-45d93bd206aa0f03321a39e3f7508d37-3007735698' });
 
 export async function POST(request: Request) {
     console.log('🔔 Webhook endpoint called');
