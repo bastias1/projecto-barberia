@@ -92,6 +92,7 @@ export function ProductCarousel({ products }: ProductCarouselProps) {
                                         priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
                                         image={product.imagen_url || "/placeholder.png"}
                                         size="sm"
+                                        fullWidth={false}
                                     />
                                 </div>
                             </CardContent>
