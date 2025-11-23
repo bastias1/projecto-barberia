@@ -52,8 +52,8 @@ export function StoreClient({ products }: StoreClientProps) {
                                         key={category}
                                         variant={selectedCategory === category ? "default" : "ghost"}
                                         className={`justify-start ${selectedCategory === category
-                                                ? "bg-zinc-900 text-white dark:bg-white dark:text-black"
-                                                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                            ? "bg-zinc-900 text-white dark:bg-white dark:text-black"
+                                            : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                                             }`}
                                         onClick={() => setSelectedCategory(category)}
                                     >
@@ -127,6 +127,7 @@ export function StoreClient({ products }: StoreClientProps) {
                                                         name={product.nombre}
                                                         price={product.precio}
                                                         priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
+                                                        stock={product.stock}
                                                         image={product.imagen_url || "/placeholder.png"}
                                                         size="sm"
                                                     />

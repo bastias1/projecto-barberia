@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle";
 import { RecentCutsCarousel } from "@/components/recent-cuts-carousel";
+import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
 import Link from "next/link";
 import { Calendar, ShoppingBag, Clock, MapPin, Instagram, LogIn, Scissors, Star } from "lucide-react";
 
@@ -185,6 +186,19 @@ export default function Home() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="mb-20">
+          <div className="flex items-center justify-center mb-8 px-2 max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+              Opiniones de Clientes
+            </h2>
+          </div>
+          <div className="max-w-5xl mx-auto">
+            <ReviewsCarousel />
           </div>
         </div>
 

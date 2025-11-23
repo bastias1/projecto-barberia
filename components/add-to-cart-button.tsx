@@ -10,6 +10,7 @@ type Props = {
   name: string;
   price: number;
   priceLabel: string;
+  stock: number;
   image?: string;
   fullWidth?: boolean;
   size?: "default" | "sm" | "lg" | "icon";
@@ -20,6 +21,7 @@ export function AddToCartButton({
   name,
   price,
   priceLabel,
+  stock,
   image,
   fullWidth = true,
   size = "default",
@@ -28,8 +30,8 @@ export function AddToCartButton({
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation if inside a Link
-    addItem({ id, name, price, priceLabel, image });
-    console.log("✅ Agregado al carrito:", { id, name, price, priceLabel });
+    addItem({ id, name, price, priceLabel, stock, image });
+    console.log("✅ Agregado al carrito:", { id, name, price, priceLabel, stock });
     toast.success("Producto agregado al carrito");
   };
 

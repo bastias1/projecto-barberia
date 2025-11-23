@@ -10,7 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, LayoutDashboard, ShieldCheck, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ const managementItems = [
   { href: "/dashboard/clientes", icon: Users, label: "Clientes" },
   { href: "/dashboard/horarios", icon: Clock, label: "Horarios" },
   { href: "/dashboard/servicios", icon: Scissors, label: "Servicios" },
+  { href: "/dashboard/resenas", icon: MessageSquare, label: "Reseñas" },
 ];
 
 const adminItems = [

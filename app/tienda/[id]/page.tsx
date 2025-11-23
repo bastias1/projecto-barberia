@@ -127,6 +127,7 @@ export default async function ProductPage({ params }: PageProps) {
                 name={product.nombre}
                 price={product.precio}
                 priceLabel={priceLabel}
+                stock={product.stock}
                 image={imageUrl}
                 fullWidth={false}
               />
