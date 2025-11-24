@@ -23,7 +23,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists by email in auth
+    // Check if email belongs to a soft-deleted user
+    const { data: softDeletedUser } = await supabaseAdmin
+      .from('usuario')
+      .select('id, nombre, apellido, deleted_at')
+      .eq('correo', email)
+      .not('deleted_at', 'is', null)
+      .single();
+
+    // If soft-deleted user exists, permanently delete them
+    // With ON DELETE CASCADE, all related records will be automatically deleted by the database
+    if (softDeletedUser) {
+      console.log(`Found soft-deleted user with email ${email}, permanently deleting...`);
+
+      const userId = softDeletedUser.id;
+
+      try {
+        // Delete from usuario table - CASCADE will handle all related records
+        await supabaseAdmin.from('usuario').delete().eq('id', userId);
+
+        // Delete from auth.users
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+
+        console.log(`Successfully permanently deleted soft-deleted user ${userId}`);
+      } catch (deleteError) {
+        console.error('Error permanently deleting soft-deleted user:', deleteError);
+        return NextResponse.json(
+          { error: 'Error al limpiar usuario anterior eliminado' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Check if user already exists by email in auth (for non-deleted users)
     const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers();
     const userExists = existingAuthUser?.users?.find(u => u.email === email);
 

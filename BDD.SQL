@@ -92,6 +92,7 @@ CREATE TABLE public.resena (
   barbero uuid,
   producto bigint,
   cliente uuid,
+  guest_name text,
   CONSTRAINT resena_pkey PRIMARY KEY (id),
   CONSTRAINT resena_servicio_fkey FOREIGN KEY (servicio) REFERENCES public.servicio(id),
   CONSTRAINT resena_barbero_fkey FOREIGN KEY (barbero) REFERENCES public.barbero(id),
@@ -132,6 +133,7 @@ CREATE TABLE public.usuario (
   rol character varying NOT NULL,
   profile_image text,
   rut text,
+  deleted_at timestamp with time zone,
   CONSTRAINT usuario_pkey PRIMARY KEY (id),
   CONSTRAINT usuario_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
