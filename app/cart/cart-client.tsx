@@ -6,11 +6,13 @@ import { ArrowLeft, Minus, Plus, Trash2 } from "lucide-react";
 import { useCartStore } from "../../lib/cart-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { StoreHeader } from "@/components/shop/store-header";
+
 import { ProductCarousel } from "@/components/shop/product-carousel";
 
+import { Product } from "@/lib/services/product-service";
+
 interface CartClientProps {
-    products: any[]; // Replace 'any' with proper Product type if available
+    products: Product[];
 }
 
 export function CartClient({ products }: CartClientProps) {
@@ -24,7 +26,6 @@ export function CartClient({ products }: CartClientProps) {
         return (
             <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
                 <div className="max-w-[1600px] mx-auto px-6 py-8">
-                    <StoreHeader />
                 </div>
                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center min-h-[60vh]">
                     <p className="text-lg sm:text-xl text-zinc-700 dark:text-zinc-300 mb-6">
@@ -48,7 +49,6 @@ export function CartClient({ products }: CartClientProps) {
     return (
         <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
             <div className="max-w-[1600px] mx-auto px-6 py-8">
-                <StoreHeader />
             </div>
 
             <main className="mx-auto w-full max-w-6xl px-4 pb-10">

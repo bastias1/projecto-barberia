@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 
 interface Product {
-    id: string;
+    id: string | number;
     nombre: string;
     precio: number;
     imagen_url: string | null;
     categoria: string;
     descripcion: string | null;
     tag?: string | null;
+    stock: number;
 }
 
 interface ProductCarouselProps {
@@ -90,6 +91,7 @@ export function ProductCarousel({ products }: ProductCarouselProps) {
                                         name={product.nombre}
                                         price={product.precio}
                                         priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
+                                        stock={product.stock}
                                         image={product.imagen_url || "/placeholder.png"}
                                         size="sm"
                                         fullWidth={false}

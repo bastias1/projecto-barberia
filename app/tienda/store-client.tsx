@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { StoreHeader } from "@/components/shop/store-header";
 import { HeroSection } from "@/components/shop/hero-section";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +33,6 @@ export function StoreClient({ products }: StoreClientProps) {
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
             <div className="max-w-[1600px] mx-auto px-6 py-8">
-                <StoreHeader />
                 <HeroSection />
 
                 <div className="flex flex-col md:flex-row gap-8 mt-12">
