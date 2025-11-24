@@ -7,6 +7,17 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { UserPlus, Loader2, KeyRound, Users, Trash2, X, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
@@ -127,14 +138,7 @@ export function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    const confirmed = window.confirm(
-      `¿Estás seguro que deseas desactivar a ${userName}?\n\n` +
-      `El usuario y sus datos serán preservados pero no aparecerá en el sistema.`
-    );
-
-    if (!confirmed) return;
-
+  const handleDeleteUser = async (userId: string) => {
     setDeletingUser(userId);
     try {
       const supabase = createClient();
@@ -415,18 +419,38 @@ export function UserManagement() {
                         <KeyRound className="h-4 w-4" />
                       )}
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteUser(barber.id, `${barber.nombre} ${barber.apellido}`)}
-                      disabled={deletingUser === barber.id}
-                    >
-                      {deletingUser === barber.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      )}
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={deletingUser === barber.id}
+                        >
+                          {deletingUser === barber.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Estás seguro que deseas desactivar a {barber.nombre} {barber.apellido}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            El usuario y sus datos serán preservados pero no aparecerá en el sistema.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteUser(barber.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Desactivar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </ButtonGroup>
                 </div>
               ))}
