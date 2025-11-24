@@ -16,7 +16,9 @@ export async function getBarberos(): Promise<Barbero[]> {
 
     const { data, error } = await supabase
       .from("barbero")
-      .select("*, usuario(profile_image)")
+      .select("*, usuario!inner(profile_image, rol, deleted_at)")
+      .eq("usuario.rol", "barbero") // Only show users with 'barbero' role
+      .is("usuario.deleted_at", null) // Exclude soft-deleted users
       .order("nombre", { ascending: true });
 
     if (error) {
