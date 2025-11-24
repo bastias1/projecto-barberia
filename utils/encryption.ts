@@ -41,8 +41,9 @@ export function decrypt(text: string): string {
         decrypted = Buffer.concat([decrypted, decipher.final()]);
         return decrypted.toString();
     } catch (error) {
-        console.error('Decryption error:', error);
-        // Return original text if decryption fails (fallback)
+        // If decryption fails, it might be because the data wasn't encrypted 
+        // or was encrypted with a different key. Return original text as fallback.
+        console.warn('Decryption failed, returning original text:', error);
         return text;
     }
 }

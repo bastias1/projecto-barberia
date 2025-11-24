@@ -23,9 +23,10 @@ CREATE TABLE public.detalle_venta (
   cantidad numeric NOT NULL,
   subtotal numeric NOT NULL,
   producto bigint NOT NULL,
+  venta_id bigint,
   CONSTRAINT detalle_venta_pkey PRIMARY KEY (id),
-  CONSTRAINT detalle_venta_id_fkey FOREIGN KEY (id) REFERENCES public.venta(id),
-  CONSTRAINT detalle_venta_producto_fkey FOREIGN KEY (producto) REFERENCES public.productos(id)
+  CONSTRAINT detalle_venta_producto_fkey FOREIGN KEY (producto) REFERENCES public.productos(id),
+  CONSTRAINT detalle_venta_venta_id_fkey FOREIGN KEY (venta_id) REFERENCES public.venta(id)
 );
 CREATE TABLE public.dia_bloqueado (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -35,6 +36,20 @@ CREATE TABLE public.dia_bloqueado (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT dia_bloqueado_pkey PRIMARY KEY (id),
   CONSTRAINT dia_bloqueado_barbero_fkey FOREIGN KEY (barbero) REFERENCES public.barbero(id)
+);
+CREATE TABLE public.direccion_usuario (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid NOT NULL,
+  nombre_etiqueta text,
+  calle text NOT NULL,
+  ciudad text NOT NULL,
+  comuna text NOT NULL,
+  telefono text,
+  created_at timestamp with time zone DEFAULT now(),
+  region text,
+  depto text,
+  CONSTRAINT direccion_usuario_pkey PRIMARY KEY (id),
+  CONSTRAINT direccion_usuario_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuario(id)
 );
 CREATE TABLE public.guest_usuario (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -116,18 +131,20 @@ CREATE TABLE public.usuario (
   telefono text,
   rol character varying NOT NULL,
   profile_image text,
+  rut text,
   CONSTRAINT usuario_pkey PRIMARY KEY (id),
   CONSTRAINT usuario_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.venta (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  fecha date NOT NULL,
+  fecha date NOT NULL DEFAULT now(),
   hora time with time zone NOT NULL DEFAULT now(),
   estado text,
   total numeric NOT NULL,
   usuario uuid NOT NULL,
-  detalle bigint NOT NULL,
+  direccion_envio text,
+  tipo_entrega text,
+  estado_pago text,
   CONSTRAINT venta_pkey PRIMARY KEY (id),
-  CONSTRAINT venta_usuario_fkey FOREIGN KEY (usuario) REFERENCES public.usuario(id),
-  CONSTRAINT venta_detalle_fkey FOREIGN KEY (detalle) REFERENCES public.detalle_venta(id)
+  CONSTRAINT venta_usuario_fkey FOREIGN KEY (usuario) REFERENCES public.usuario(id)
 );

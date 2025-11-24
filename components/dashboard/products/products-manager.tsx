@@ -28,6 +28,13 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
@@ -251,12 +258,19 @@ export function ProductsManager() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="category">Categoría *</Label>
-                                        <Input
-                                            id="category"
-                                            placeholder="Ej. Styling"
+                                        <Select
                                             value={formData.categoria}
-                                            onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                                        />
+                                            onValueChange={(value) => setFormData({ ...formData, categoria: value })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecciona una categoría" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Cuidado Capilar">Cuidado Capilar</SelectItem>
+                                                <SelectItem value="Accesorios">Accesorios</SelectItem>
+                                                <SelectItem value="Barba">Barba</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
@@ -380,6 +394,9 @@ export function ProductsManager() {
                                                     <ImageIcon className="h-4 w-4 text-muted-foreground" />
                                                 </div>
                                             )}
+                                        </div>
+                                        <div className="col-span-4 sm:col-span-4 text-sm font-medium">
+                                            {product.nombre}
                                         </div>
                                         <div className="col-span-2 sm:col-span-2 text-sm text-muted-foreground">
                                             {product.categoria}
