@@ -300,10 +300,23 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                                                             ? (() => {
                                                                                 try {
                                                                                     const address = JSON.parse(order.direccion_envio);
+                                                                                    // Check if it has the expected structure (calle, ciudad, etc.)
+                                                                                    if (address.calle || address.ciudad) {
+                                                                                        return (
+                                                                                            <>
+                                                                                                <p className="font-medium">{address.nombre_etiqueta}</p>
+                                                                                                <p>{address.calle} {address.depto ? `- Depto ${address.depto}` : ''}</p>
+                                                                                                <p>{address.comuna}, {address.ciudad}</p>
+                                                                                                <p>{address.region}</p>
+                                                                                                {address.telefono && <p className="mt-1 text-xs text-muted-foreground">Tel: {address.telefono}</p>}
+                                                                                            </>
+                                                                                        );
+                                                                                    }
+                                                                                    // Fallback for other structures or if properties are missing
                                                                                     return (
                                                                                         <>
-                                                                                            <p>{address.street_name} {address.street_number}</p>
-                                                                                            <p>{address.city_name}, {address.state_name}</p>
+                                                                                            <p>{address.street_name || address.calle} {address.street_number}</p>
+                                                                                            <p>{address.city_name || address.ciudad}, {address.state_name || address.region}</p>
                                                                                             <p>{address.zip_code}</p>
                                                                                         </>
                                                                                     );
