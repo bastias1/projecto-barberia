@@ -67,6 +67,16 @@ export async function getBarberInfo(userId: string) {
 }
 
 /**
+ * Helper to format date as YYYY-MM-DD in local timezone
+ */
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Get dashboard statistics for a barber
  */
 export async function getDashboardStats(barberId: string): Promise<DashboardStats> {
@@ -77,13 +87,15 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  const todayStr = formatLocalDate(today);
+  const tomorrowStr = formatLocalDate(tomorrow);
+
   // Get today's appointments count
   const { count: todayCount } = await supabase
     .from('reserva')
     .select('*', { count: 'exact' })
     .eq('barbero', barberId)
-    .gte('fecha', today.toISOString())
-    .lt('fecha', tomorrow.toISOString());
+    .eq('fecha', todayStr);
 
   // Get this week's appointments count
   const weekStart = new Date(today);
@@ -95,8 +107,8 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
     .from('reserva')
     .select('*', { count: 'exact' })
     .eq('barbero', barberId)
-    .gte('fecha', weekStart.toISOString())
-    .lt('fecha', weekEnd.toISOString());
+    .gte('fecha', formatLocalDate(weekStart))
+    .lt('fecha', formatLocalDate(weekEnd));
 
   // Get this month's appointments count
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -106,8 +118,8 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
     .from('reserva')
     .select('*', { count: 'exact' })
     .eq('barbero', barberId)
-    .gte('fecha', monthStart.toISOString())
-    .lt('fecha', monthEnd.toISOString());
+    .gte('fecha', formatLocalDate(monthStart))
+    .lte('fecha', formatLocalDate(monthEnd));
 
   // Get total unique clients count
   const { count: clientCount } = await supabase
@@ -120,8 +132,8 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
     .from('reserva')
     .select('servicio(precio)')
     .eq('barbero', barberId)
-    .gte('fecha', monthStart.toISOString())
-    .lt('fecha', monthEnd.toISOString());
+    .gte('fecha', formatLocalDate(monthStart))
+    .lte('fecha', formatLocalDate(monthEnd));
 
   const monthlyRevenue = monthlyAppointments?.reduce((total, apt) => {
     const serviceData = apt.servicio as { precio: number } | { precio: number }[] | null;
@@ -136,8 +148,7 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
     .from('reserva')
     .select('hora')
     .eq('barbero', barberId)
-    .gte('fecha', today.toISOString())
-    .lt('fecha', tomorrow.toISOString())
+    .eq('fecha', todayStr)
     .order('hora', { ascending: true })
     .limit(1)
     .single();
@@ -148,7 +159,7 @@ export async function getDashboardStats(barberId: string): Promise<DashboardStat
     monthCount: monthCount || 0,
     clientCount: clientCount || 0,
     monthlyRevenue,
-    nextAppointmentTime: nextAppointment?.hora || null,
+    nextAppointmentTime: nextAppointment?.hora?.substring(0, 5) || null,
   };
 }
 
@@ -171,8 +182,8 @@ export async function getUpcomingAppointments(barberId: string, limit = 10): Pro
       guest_usuario:guest_cliente (nombre, apellido, correo, telefono)
     `)
     .eq('barbero', barberId)
-    .gte('fecha', today.toISOString())
-    .lt('fecha', weekEnd.toISOString())
+    .gte('fecha', formatLocalDate(today))
+    .lt('fecha', formatLocalDate(weekEnd))
     .order('fecha', { ascending: true })
     .order('hora', { ascending: true })
     .limit(limit);
@@ -192,9 +203,7 @@ export async function getTodayAppointments(barberId: string): Promise<Appointmen
   const supabase = await createClient();
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const todayStr = formatLocalDate(today);
 
   const { data, error } = await supabase
     .from('reserva')
@@ -204,8 +213,7 @@ export async function getTodayAppointments(barberId: string): Promise<Appointmen
       guest_usuario:guest_cliente (nombre, apellido, correo, telefono)
     `)
     .eq('barbero', barberId)
-    .gte('fecha', today.toISOString())
-    .lt('fecha', tomorrow.toISOString())
+    .eq('fecha', todayStr)
     .order('hora', { ascending: true });
 
   if (error) {
