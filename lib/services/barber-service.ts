@@ -12,13 +12,13 @@ export async function getBarberos(): Promise<Barbero[]> {
   try {
     const supabase = createClient();
 
-    // Get all barbers with their usuario data (for profile images)
-    // The RLS policy on usuario allows reading barbero profiles publicly
+    // Get all barbers - use explicit foreign key hint to avoid ambiguity
+    // barbero.id references usuario.id, so we use !inner with the FK name
     const { data, error } = await supabase
       .from("barbero")
       .select(`
         *,
-        usuario:id (
+        usuario!barbero_id_fkey (
           id,
           profile_image,
           rol,
