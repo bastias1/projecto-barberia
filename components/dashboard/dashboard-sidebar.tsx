@@ -46,6 +46,7 @@ const managementItems = [
 const adminItems = [
   { href: "/dashboard/usuarios", icon: UserPlus, label: "Usuarios" },
   { href: "/dashboard/productos", icon: Package, label: "Productos" },
+  { href: "/dashboard/pedidos", icon: Package, label: "Pedidos" },
 ];
 
 export function DashboardSidebar({ barber }: DashboardSidebarProps) {

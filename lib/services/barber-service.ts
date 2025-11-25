@@ -12,20 +12,39 @@ export async function getBarberos(): Promise<Barbero[]> {
   try {
     const supabase = createClient();
 
-    console.log("Fetching barbers from Supabase...");
-
+    // Get all barbers with their usuario data (for profile images)
+    // The RLS policy on usuario allows reading barbero profiles publicly
     const { data, error } = await supabase
       .from("barbero")
-      .select("*, usuario(profile_image)")
+      .select(`
+        *,
+        usuario:id (
+          id,
+          profile_image,
+          rol,
+          deleted_at
+        )
+      `)
       .order("nombre", { ascending: true });
 
     if (error) {
-      console.error("Error fetching barbers:", error);
-      throw error;
+      console.error("Error fetching barbers:", error.message);
+      throw new Error(`Failed to fetch barbers: ${error.message}`);
     }
 
-    console.log("Barbers fetched successfully:", data);
-    return data || [];
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Filter to only include actual barbers (rol = 'barbero') who aren't deleted
+    const validBarbers = data.filter(barber => {
+      const usuario = barber.usuario as any;
+      return usuario && 
+             usuario.rol === 'barbero' && 
+             usuario.deleted_at === null;
+    });
+
+    return validBarbers;
   } catch (error) {
     console.error("Exception in getBarberos:", error);
     throw error;

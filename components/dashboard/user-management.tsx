@@ -7,6 +7,17 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { UserPlus, Loader2, KeyRound, Users, Trash2, X, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
@@ -59,6 +70,7 @@ export function UserManagement() {
           barbero:barbero(especialidad)
         `)
         .in('rol', ['admin', 'owner', 'barbero'])
+        .is('deleted_at', null) // Filter out soft-deleted users
         .order("nombre", { ascending: true });
 
       if (error) {
@@ -72,8 +84,8 @@ export function UserManagement() {
         id: user.id,
         nombre: user.nombre,
         apellido: user.apellido,
-        especialidad: Array.isArray(user.barbero) && user.barbero.length > 0 
-          ? user.barbero[0].especialidad 
+        especialidad: Array.isArray(user.barbero) && user.barbero.length > 0
+          ? user.barbero[0].especialidad
           : null,
         usuario: {
           correo: user.correo,
@@ -93,7 +105,7 @@ export function UserManagement() {
     setResettingPassword(barberId);
     try {
       const supabase = createClient();
-      
+
       // Call edge function to reset password
       const { data, error } = await supabase.functions.invoke('reset-barber-password', {
         body: {
@@ -126,44 +138,28 @@ export function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    const confirmed = window.confirm(`¿Estás seguro que deseas eliminar a ${userName}?`);
-    
-    if (!confirmed) return;
-
+  const handleDeleteUser = async (userId: string) => {
     setDeletingUser(userId);
     try {
       const supabase = createClient();
 
-      // Delete from barbero table first (if exists)
-      const { error: barberoError } = await supabase
-        .from("barbero")
-        .delete()
-        .eq("id", userId);
-
-      if (barberoError && barberoError.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error("Error deleting barbero:", barberoError);
-        toast.error("Error al eliminar perfil de barbero");
-        return;
-      }
-
-      // Delete from usuario table
-      const { error: usuarioError } = await supabase
+      // Soft delete: Update deleted_at timestamp instead of deleting
+      const { error: updateError } = await supabase
         .from("usuario")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", userId);
 
-      if (usuarioError) {
-        console.error("Error deleting usuario:", usuarioError);
-        toast.error("Error al eliminar usuario");
+      if (updateError) {
+        console.error("Error soft deleting usuario:", updateError);
+        toast.error("Error al desactivar usuario");
         return;
       }
 
-      toast.success("Usuario eliminado exitosamente");
+      toast.success("Usuario desactivado exitosamente");
       fetchBarbers(); // Refresh list
     } catch (error) {
-      console.error("Error deleting user:", error);
-      toast.error("Error al eliminar usuario");
+      console.error("Error soft deleting user:", error);
+      toast.error("Error al desactivar usuario");
     } finally {
       setDeletingUser(null);
     }
@@ -328,11 +324,11 @@ export function UserManagement() {
       } else {
         toast.success(`Usuario creado. Se envió un correo a ${formData.email} con la contraseña`);
       }
-      
+
       // Refresh barber list and close form
       fetchBarbers();
       setShowCreateForm(false);
-      
+
       // Reset form
       setFormData({
         email: "",
@@ -423,18 +419,38 @@ export function UserManagement() {
                         <KeyRound className="h-4 w-4" />
                       )}
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteUser(barber.id, `${barber.nombre} ${barber.apellido}`)}
-                      disabled={deletingUser === barber.id}
-                    >
-                      {deletingUser === barber.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      )}
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={deletingUser === barber.id}
+                        >
+                          {deletingUser === barber.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Estás seguro que deseas desactivar a {barber.nombre} {barber.apellido}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            El usuario y sus datos serán preservados pero no aparecerá en el sistema.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteUser(barber.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Desactivar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </ButtonGroup>
                 </div>
               ))}

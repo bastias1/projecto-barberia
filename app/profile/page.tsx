@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { AddressManager } from "@/components/profile/address-manager";
 import { PasswordForm } from "@/components/profile/password-form";
-import { Loader2, User, MapPin, Lock, ArrowLeft } from "lucide-react";
+import { OrderHistory } from "@/components/profile/order-history";
+import { Loader2, User, MapPin, Lock, ArrowLeft, Package } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfilePage() {
@@ -49,10 +50,14 @@ export default function ProfilePage() {
             <h1 className="text-3xl font-bold mb-8">Mi Perfil</h1>
 
             <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-8">
+                <TabsList className="grid w-full grid-cols-4 mb-8">
                     <TabsTrigger value="details" className="flex items-center gap-2">
                         <User className="h-4 w-4" />
                         <span className="hidden sm:inline">Mis Datos</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="orders" className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        <span className="hidden sm:inline">Mis Pedidos</span>
                     </TabsTrigger>
                     <TabsTrigger value="addresses" className="flex items-center gap-2">
                         <MapPin className="h-4 w-4" />
@@ -66,6 +71,10 @@ export default function ProfilePage() {
 
                 <TabsContent value="details">
                     <ProfileForm />
+                </TabsContent>
+
+                <TabsContent value="orders">
+                    <OrderHistory />
                 </TabsContent>
 
                 <TabsContent value="addresses">

@@ -13,14 +13,18 @@ export async function POST(request: Request) {
 
         // 1. Get User
         const { data: { user } } = await supabase.auth.getUser();
+        console.log('Checkout API - User:', user?.id);
+
         if (!user) {
+            console.log('Checkout API - Unauthorized: No user found');
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         // 2. Calculate Total
         const total = body.items.reduce((sum: number, item: any) => sum + (item.unit_price * item.quantity), 0);
 
-        // 3. Create Sale in DB (Pending)
+        // 3. Create Sale in DB
+        console.log('Checkout API - Attempting to insert sale for user:', user.id);
         const { data: venta, error: ventaError } = await supabase
             .from('venta')
             .insert({
@@ -35,9 +39,10 @@ export async function POST(request: Request) {
             .single();
 
         if (ventaError) {
-            console.error('Error creating sale:', ventaError);
-            return Response.json({ error: 'Error creating sale record' }, { status: 500 });
+            console.error('Checkout API - Error creating sale:', JSON.stringify(ventaError, null, 2));
+            return Response.json({ error: 'Error creating sale record', details: ventaError }, { status: 500 });
         }
+        console.log('Checkout API - Sale created successfully:', venta.id);
 
         // 4. Create Sale Details
         const saleDetails = body.items.map((item: any) => ({
