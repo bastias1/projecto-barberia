@@ -75,6 +75,11 @@ export async function getProductById(id: number): Promise<Product | null> {
         return null;
     }
 
+    // Return null if product is archived (for public-facing pages)
+    if (data && data.activo === false) {
+        return null;
+    }
+
     return data;
 }
 
