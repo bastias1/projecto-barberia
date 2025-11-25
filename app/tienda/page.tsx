@@ -1,4 +1,4 @@
-import { getProducts } from "@/lib/services/product-service";
+import { getActiveProducts } from "@/lib/services/product-service";
 import { StoreClient } from "./store-client";
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +10,8 @@ export default async function StorePage({
 }) {
   const params = await searchParams;
   const query = params.q;
-  const products = await getProducts(query);
+  // Only fetch active products for the public store
+  const products = await getActiveProducts(query);
 
   return <StoreClient products={products} />;
 }
