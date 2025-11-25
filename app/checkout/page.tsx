@@ -135,8 +135,14 @@ export default function CheckoutPage() {
     }
   };
 
+  // Redirect to cart if empty
+  useEffect(() => {
+    if (cart.length === 0) {
+      router.push('/cart');
+    }
+  }, [cart.length, router]);
+
   if (cart.length === 0) {
-    router.push('/cart');
     return null;
   }
 
