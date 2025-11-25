@@ -70,12 +70,12 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
             <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
               <Calendar className="h-4 w-4" />
               <span className="font-medium">
-                {format(new Date(appointment.fecha), "EEEE, dd 'de' MMMM", { locale: es })}
+                {format(new Date(appointment.fecha + 'T00:00:00'), "EEEE, dd 'de' MMMM", { locale: es })}
               </span>
             </div>
             <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
               <Clock className="h-4 w-4" />
-              <span>{appointment.hora}</span>
+              <span>{appointment.hora.substring(0, 5)}</span>
             </div>
           </div>
         </div>

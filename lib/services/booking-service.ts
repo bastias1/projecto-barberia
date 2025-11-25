@@ -41,8 +41,12 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
 
     const guestClienteId = newGuest.id;
 
-    // Format date and time for PostgreSQL
-    const fecha = bookingData.date.toISOString().split('T')[0];
+    // Format date for PostgreSQL using local date (not UTC)
+    // This prevents timezone shifting the date by a day
+    const year = bookingData.date.getFullYear();
+    const month = String(bookingData.date.getMonth() + 1).padStart(2, '0');
+    const day = String(bookingData.date.getDate()).padStart(2, '0');
+    const fecha = `${year}-${month}-${day}`;
     const hora = bookingData.time;
 
     // Create the reservation - el webhook se dispara automáticamente
@@ -82,7 +86,11 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
 export async function getAvailableTimeSlots(date: Date, barberId?: string): Promise<string[]> {
   const supabase = createClient();
   
-  const fecha = date.toISOString().split('T')[0];
+  // Format date using local date (not UTC) to prevent timezone issues
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const fecha = `${year}-${month}-${day}`;
   const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
 
   // If barber is specified, check if date is blocked
@@ -184,7 +192,11 @@ export async function getAvailableTimeSlots(date: Date, barberId?: string): Prom
 export async function isTimeSlotAvailable(date: Date, time: string): Promise<boolean> {
   const supabase = createClient();
   
-  const fecha = date.toISOString().split('T')[0];
+  // Format date using local date (not UTC) to prevent timezone issues
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const fecha = `${year}-${month}-${day}`;
 
   const { data, error } = await supabase
     .from("reserva")
