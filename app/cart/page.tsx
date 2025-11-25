@@ -1,11 +1,11 @@
-import { getProducts } from "@/lib/services/product-service";
+import { getActiveProducts } from "@/lib/services/product-service";
 import { CartClient } from "./cart-client";
 
 export const dynamic = 'force-dynamic';
 
 export default async function CartPage() {
-    // Fetch products for the carousel (upsell)
-    const products = await getProducts();
+    // Fetch only active products for the carousel (upsell)
+    const products = await getActiveProducts();
 
     return <CartClient products={products} />;
 }
