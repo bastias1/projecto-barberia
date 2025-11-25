@@ -1,14 +1,14 @@
 import { createClient } from "@/utils/supabase/client";
 import { Database } from "../database.types";
 
-export type Service = Database["public"]["Tables"]["servicio"]["Row"];
+export type Service = Database["public"]["Tables"]["servicio"]["Row"] & {
+  activo?: boolean;
+};
 
-// Fetch all services
+// Fetch all services (for dashboard - includes archived)
 export async function getServices(): Promise<Service[]> {
   try {
     const supabase = createClient();
-
-    console.log("Fetching services from Supabase...");
 
     const { data: servicio, error } = await supabase
       .from("servicio")
@@ -20,7 +20,6 @@ export async function getServices(): Promise<Service[]> {
       throw error;
     }
 
-    console.log("Services fetched successfully:", servicio);
     return servicio || [];
   } catch (error) {
     console.error("Exception in getServices:", error);
@@ -28,12 +27,33 @@ export async function getServices(): Promise<Service[]> {
   }
 }
 
-// Fetch services for a specific barber
-export async function getServicesByBarber(barberoId: string): Promise<Service[]> {
+// Fetch only active services (for public booking page)
+export async function getActiveServices(): Promise<Service[]> {
   try {
     const supabase = createClient();
 
-    console.log("Fetching services for barber:", barberoId);
+    const { data: servicio, error } = await supabase
+      .from("servicio")
+      .select("*")
+      .neq("activo", false) // Include services where activo is true or null (for backwards compatibility)
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching active services:", error);
+      throw error;
+    }
+
+    return servicio || [];
+  } catch (error) {
+    console.error("Exception in getActiveServices:", error);
+    throw error;
+  }
+}
+
+// Fetch services for a specific barber (only active services for booking)
+export async function getServicesByBarber(barberoId: string): Promise<Service[]> {
+  try {
+    const supabase = createClient();
 
     // Get service IDs for this barber
     const { data: barberServices, error: barberError } = await supabase
@@ -49,15 +69,15 @@ export async function getServicesByBarber(barberoId: string): Promise<Service[]>
     const serviceIds = barberServices?.map(bs => bs.servicio) || [];
 
     if (serviceIds.length === 0) {
-      console.log("No services found for this barber");
       return [];
     }
 
-    // Fetch the actual service details
+    // Fetch the actual service details (only active services)
     const { data: servicio, error } = await supabase
       .from("servicio")
       .select("*")
       .in("id", serviceIds)
+      .neq("activo", false) // Only active services
       .order("id", { ascending: true });
 
     if (error) {
@@ -65,7 +85,6 @@ export async function getServicesByBarber(barberoId: string): Promise<Service[]>
       throw error;
     }
 
-    console.log("Services fetched for barber:", servicio);
     return servicio || [];
   } catch (error) {
     console.error("Exception in getServicesByBarber:", error);
@@ -109,7 +128,7 @@ export async function createService(service: { nombre: string; precio: number; d
   return data;
 }
 
-// Delete a service
+// Delete a service (will fail if has reservations)
 export async function deleteService(id: number): Promise<boolean> {
   const supabase = createClient();
 
@@ -119,11 +138,55 @@ export async function deleteService(id: number): Promise<boolean> {
     .eq("id", id);
 
   if (error) {
-    console.error("Error deleting service:", error);
-    throw error;
+    console.error("Error deleting service:", error.message, error.code);
+    
+    // Check for foreign key constraint violation
+    if (error.code === '23503') {
+      throw new Error('No se puede eliminar el servicio porque tiene reservas asociadas');
+    }
+    
+    throw new Error(error.message || 'Error al eliminar el servicio');
   }
 
   return true;
+}
+
+// Archive service (soft delete - keeps reservation history)
+export async function archiveService(id: number): Promise<Service | null> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("servicio")
+    .update({ activo: false })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error archiving service:", error.message);
+    throw new Error('Error al archivar el servicio');
+  }
+
+  return data;
+}
+
+// Restore archived service
+export async function restoreService(id: number): Promise<Service | null> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("servicio")
+    .update({ activo: true })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error restoring service:", error.message);
+    throw new Error('Error al restaurar el servicio');
+  }
+
+  return data;
 }
 
 // Toggle a service for a barber (add or remove from barbero_servicio)
