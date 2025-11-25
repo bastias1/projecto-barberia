@@ -96,8 +96,8 @@ CREATE TABLE public.resena (
   CONSTRAINT resena_pkey PRIMARY KEY (id),
   CONSTRAINT resena_servicio_fkey FOREIGN KEY (servicio) REFERENCES public.servicio(id),
   CONSTRAINT resena_barbero_fkey FOREIGN KEY (barbero) REFERENCES public.barbero(id),
-  CONSTRAINT resena_cliente_fkey FOREIGN KEY (cliente) REFERENCES public.usuario(id),
-  CONSTRAINT resena_producto_fkey FOREIGN KEY (producto) REFERENCES public.productos(id)
+  CONSTRAINT resena_producto_fkey FOREIGN KEY (producto) REFERENCES public.productos(id),
+  CONSTRAINT resena_cliente_fkey FOREIGN KEY (cliente) REFERENCES public.usuario(id)
 );
 CREATE TABLE public.reserva (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -143,7 +143,7 @@ CREATE TABLE public.venta (
   hora time with time zone NOT NULL DEFAULT now(),
   estado text,
   total numeric NOT NULL,
-  usuario uuid NOT NULL,
+  usuario uuid,
   direccion_envio text,
   tipo_entrega text,
   estado_pago text,

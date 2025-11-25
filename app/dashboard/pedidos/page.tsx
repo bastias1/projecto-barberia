@@ -88,6 +88,13 @@ export default async function PedidosPage({
         console.error("Error fetching orders:", JSON.stringify(error, null, 2));
     }
 
+    // Get total sales from ALL orders (not filtered)
+    const { data: allSalesData } = await supabase
+        .from("venta")
+        .select("total");
+    
+    const totalSales = allSalesData?.reduce((acc, sale) => acc + (sale.total || 0), 0) || 0;
+
     const totalPages = count ? Math.ceil(count / ITEMS_PER_PAGE) : 0;
 
     return (
@@ -98,6 +105,7 @@ export default async function PedidosPage({
                 totalPages={totalPages}
                 currentPage={page}
                 totalOrders={count || 0}
+                totalSales={totalSales}
             />
         </div>
     );

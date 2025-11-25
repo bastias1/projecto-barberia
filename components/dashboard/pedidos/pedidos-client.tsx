@@ -27,12 +27,20 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Package, Truck, ShoppingBag, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, Package, Truck, ShoppingBag, Search, ChevronLeft, ChevronRight, MoreHorizontal, Check, X, Clock, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { updateOrderStatus } from "@/app/dashboard/actions";
+import { toast } from "sonner";
 
 interface Producto {
     nombre: string;
@@ -71,9 +79,10 @@ interface PedidosClientProps {
     totalPages: number;
     currentPage: number;
     totalOrders: number;
+    totalSales: number;
 }
 
-export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrders }: PedidosClientProps) {
+export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrders, totalSales }: PedidosClientProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -81,10 +90,17 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
     // State for filters
     const [orders, setOrders] = useState<Venta[]>(initialOrders);
     const [selectedOrder, setSelectedOrder] = useState<Venta | null>(null);
+    const [isUpdating, setIsUpdating] = useState<number | null>(null);
 
     // Update orders when initialOrders changes (server re-render)
+    // Use JSON.stringify to do a deep comparison and avoid unnecessary updates during status changes
     useEffect(() => {
-        setOrders(initialOrders);
+        const initialIds = initialOrders.map(o => o.id).join(',');
+        const currentIds = orders.map(o => o.id).join(',');
+        // Only update if the orders list itself changed (pagination, filters), not just status updates
+        if (initialIds !== currentIds) {
+            setOrders(initialOrders);
+        }
     }, [initialOrders]);
 
     // Filter handlers
@@ -111,7 +127,7 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
         router.push(pathname + "?" + params.toString());
     }, 300);
 
-    const handleStatusChange = (value: string) => {
+    const handleFilterStatusChange = (value: string) => {
         router.push(pathname + "?" + createQueryString("status", value));
     };
 
@@ -124,6 +140,23 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
             const params = new URLSearchParams(searchParams.toString());
             params.set("page", newPage.toString());
             router.push(pathname + "?" + params.toString());
+        }
+    };
+
+    const handleOrderStatusChange = async (orderId: number, newStatus: string) => {
+        setIsUpdating(orderId);
+        try {
+            await updateOrderStatus(orderId, newStatus);
+            // Update local state
+            setOrders(prev => prev.map(order => 
+                order.id === orderId ? { ...order, estado: newStatus } : order
+            ));
+            toast.success(`Pedido #${orderId} actualizado a ${newStatus === 'completed' ? 'Completado' : newStatus === 'cancelled' ? 'Cancelado' : 'Pendiente'}`);
+        } catch (error) {
+            toast.error("Error al actualizar el estado del pedido");
+            console.error("Error updating order status:", error);
+        } finally {
+            setIsUpdating(null);
         }
     };
 
@@ -154,6 +187,20 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
         );
     };
 
+    const getPaymentStatusBadge = (status: string) => {
+        switch (status) {
+            case "approved":
+                return <Badge className="bg-green-500">Pagado</Badge>;
+            case "pending":
+                return <Badge variant="outline" className="text-yellow-600 border-yellow-600">Pago Pendiente</Badge>;
+            case "rejected":
+            case "cancelled":
+                return <Badge variant="destructive">Pago Rechazado</Badge>;
+            default:
+                return <Badge variant="secondary">{status}</Badge>;
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Stats */}
@@ -168,11 +215,11 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Ventas Totales (Vista Actual)</CardTitle>
+                        <CardTitle className="text-lg font-medium">Ventas Totales</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold">
-                            ${orders.reduce((acc, order) => acc + order.total, 0).toLocaleString()}
+                            ${totalSales.toLocaleString()}
                         </div>
                     </CardContent>
                 </Card>
@@ -191,7 +238,7 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                 </div>
                 <Select
                     defaultValue={searchParams.get("status")?.toString() || "all"}
-                    onValueChange={handleStatusChange}
+                    onValueChange={handleFilterStatusChange}
                 >
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Estado" />
@@ -228,6 +275,7 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                 <TableHead>Cliente</TableHead>
                                 <TableHead>Fecha</TableHead>
                                 <TableHead>Entrega</TableHead>
+                                <TableHead>Pago</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Total</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
@@ -236,7 +284,7 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                         <TableBody>
                             {orders.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                         No hay pedidos registrados
                                     </TableCell>
                                 </TableRow>
@@ -261,22 +309,24 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                             </div>
                                         </TableCell>
                                         <TableCell>{getDeliveryBadge(order.tipo_entrega)}</TableCell>
+                                        <TableCell>{getPaymentStatusBadge(order.estado_pago)}</TableCell>
                                         <TableCell>{getStatusBadge(order.estado)}</TableCell>
                                         <TableCell className="font-bold">
                                             ${order.total.toLocaleString()}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Dialog>
-                                                <DialogTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => setSelectedOrder(order)}
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent className="max-w-3xl">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => setSelectedOrder(order)}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="max-w-3xl">
                                                     <DialogHeader>
                                                         <DialogTitle>Detalles del Pedido #{order.id}</DialogTitle>
                                                     </DialogHeader>
@@ -372,6 +422,46 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                                     </div>
                                                 </DialogContent>
                                             </Dialog>
+                                                
+                                                {/* Status Change Dropdown */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" disabled={isUpdating === order.id}>
+                                                            {isUpdating === order.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            )}
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleOrderStatusChange(order.id, 'completed')}
+                                                            disabled={order.estado === 'completed'}
+                                                            className="text-green-600"
+                                                        >
+                                                            <Check className="h-4 w-4 mr-2" />
+                                                            Marcar Completado
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleOrderStatusChange(order.id, 'pending')}
+                                                            disabled={order.estado === 'pending'}
+                                                            className="text-yellow-600"
+                                                        >
+                                                            <Clock className="h-4 w-4 mr-2" />
+                                                            Marcar Pendiente
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleOrderStatusChange(order.id, 'cancelled')}
+                                                            disabled={order.estado === 'cancelled'}
+                                                            className="text-red-600"
+                                                        >
+                                                            <X className="h-4 w-4 mr-2" />
+                                                            Marcar Cancelado
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))

@@ -92,7 +92,9 @@ export async function POST(request: Request) {
                         .from('venta')
                         .update({
                             estado_pago: estado_pago,
-                            estado: paymentData.status === 'approved' ? 'completed' : 'pending'
+                            // Keep estado as 'pending' even when payment is approved
+                            // This allows manual status management from the dashboard
+                            estado: 'pending'
                         })
                         .eq('id', paymentData.external_reference);
 
