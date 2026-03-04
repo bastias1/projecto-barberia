@@ -12,6 +12,7 @@ import { ProgressSteps } from "@/components/booking/progress-steps";
 import { getBarberos, Barbero } from "@/lib/services/barber-service";
 import { getServicesByBarber, Service } from "@/lib/services/service-service";
 import { createBooking, getAvailableTimeSlots } from "@/lib/services/booking-service";
+import { BlockedClientModal } from "@/components/booking/blocked-client-modal";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ export default function AgendarPage() {
   const [loadingServices, setLoadingServices] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false);
   const [selectedBarber, setSelectedBarber] = useState<Barbero | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>();
@@ -127,6 +129,8 @@ export default function AgendarPage() {
 
       if (result.success) {
         setStep(5);
+      } else if (result.error === 'CLIENT_BLOCKED') {
+        setBlockedModalOpen(true);
       } else {
         toast.error(result.error || "Error al crear la reserva");
       }
@@ -268,6 +272,15 @@ export default function AgendarPage() {
           />
         )}
       </div>
+
+      {/* Blocked client modal */}
+      <BlockedClientModal
+        open={blockedModalOpen}
+        onOpenChange={setBlockedModalOpen}
+        barberNombre={selectedBarber ? `${selectedBarber.nombre}` : undefined}
+        barberCorreo={selectedBarber?.correo}
+        barberTelefono={selectedBarber?.telefono}
+      />
 
       {/* Submitting Overlay */}
       {submitting && (

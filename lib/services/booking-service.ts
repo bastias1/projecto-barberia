@@ -22,6 +22,24 @@ export async function createBooking(bookingData: BookingData): Promise<{ success
   const supabase = createClient();
 
   try {
+    // Check if client is blocked by email OR phone
+    const email = bookingData.customerInfo.email.toLowerCase();
+    const phone = bookingData.customerInfo.phone?.trim() || null;
+
+    const { data: blocked } = await supabase
+      .from('cliente_bloqueado')
+      .select('id')
+      .or(
+        phone
+          ? `correo.eq.${email},telefono.eq.${phone}`
+          : `correo.eq.${email}`
+      )
+      .limit(1);
+
+    if (blocked && blocked.length > 0) {
+      return { success: false, error: 'CLIENT_BLOCKED' };
+    }
+
     // Create a new guest user for each booking
     const { data: newGuest, error: createGuestError } = await supabase
       .from("guest_usuario")

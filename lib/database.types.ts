@@ -108,6 +108,32 @@ export interface Database {
           rol?: string;
         };
       };
+      cliente_bloqueado: {
+        Row: {
+          id: string;
+          correo: string;
+          telefono: string | null;
+          razon: string | null;
+          bloqueado_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          correo: string;
+          telefono?: string | null;
+          razon?: string | null;
+          bloqueado_por?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          correo?: string;
+          telefono?: string | null;
+          razon?: string | null;
+          bloqueado_por?: string | null;
+          created_at?: string;
+        };
+      };
       guest_usuario: {
         Row: {
           id: string;

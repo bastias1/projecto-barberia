@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ClientStat } from "@/lib/services/dashboard-service";
-import { fetchClientBookings, ClientBookingDetail } from "@/app/dashboard/clientes/actions";
+import { fetchClientBookings, toggleClientBlock, ClientBookingDetail } from "@/app/dashboard/clientes/actions";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Mail, Phone, Loader2, Ban, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -19,6 +22,7 @@ interface ClientDetailDialogProps {
   barberId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onToggleBlock?: (correo: string, bloqueado: boolean, razon_bloqueo?: string | null) => void;
 }
 
 function getInitials(nombre: string, apellido: string) {
@@ -113,9 +117,13 @@ export function ClientDetailDialog({
   barberId,
   open,
   onOpenChange,
+  onToggleBlock,
 }: ClientDetailDialogProps) {
   const [bookings, setBookings] = useState<ClientBookingDetail[]>([]);
   const [loading, setLoading] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [showBlockForm, setShowBlockForm] = useState(false);
+  const [razon, setRazon] = useState("");
 
   useEffect(() => {
     if (open && client) {
@@ -125,8 +133,38 @@ export function ClientDetailDialog({
         .finally(() => setLoading(false));
     } else {
       setBookings([]);
+      setShowBlockForm(false);
+      setRazon("");
     }
   }, [open, client, barberId]);
+
+  async function handleBlock() {
+    if (!client) return;
+    setBlocking(true);
+    const result = await toggleClientBlock(client.correo, true, razon || undefined, barberId, client.telefono);
+    setBlocking(false);
+    if (result.success) {
+      toast.success(`${client.nombre} ha sido bloqueado/a`);
+      setShowBlockForm(false);
+      onToggleBlock?.(client.correo, true, razon || null);
+      setRazon("");
+    } else {
+      toast.error("Error al bloquear cliente");
+    }
+  }
+
+  async function handleUnblock() {
+    if (!client) return;
+    setBlocking(true);
+    const result = await toggleClientBlock(client.correo, false);
+    setBlocking(false);
+    if (result.success) {
+      toast.success(`${client.nombre} ha sido desbloqueado/a`);
+      onToggleBlock?.(client.correo, false, null);
+    } else {
+      toast.error("Error al desbloquear cliente");
+    }
+  }
 
   const todayStr = getTodayStr();
   const upcoming = bookings
@@ -171,10 +209,77 @@ export function ClientDetailDialog({
                 {client.telefono || "—"}
               </p>
             </div>
-            <div className="flex-shrink-0">
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
               <AttendanceBadge percentage={client.attendance_percentage} />
+              {client.bloqueado ? (
+                <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 gap-1">
+                  <Ban className="h-3 w-3" /> Bloqueado
+                </Badge>
+              ) : null}
             </div>
           </div>
+
+          {/* Block / Unblock controls */}
+          {client.bloqueado ? (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  Este cliente no puede hacer reservas nuevas.
+                </p>
+                {client.razon_bloqueo && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    <span className="font-medium">Motivo:</span> {client.razon_bloqueo}
+                  </p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20"
+                onClick={handleUnblock}
+                disabled={blocking}
+              >
+                {blocking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                Desbloquear
+              </Button>
+            </div>
+          ) : showBlockForm ? (
+            <div className="flex flex-col gap-2 mt-2 pt-2 border-t">
+              <Input
+                placeholder="Motivo (opcional)"
+                value={razon}
+                onChange={(e) => setRazon(e.target.value)}
+                className="text-sm h-8"
+              />
+              <div className="flex gap-2 justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setShowBlockForm(false)} disabled={blocking}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleBlock}
+                  disabled={blocking}
+                  className="gap-1.5"
+                >
+                  {blocking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                  Confirmar bloqueo
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-end mt-2 pt-2 border-t">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700"
+                onClick={() => setShowBlockForm(true)}
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Bloquear cliente
+              </Button>
+            </div>
+          )}
         </DialogHeader>
 
         {/* Stats row */}

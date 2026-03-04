@@ -45,9 +45,29 @@ All database logic lives in `lib/services/`:
 - `service-service.ts` — haircut services (servicio table), barber↔service linking
 
 ### Database Schema (manual — `lib/database.types.ts`)
-Key tables: `usuario`, `barbero`, `servicio`, `barbero_servicio`, `reserva`, `guest_usuario`, `productos`, `venta`, `detalle_venta`, `horario_barbero`, `dia_bloqueado`.
 
 `database.types.ts` is **manually maintained** — update it when the DB schema changes (not auto-generated from Supabase CLI).
+
+#### Tables & Columns
+
+| Table | Columns | Notes |
+|-------|---------|-------|
+| `usuario` | `id` (uuid, PK, FK→auth.users), `nombre`, `apellido`, `correo`, `telefono`, `rol` ('barbero'/'cliente'/'owner'), `profile_image`, `rut`, `deleted_at` | Soft-delete via `deleted_at` |
+| `barbero` | `id` (uuid, PK, FK→usuario), `especialidad`, `nombre`, `apellido` | 1:1 with usuario |
+| `servicio` | `id` (bigint, PK), `nombre`, `descripcion`, `precio` (numeric), `duracion` (minutes), `activo` (bool) | Soft-delete via `activo` |
+| `barbero_servicio` | `id` (serial, PK), `created_at`, `barbero` (FK→barbero), `servicio` (FK→servicio) | Many-to-many link |
+| `reserva` | `id` (bigint, PK), `fecha` (date), `hora` (timetz), `estado` ('pendiente'/'completada'/'cancelada'/'ausente'), `barbero` (FK), `cliente` (FK→usuario, nullable), `servicio` (FK), `guest_cliente` (FK→guest_usuario, nullable), `notas`, `created_at` | Either `cliente` OR `guest_cliente` is set |
+| `guest_usuario` | `id` (uuid, PK, default random), `nombre`, `apellido`, `correo`, `telefono`, `created_at` | Unregistered booking clients |
+| `productos` | `id` (bigint, PK), `nombre`, `descripcion`, `precio`, `imagen_url`, `categoria`, `stock` (int), `created_at`, `rating`, `tag`, `activo` | Soft-delete via `activo` |
+| `venta` | `id` (bigint, PK), `fecha` (date), `hora` (timetz), `estado`, `total`, `usuario` (FK→usuario, nullable), `direccion_envio`, `tipo_entrega`, `estado_pago` | Payment via MercadoPago |
+| `detalle_venta` | `id` (bigint, PK), `cantidad`, `subtotal`, `producto` (FK→productos), `venta_id` (FK→venta) | Line items |
+| `horario_barbero` | `id` (bigint, PK), `barbero` (FK), `dia_semana` (0-6), `hora_inicio` (time), `hora_fin` (time), `activo`, `created_at` | Weekly schedule |
+| `dia_bloqueado` | `id` (bigint, PK), `barbero` (FK), `fecha` (date), `motivo`, `created_at` | Blocked dates |
+| `cliente_bloqueado` | `id` (uuid, PK), `correo` (unique), `telefono`, `razon`, `bloqueado_por` (FK→barbero), `created_at` | Blocked clients; booking checks email OR phone |
+| `direccion_usuario` | `id` (uuid, PK), `usuario_id` (FK→usuario), `nombre_etiqueta`, `calle`, `ciudad`, `comuna`, `telefono`, `created_at`, `region`, `depto` | Shipping addresses |
+| `resena` | `id` (bigint, PK), `comentario`, `calificacion` (numeric), `servicio` (FK), `barbero` (FK), `producto` (FK), `cliente` (FK→usuario), `guest_name` | Reviews |
+
+All tables have **RLS enabled**.
 
 ### Role-Based Routing
 - `rol = 'barbero'` → `/dashboard` (full barber management UI)

@@ -338,6 +338,8 @@ export interface ClientStat {
   pendientes: number;
   ultima_visita: string | null;
   attendance_percentage: number | null;
+  bloqueado: boolean;
+  razon_bloqueo: string | null;
 }
 
 /**
@@ -357,6 +359,15 @@ export async function getClientsWithStats(barberId: string): Promise<ClientStat[
     .not('guest_cliente', 'is', null);
 
   if (error || !data) return [];
+
+  // Fetch all blocked emails, phones and reasons in one query
+  const { data: blockedList } = await supabase
+    .from('cliente_bloqueado')
+    .select('correo, telefono, razon');
+  const blockedEmails = new Set((blockedList ?? []).map((b) => b.correo.toLowerCase()));
+  const blockedPhones = new Set((blockedList ?? []).filter((b) => b.telefono).map((b) => b.telefono!));
+  const blockedReasonByEmail = new Map((blockedList ?? []).map((b) => [b.correo.toLowerCase(), b.razon ?? null]));
+  const blockedReasonByPhone = new Map((blockedList ?? []).filter((b) => b.telefono).map((b) => [b.telefono!, b.razon ?? null]));
 
   // Group by correo to unify same person across multiple bookings
   const clientMap = new Map<string, ClientStat>();
@@ -379,6 +390,8 @@ export async function getClientsWithStats(barberId: string): Promise<ClientStat[
         pendientes: 0,
         ultima_visita: null,
         attendance_percentage: null,
+        bloqueado: blockedEmails.has(guest.correo.toLowerCase()) || (guest.telefono ? blockedPhones.has(guest.telefono) : false),
+        razon_bloqueo: blockedReasonByEmail.get(guest.correo.toLowerCase()) ?? (guest.telefono ? blockedReasonByPhone.get(guest.telefono) ?? null : null),
       });
     }
 
@@ -410,4 +423,48 @@ export async function getClientsWithStats(barberId: string): Promise<ClientStat[
   }
 
   return Array.from(clientMap.values()).sort((a, b) => b.total_reservas - a.total_reservas);
+}
+
+/**
+ * Block a client by email
+ */
+export async function blockClient(
+  correo: string,
+  razon: string | null,
+  barberoId: string,
+  telefono?: string | null
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('cliente_bloqueado')
+    .upsert({ correo: correo.toLowerCase(), telefono: telefono?.trim() || null, razon, bloqueado_por: barberoId });
+
+  if (error) {
+    console.error('Error blocking client:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Unblock a client by email
+ */
+export async function unblockClient(
+  correo: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('cliente_bloqueado')
+    .delete()
+    .eq('correo', correo.toLowerCase());
+
+  if (error) {
+    console.error('Error unblocking client:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }

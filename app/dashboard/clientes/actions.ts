@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from "@/utils/supabase/server";
+import { blockClient, unblockClient } from "@/lib/services/dashboard-service";
 
 export interface ClientBookingDetail {
   id: number;
@@ -41,4 +42,17 @@ export async function fetchClientBookings(
     estado: b.estado,
     servicio_nombre: (b.servicio as any)?.nombre ?? null,
   }));
+}
+
+export async function toggleClientBlock(
+  correo: string,
+  block: boolean,
+  razon?: string,
+  barberoId?: string,
+  telefono?: string | null
+): Promise<{ success: boolean; error?: string }> {
+  if (block) {
+    return blockClient(correo, razon ?? null, barberoId ?? '', telefono);
+  }
+  return unblockClient(correo);
 }

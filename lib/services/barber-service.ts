@@ -1,7 +1,10 @@
 import { createClient } from "@/utils/supabase/client";
 import { Database } from "../database.types";
 
-export type Barbero = Database["public"]["Tables"]["barbero"]["Row"];
+export type Barbero = Database["public"]["Tables"]["barbero"]["Row"] & {
+  correo?: string | null;
+  telefono?: string | null;
+};
 
 export interface BarberoWithServices extends Barbero {
   servicios?: number[];
@@ -22,7 +25,9 @@ export async function getBarberos(): Promise<Barbero[]> {
           id,
           profile_image,
           rol,
-          deleted_at
+          deleted_at,
+          correo,
+          telefono
         )
       `)
       .order("nombre", { ascending: true });
@@ -37,12 +42,22 @@ export async function getBarberos(): Promise<Barbero[]> {
     }
 
     // Filter to only include actual barbers (rol = 'barbero') who aren't deleted
-    const validBarbers = data.filter(barber => {
-      const usuario = barber.usuario as any;
-      return usuario && 
-             usuario.rol === 'barbero' && 
-             usuario.deleted_at === null;
-    });
+    // and expose correo/telefono from the joined usuario record
+    const validBarbers = data
+      .filter(barber => {
+        const usuario = barber.usuario as any;
+        return usuario &&
+               usuario.rol === 'barbero' &&
+               usuario.deleted_at === null;
+      })
+      .map(barber => {
+        const usuario = barber.usuario as any;
+        return {
+          ...barber,
+          correo: usuario?.correo ?? null,
+          telefono: usuario?.telefono ?? null,
+        };
+      });
 
     return validBarbers;
   } catch (error) {

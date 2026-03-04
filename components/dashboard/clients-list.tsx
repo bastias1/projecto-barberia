@@ -8,7 +8,7 @@ import { ClientStat, MonthlyAttendanceStat } from "@/lib/services/dashboard-serv
 import { ClientDetailDialog } from "@/components/dashboard/client-detail-dialog";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { Search, User, Users } from "lucide-react";
+import { Ban, Search, Users } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -17,6 +17,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
+  YAxis,
 } from "recharts";
 
 interface ClientsListProps {
@@ -54,6 +55,21 @@ function AttendanceBadge({ percentage }: { percentage: number | null }) {
   );
 }
 
+function AttendanceTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-popover text-popover-foreground shadow-sm p-2 text-xs">
+      <p className="text-muted-foreground mb-1.5">{label}</p>
+      {payload.map((entry) => (
+        <div key={entry.dataKey} className="flex items-center gap-1.5">
+          <span style={{ color: entry.color }}>●</span>
+          <span>{entry.value}%</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function getInitials(nombre: string, apellido: string) {
   return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase();
 }
@@ -67,10 +83,20 @@ function formatLastVisit(fecha: string | null) {
   }
 }
 
-export function ClientsList({ clients, monthlyStats, barberId }: ClientsListProps) {
+export function ClientsList({ clients: initialClients, monthlyStats, barberId }: ClientsListProps) {
+  const [clients, setClients] = useState<ClientStat[]>(initialClients);
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClientStat | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  function handleToggleBlock(correo: string, bloqueado: boolean, razon_bloqueo?: string | null) {
+    setClients((prev) =>
+      prev.map((c) => c.correo === correo ? { ...c, bloqueado, razon_bloqueo: bloqueado ? (razon_bloqueo ?? c.razon_bloqueo) : null } : c)
+    );
+    setSelectedClient((prev) =>
+      prev?.correo === correo ? { ...prev, bloqueado, razon_bloqueo: bloqueado ? (razon_bloqueo ?? prev.razon_bloqueo) : null } : prev
+    );
+  }
 
   const filtered = useMemo(() => {
     if (!search.trim()) return clients;
@@ -83,13 +109,20 @@ export function ClientsList({ clients, monthlyStats, barberId }: ClientsListProp
     );
   }, [clients, search]);
 
-  const globalAttendance = useMemo(() => {
-    const totalCompletadas = clients.reduce((s, c) => s + c.completadas, 0);
-    const totalResolved = clients.reduce((s, c) => s + c.completadas + c.ausentes, 0);
-    return totalResolved > 0 ? Math.round((totalCompletadas / totalResolved) * 100) : null;
-  }, [clients]);
 
   const hasChartData = monthlyStats.some((m) => m.completadas > 0 || m.ausentes > 0);
+
+  const chartData = useMemo(() =>
+    monthlyStats.map((m) => {
+      const total = m.completadas + m.ausentes;
+      return {
+        month: m.month,
+        asistencia: total > 0 ? Math.round((m.completadas / total) * 100) : 0,
+        ausencia: total > 0 ? Math.round((m.ausentes / total) * 100) : 0,
+      };
+    }),
+    [monthlyStats]
+  );
 
   return (
     <div className="space-y-6">
@@ -106,42 +139,31 @@ export function ClientsList({ clients, monthlyStats, barberId }: ClientsListProp
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{clients.length}</p>
+            <p className="text-3xl font-bold">{initialClients.length}</p>
             <p className="text-xs text-muted-foreground mt-1">agrupados por correo</p>
           </CardContent>
         </Card>
 
         {/* Global attendance with area chart */}
         <Card className="border-2 sm:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tasa de asistencia global
-              </CardTitle>
-              <p className="text-3xl font-bold mt-1">
-                {globalAttendance !== null ? `${globalAttendance}%` : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                sobre citas con resultado registrado
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
-              <User className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Tasa de asistencia global
+            </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
             {hasChartData ? (
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart
-                  data={monthlyStats}
-                  margin={{ top: 4, right: 4, left: -24, bottom: 0 }}
+                  data={chartData}
+                  margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
                 >
                   <defs>
-                    <linearGradient id="gradCompletadas" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="gradAsistencia" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
                       <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="gradAusentes" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="gradAusencia" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
@@ -151,46 +173,43 @@ export function ClientsList({ clients, monthlyStats, barberId }: ClientsListProp
                     stroke="currentColor"
                     opacity={0.08}
                   />
+                  <YAxis
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}%`}
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={36}
+                    ticks={[0, 25, 50, 75, 100]}
+                  />
                   <XAxis
                     dataKey="month"
                     tick={{ fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid hsl(var(--border))",
-                      fontSize: "12px",
-                    }}
-                    formatter={(value, name) => [
-                      value,
-                      name === "completadas" ? "Asistieron" : "No asistieron",
-                    ]}
-                  />
+                  <Tooltip content={<AttendanceTooltip />} />
                   <Legend
-                    formatter={(value) =>
-                      value === "completadas" ? "Asistieron" : "No asistieron"
-                    }
                     iconType="circle"
                     iconSize={8}
+                    formatter={(value) => value === "asistencia" ? "Asistieron" : "No asistieron"}
                     wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
                   />
                   <Area
                     type="monotone"
-                    dataKey="completadas"
+                    dataKey="asistencia"
                     stroke="#22c55e"
                     strokeWidth={2}
-                    fill="url(#gradCompletadas)"
+                    fill="url(#gradAsistencia)"
                     dot={false}
                     activeDot={{ r: 4 }}
                   />
                   <Area
                     type="monotone"
-                    dataKey="ausentes"
+                    dataKey="ausencia"
                     stroke="#ef4444"
                     strokeWidth={2}
-                    fill="url(#gradAusentes)"
+                    fill="url(#gradAusencia)"
                     dot={false}
                     activeDot={{ r: 4 }}
                   />
@@ -256,12 +275,17 @@ export function ClientsList({ clients, monthlyStats, barberId }: ClientsListProp
                   >
                     {/* Avatar + name */}
                     <div className="col-span-5 flex items-center gap-3">
-                      <div className="h-10 w-10 flex-shrink-0 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-sm font-semibold text-blue-600 dark:text-blue-400">
-                        {getInitials(client.nombre, client.apellido)}
+                      <div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-semibold ${client.bloqueado ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400'}`}>
+                        {client.bloqueado ? <Ban className="h-4 w-4" /> : getInitials(client.nombre, client.apellido)}
                       </div>
-                      <p className="font-semibold text-sm truncate">
-                        {client.nombre} {client.apellido}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">
+                          {client.nombre} {client.apellido}
+                        </p>
+                        {client.bloqueado && (
+                          <p className="text-xs text-red-500 dark:text-red-400">Bloqueado</p>
+                        )}
+                      </div>
                     </div>
 
                     {/* Total bookings */}
@@ -292,6 +316,7 @@ export function ClientsList({ clients, monthlyStats, barberId }: ClientsListProp
         barberId={barberId}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        onToggleBlock={handleToggleBlock}
       />
     </div>
   );
