@@ -273,3 +273,141 @@ export async function getAllAppointments(barberId: string): Promise<Appointment[
 
   return data || [];
 }
+
+export interface MonthlyAttendanceStat {
+  month: string;
+  completadas: number;
+  ausentes: number;
+}
+
+/**
+ * Get monthly attendance stats (completadas vs ausentes) for the last 6 months
+ */
+export async function getMonthlyAttendanceStats(barberId: string): Promise<MonthlyAttendanceStat[]> {
+  const supabase = await createClient();
+
+  const now = new Date();
+
+  // Build slots for the last 6 months
+  const slots: Array<{ year: number; month: number; label: string }> = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = d.toLocaleDateString('es-CL', { month: 'short' });
+    slots.push({ year: d.getFullYear(), month: d.getMonth(), label });
+  }
+
+  const startDate = `${slots[0].year}-${String(slots[0].month + 1).padStart(2, '0')}-01`;
+
+  const { data, error } = await supabase
+    .from('reserva')
+    .select('fecha, estado')
+    .eq('barbero', barberId)
+    .in('estado', ['completada', 'ausente'])
+    .gte('fecha', startDate);
+
+  const result: MonthlyAttendanceStat[] = slots.map((s) => ({
+    month: s.label,
+    completadas: 0,
+    ausentes: 0,
+  }));
+
+  if (error || !data) return result;
+
+  for (const booking of data) {
+    const parts = booking.fecha.split('-');
+    const y = parseInt(parts[0]);
+    const m = parseInt(parts[1]) - 1; // convert to 0-indexed
+    const idx = slots.findIndex((s) => s.year === y && s.month === m);
+    if (idx === -1) continue;
+    if (booking.estado === 'completada') result[idx].completadas++;
+    else if (booking.estado === 'ausente') result[idx].ausentes++;
+  }
+
+  return result;
+}
+
+export interface ClientStat {
+  correo: string;
+  nombre: string;
+  apellido: string;
+  telefono: string | null;
+  total_reservas: number;
+  completadas: number;
+  ausentes: number;
+  canceladas: number;
+  pendientes: number;
+  ultima_visita: string | null;
+  attendance_percentage: number | null;
+}
+
+/**
+ * Get all unique clients (grouped by email) with booking stats for a barber
+ */
+export async function getClientsWithStats(barberId: string): Promise<ClientStat[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('reserva')
+    .select(`
+      fecha,
+      estado,
+      guest_usuario:guest_cliente (nombre, apellido, correo, telefono)
+    `)
+    .eq('barbero', barberId)
+    .not('guest_cliente', 'is', null);
+
+  if (error || !data) return [];
+
+  // Group by correo to unify same person across multiple bookings
+  const clientMap = new Map<string, ClientStat>();
+
+  for (const booking of data) {
+    const guest = booking.guest_usuario as any;
+    if (!guest?.correo) continue;
+
+    const key = guest.correo;
+    if (!clientMap.has(key)) {
+      clientMap.set(key, {
+        correo: guest.correo,
+        nombre: guest.nombre,
+        apellido: guest.apellido,
+        telefono: guest.telefono,
+        total_reservas: 0,
+        completadas: 0,
+        ausentes: 0,
+        canceladas: 0,
+        pendientes: 0,
+        ultima_visita: null,
+        attendance_percentage: null,
+      });
+    }
+
+    const stat = clientMap.get(key)!;
+    // Update with latest info (most recent booking's contact data)
+    stat.nombre = guest.nombre;
+    stat.apellido = guest.apellido;
+    stat.telefono = guest.telefono;
+    stat.total_reservas++;
+
+    switch (booking.estado) {
+      case 'completada': stat.completadas++; break;
+      case 'ausente':    stat.ausentes++;    break;
+      case 'cancelada':  stat.canceladas++;  break;
+      default:           stat.pendientes++;  break;
+    }
+
+    if (!stat.ultima_visita || booking.fecha > stat.ultima_visita) {
+      stat.ultima_visita = booking.fecha;
+    }
+  }
+
+  // Compute attendance % only from resolved bookings (completada + ausente)
+  for (const stat of clientMap.values()) {
+    const resolved = stat.completadas + stat.ausentes;
+    stat.attendance_percentage = resolved > 0
+      ? Math.round((stat.completadas / resolved) * 100)
+      : null;
+  }
+
+  return Array.from(clientMap.values()).sort((a, b) => b.total_reservas - a.total_reservas);
+}

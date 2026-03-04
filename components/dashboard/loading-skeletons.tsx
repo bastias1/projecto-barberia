@@ -113,6 +113,66 @@ export function PageHeaderLoading() {
   );
 }
 
+export function ClientsListLoading() {
+  return (
+    <div className="space-y-6">
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {[...Array(2)].map((_, i) => (
+          <Card key={i} className="border-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-10 rounded-full" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-16 mb-1" />
+              <Skeleton className="h-3 w-28" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Search bar */}
+      <Skeleton className="h-10 w-72" />
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="rounded-md border">
+            <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b bg-muted/50">
+              <Skeleton className="col-span-4 h-4" />
+              <Skeleton className="col-span-2 h-4" />
+              <Skeleton className="col-span-2 h-4" />
+              <Skeleton className="col-span-2 h-4" />
+              <Skeleton className="col-span-2 h-4" />
+            </div>
+            <div className="divide-y">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="grid grid-cols-12 gap-4 px-4 py-4 items-center">
+                  <div className="col-span-4 flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-full" />
+                    </div>
+                  </div>
+                  <Skeleton className="col-span-2 h-4 w-20" />
+                  <div className="col-span-2 flex flex-col items-center gap-1">
+                    <Skeleton className="h-4 w-8" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="col-span-2 h-6 w-12 rounded-full" />
+                  <Skeleton className="col-span-2 h-4 w-20" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function DashboardTableSkeleton() {
   return (
     <div className="space-y-6">
