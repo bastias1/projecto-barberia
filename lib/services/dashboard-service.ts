@@ -336,6 +336,7 @@ export interface ClientStat {
   ausentes: number;
   canceladas: number;
   pendientes: number;
+  primera_visita: string | null;
   ultima_visita: string | null;
   attendance_percentage: number | null;
   bloqueado: boolean;
@@ -388,6 +389,7 @@ export async function getClientsWithStats(barberId: string): Promise<ClientStat[
         ausentes: 0,
         canceladas: 0,
         pendientes: 0,
+        primera_visita: booking.fecha,
         ultima_visita: null,
         attendance_percentage: null,
         bloqueado: blockedEmails.has(guest.correo.toLowerCase()) || (guest.telefono ? blockedPhones.has(guest.telefono) : false),
@@ -409,6 +411,9 @@ export async function getClientsWithStats(barberId: string): Promise<ClientStat[
       default:           stat.pendientes++;  break;
     }
 
+    if (!stat.primera_visita || booking.fecha < stat.primera_visita) {
+      stat.primera_visita = booking.fecha;
+    }
     if (!stat.ultima_visita || booking.fecha > stat.ultima_visita) {
       stat.ultima_visita = booking.fecha;
     }

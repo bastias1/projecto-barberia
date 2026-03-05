@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,7 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, LayoutDashboard, ShieldCheck, MessageSquare } from "lucide-react";
+import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, LayoutDashboard, ShieldCheck, MessageSquare, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
@@ -53,8 +53,10 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function checkRole() {
@@ -73,6 +75,19 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
     checkRole();
   }, [barber.id]);
 
+  // Close profile menu on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    if (profileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [profileMenuOpen]);
+
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -87,13 +102,16 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
         href={item.href}
         onClick={() => setMobileMenuOpen(false)}
         className={cn(
-          "flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200 text-sm",
+          "relative flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200 text-sm",
           isActive
             ? "bg-sidebar-accent text-sidebar-primary font-medium"
             : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
         )}
       >
-        <item.icon className={cn("h-4 w-4", isActive && "text-sidebar-primary")} />
+        {isActive && (
+          <span className="absolute left-0 top-1 bottom-1 w-0.5 bg-sidebar-primary rounded-full" />
+        )}
+        <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive && "text-sidebar-primary")} />
         <span>{item.label}</span>
       </Link>
     );
@@ -124,37 +142,77 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Header */}
-        <div className="p-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 flex-shrink-0">
-              <AvatarImage
-                src={barber.usuario?.profile_image || undefined}
-                alt={barber.nombre || "Barbero"}
-              />
-              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs">
-                {barber.nombre
-                  ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                  : 'BB'
-                }
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-sidebar-foreground truncate">
-                {barber.nombre || "Barbero"}
-              </h2>
-              <p className="text-xs text-sidebar-foreground/60 truncate capitalize">
-                {role === "owner" ? "Dueño" : role || "Barbero"}
-              </p>
+        {/* Header with profile menu */}
+        <div className="relative" ref={profileMenuRef}>
+          <button
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            className="w-full p-6 border-b border-sidebar-border hover:bg-sidebar-accent/50 transition-colors text-left focus:outline-none"
+          >
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 flex-shrink-0">
+                <AvatarImage
+                  src={barber.usuario?.profile_image || undefined}
+                  alt={barber.nombre || "Barbero"}
+                />
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs">
+                  {barber.nombre
+                    ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                    : 'BB'
+                  }
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-bold text-sidebar-foreground truncate">
+                  {barber.nombre || "Barbero"}
+                </h2>
+                <p className="text-xs text-sidebar-foreground/60 truncate capitalize">
+                  {role === "owner" ? "Dueño" : role || "Barbero"}
+                </p>
+              </div>
+              <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", profileMenuOpen && "rotate-180")} />
             </div>
-          </div>
+          </button>
+
+          {/* Profile dropdown */}
+          {profileMenuOpen && (
+            <div className="absolute left-full top-0 ml-2 w-56 bg-popover text-popover-foreground border rounded-md shadow-md p-1 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-left-2">
+              <Link
+                href="/dashboard/configuracion"
+                onClick={() => { setProfileMenuOpen(false); setMobileMenuOpen(false); }}
+                className={cn(
+                  "flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors",
+                  pathname === "/dashboard/configuracion" && "font-medium"
+                )}
+              >
+                <Settings className="h-4 w-4" />
+                Configuración
+              </Link>
+
+              <div className="bg-border -mx-1 my-1 h-px" />
+
+              <div className="flex items-center justify-between px-2 py-1.5 text-sm text-muted-foreground">
+                <span>Tema</span>
+                <ModeToggle />
+              </div>
+
+              <div className="bg-border -mx-1 my-1 h-px" />
+
+              <button
+                onClick={() => { setProfileMenuOpen(false); handleLogout(); }}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-400 transition-colors cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+                Cerrar Sesión
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4 px-3">
           {/* Principal Section */}
           <div className="space-y-1 mb-6">
-            <div className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            <div className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">
               Principal
             </div>
             {principalItems.map((item) => (
@@ -167,7 +225,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
 
             {/* Gestión */}
             <AccordionItem value="gestion" className="border-none">
-              <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-sidebar-accent/50 rounded-md text-sm font-semibold text-muted-foreground uppercase tracking-wider [&>svg]:h-4 [&>svg]:w-4">
+              <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-sidebar-accent/50 rounded-md text-sm font-semibold text-muted-foreground uppercase tracking-widest [&>svg]:h-4 [&>svg]:w-4">
                 <span className="flex items-center gap-2">
                   Gestión
                 </span>
@@ -182,7 +240,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
             {/* Administración (Conditional) */}
             {isAdmin && (
               <AccordionItem value="admin" className="border-none">
-                <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-sidebar-accent/50 rounded-md text-sm font-semibold text-muted-foreground uppercase tracking-wider [&>svg]:h-4 [&>svg]:w-4">
+                <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-sidebar-accent/50 rounded-md text-sm font-semibold text-muted-foreground uppercase tracking-widest [&>svg]:h-4 [&>svg]:w-4">
                   <span className="flex items-center gap-2">
                     Administración
                   </span>
@@ -197,35 +255,6 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           </Accordion>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border space-y-1 bg-sidebar/50">
-          <Link
-            href="/dashboard/configuracion"
-            onClick={() => setMobileMenuOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
-              pathname === "/dashboard/configuracion" && "bg-sidebar-accent text-foreground font-medium"
-            )}
-          >
-            <Settings className="h-3.5 w-3.5" />
-            <span>Configuración</span>
-          </Link>
-
-          <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
-            <span>Tema</span>
-            <ModeToggle />
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="w-full justify-start gap-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 px-4 h-8"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Cerrar Sesión
-          </Button>
-        </div>
       </aside>
 
       {/* Overlay for mobile */}

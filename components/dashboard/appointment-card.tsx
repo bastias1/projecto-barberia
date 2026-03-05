@@ -31,7 +31,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
 
     return (
         <div
-            className="flex items-start gap-3 p-3 rounded-lg border-2 hover:bg-accent transition-colors"
+            className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent transition-colors"
         >
             <div className="flex-shrink-0 mt-1">
                 <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">

@@ -53,7 +53,7 @@ export async function QuickStats() {
       {statsData.map((stat) => {
         const Icon = stat.icon;
         return (
-          <Card key={stat.title} className="border-2 hover:shadow-md transition-shadow">
+          <Card key={stat.title} className="shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {stat.title}

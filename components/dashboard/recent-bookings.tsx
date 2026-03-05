@@ -26,7 +26,7 @@ interface RecentBookingsProps {
 
 export function RecentBookings({ bookings }: RecentBookingsProps) {
   return (
-    <Card className="border-2">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" />

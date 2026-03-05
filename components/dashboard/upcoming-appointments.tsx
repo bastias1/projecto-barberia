@@ -26,7 +26,7 @@ interface UpcomingAppointmentsProps {
 
 export function UpcomingAppointments({ appointments }: UpcomingAppointmentsProps) {
   return (
-    <Card className="border-2">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />
