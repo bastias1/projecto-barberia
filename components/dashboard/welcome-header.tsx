@@ -24,7 +24,7 @@ export async function WelcomeHeader() {
   }
 
   return (
-    <div className="mb-8">
+    <div className="mb-8 pr-14 md:pr-0">
       <h1 className="text-3xl font-bold tracking-tight">
         {greeting}, {barberInfo.nombre}
       </h1>

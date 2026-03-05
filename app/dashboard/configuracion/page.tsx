@@ -1,8 +1,6 @@
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, User, Lock, Image } from "lucide-react";
-import Link from "next/link";
+import { User, Lock, Image } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/dashboard/profile-form";
@@ -38,21 +36,13 @@ export default async function ConfiguracionPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center gap-3 md:gap-4">
-        <Link href="/dashboard">
-          <Button variant="outline" size="icon" className="h-9 w-9 md:h-10 md:w-10">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100">
-            Configuración
-          </h1>
-          <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 mt-0.5 md:mt-1">
-            Gestiona tu perfil y preferencias
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100">
+          Configuración
+        </h1>
+        <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 mt-0.5 md:mt-1">
+          Gestiona tu perfil y preferencias
+        </p>
       </div>
 
       {/* Desktop Layout */}

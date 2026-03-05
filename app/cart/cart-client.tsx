@@ -130,7 +130,7 @@ export function CartClient({ products }: CartClientProps) {
                                 </div>
                                 <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
                                     <span>Envío</span>
-                                    <span>Calculado en el siguiente paso</span>
+                                    <span className="text-right">Calculado al pagar</span>
                                 </div>
                             </div>
 

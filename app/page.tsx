@@ -63,7 +63,7 @@ export default function Home() {
             Tu estilo, nuestra pasión.
           </h1>
 
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-light">
+          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-light">
             Descubre la excelencia en cada corte. Una experiencia diseñada para el hombre moderno.
           </p>
         </div>
@@ -125,15 +125,15 @@ export default function Home() {
           {/* About Section - Spans 2 cols */}
           <Card className="lg:col-span-2 border-none bg-zinc-50 dark:bg-zinc-900/50 overflow-hidden relative group">
             <div className="absolute top-0 right-0 p-32 bg-zinc-200/50 dark:bg-zinc-800/20 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-zinc-300/50 dark:group-hover:bg-zinc-700/20" />
-            <CardContent className="p-8 relative z-10 h-full flex flex-col justify-center">
+            <CardContent className="p-5 sm:p-8 relative z-10 h-full flex flex-col justify-center">
               <div className="flex items-center gap-2 mb-6 text-primary">
                 <Star className="h-5 w-5 fill-current" />
                 <span className="font-bold tracking-wider text-sm uppercase">Sobre Nosotros</span>
               </div>
-              <h3 className="text-3xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">
                 Sobre BENJVMIN
               </h3>
-              <div className="space-y-4 text-lg text-muted-foreground leading-relaxed">
+              <div className="space-y-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
                 <p>
                   BENJVMIN es una marca dedicada al corte de cabello con un enfoque a público masculino, llegando a un acuerdo mutuo entre el deseo y la realidad.
                 </p>

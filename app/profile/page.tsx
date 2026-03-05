@@ -51,21 +51,25 @@ export default function ProfilePage() {
 
             <Tabs defaultValue="details" className="w-full">
                 <TabsList className="grid w-full grid-cols-4 mb-8">
-                    <TabsTrigger value="details" className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
+                    <TabsTrigger value="details" className="flex items-center gap-1 sm:gap-2">
+                        <User className="h-4 w-4 flex-shrink-0" />
                         <span className="hidden sm:inline">Mis Datos</span>
+                        <span className="sm:hidden text-[10px] leading-tight">Datos</span>
                     </TabsTrigger>
-                    <TabsTrigger value="orders" className="flex items-center gap-2">
-                        <Package className="h-4 w-4" />
+                    <TabsTrigger value="orders" className="flex items-center gap-1 sm:gap-2">
+                        <Package className="h-4 w-4 flex-shrink-0" />
                         <span className="hidden sm:inline">Mis Pedidos</span>
+                        <span className="sm:hidden text-[10px] leading-tight">Pedidos</span>
                     </TabsTrigger>
-                    <TabsTrigger value="addresses" className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
+                    <TabsTrigger value="addresses" className="flex items-center gap-1 sm:gap-2">
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
                         <span className="hidden sm:inline">Direcciones</span>
+                        <span className="sm:hidden text-[10px] leading-tight">Dirs.</span>
                     </TabsTrigger>
-                    <TabsTrigger value="security" className="flex items-center gap-2">
-                        <Lock className="h-4 w-4" />
+                    <TabsTrigger value="security" className="flex items-center gap-1 sm:gap-2">
+                        <Lock className="h-4 w-4 flex-shrink-0" />
                         <span className="hidden sm:inline">Seguridad</span>
+                        <span className="sm:hidden text-[10px] leading-tight">Segur.</span>
                     </TabsTrigger>
                 </TabsList>
 

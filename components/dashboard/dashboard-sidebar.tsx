@@ -125,7 +125,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           variant="outline"
           size="icon"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="bg-white dark:bg-zinc-900"
+          className="bg-white dark:bg-zinc-700 border-2 dark:border-zinc-500"
         >
           {mobileMenuOpen ? (
             <X className="h-5 w-5" />
@@ -175,7 +175,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
 
           {/* Profile dropdown */}
           {profileMenuOpen && (
-            <div className="absolute left-full top-0 ml-2 w-56 bg-popover text-popover-foreground border rounded-md shadow-md p-1 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-left-2">
+            <div className="absolute left-0 top-full mt-1 w-full bg-popover text-popover-foreground border rounded-md shadow-md p-1 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
               <Link
                 href="/dashboard/configuracion"
                 onClick={() => { setProfileMenuOpen(false); setMobileMenuOpen(false); }}
