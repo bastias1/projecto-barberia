@@ -125,7 +125,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           variant="outline"
           size="icon"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="bg-white dark:bg-zinc-900"
+          className="bg-white dark:bg-zinc-700 border-2 dark:border-zinc-500"
         >
           {mobileMenuOpen ? (
             <X className="h-5 w-5" />
