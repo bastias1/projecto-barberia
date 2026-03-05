@@ -105,7 +105,7 @@ export function DateTimeSelection({
                 <p className="text-xs">El barbero no tiene horarios configurados para este día o está completamente reservado</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
                 {timeSlots.map((time) => (
                   <Button
                     key={time}

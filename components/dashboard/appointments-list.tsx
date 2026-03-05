@@ -49,7 +49,7 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
             </div>
 
             {/* Contact Info */}
-            <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400 pl-13">
+            <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400 pl-[52px]">
               {appointment.guest_usuario?.telefono && (
                 <div className="flex items-center gap-2">
                   <Phone className="h-3 w-3" />

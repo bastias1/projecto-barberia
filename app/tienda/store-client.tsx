@@ -77,7 +77,7 @@ export function StoreClient({ products }: StoreClientProps) {
                             <p className="text-zinc-500">No se encontraron productos en esta categoría.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                             {filteredProducts.map((product) => (
                                 <Card
                                     key={product.id}
@@ -114,11 +114,11 @@ export function StoreClient({ products }: StoreClientProps) {
                                             </Link>
                                         </div>
 
-                                        <div className="flex items-center justify-between mt-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
                                             <span className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
                                                 ${product.precio.toLocaleString("es-CL")}
                                             </span>
-                                            <div className="w-32">
+                                            <div className="flex-shrink-0">
                                                 <AddToCartButton
                                                     id={product.id}
                                                     name={product.nombre}
