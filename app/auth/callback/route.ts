@@ -16,36 +16,16 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
-      // User is now confirmed and has a session
-      const userId = data.user.id;
-      const email = data.user.email || "";
-      const userMetadata = data.user.user_metadata || {};
-      const nombre = userMetadata.nombre || email.split("@")[0];
-      const apellido = userMetadata.apellido || "";
-      // Check/create usuario (signups confirmed by email). Las cuentas de
-      // barbero las crea un admin, así que aquí solo se registran clientes.
-      const { data: usuarioData } = await supabase
-        .from("usuario")
-        .select("id_usuario")
-        .eq("id_usuario", userId)
-        .maybeSingle();
-
-      if (!usuarioData) {
-        await supabase.from("usuario").insert({
-          id_usuario: userId,
-          nombre: nombre,
-          apellido: apellido || null,
-          email: email.toLowerCase(),
-        });
-
-        const barberia = slug ? await getBarberiaBySlug(supabase, slug) : null;
-        if (barberia) {
-          await supabase.from("usuario_barberia").insert({
-            id_usuario: userId,
-            id_barberia: barberia.id_barberia,
-            rol: "cliente",
-          });
-        }
+      // El perfil en public.usuario lo crea el trigger crear_perfil_usuario.
+      // Si se registró desde una barbería, queda como cliente de ella.
+      const barberia = slug ? await getBarberiaBySlug(supabase, slug) : null;
+      if (barberia) {
+        await supabase
+          .from("usuario_barberia")
+          .upsert(
+            { id_usuario: data.user.id, id_barberia: barberia.id_barberia, rol: "cliente" },
+            { onConflict: "id_usuario,id_barberia", ignoreDuplicates: true }
+          );
       }
 
       // Redirect

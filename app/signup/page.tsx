@@ -110,23 +110,7 @@ function SignupForm() {
       // If we have a session (no email confirmation required), create the profile now
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Create usuario record (rol global 'usuario') and the cliente membership
-      const { error: usuarioError } = await supabase
-        .from('usuario')
-        .insert({
-          id_usuario: authData.user.id,
-          nombre: formData.nombre,
-          apellido: formData.apellido || null,
-          email: formData.email.trim().toLowerCase(),
-        });
-
-      if (usuarioError) {
-        console.error("Usuario creation error:", usuarioError);
-        setError("Error al crear el usuario: " + usuarioError.message);
-        await supabase.auth.signOut();
-        return;
-      }
-
+      // El perfil en public.usuario lo crea el trigger crear_perfil_usuario
       const barberia = slug ? await getBarberiaBySlug(supabase, slug) : null;
       if (barberia) {
         const { error: membresiaError } = await supabase
