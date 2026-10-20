@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { useBarberiaHref } from "@/components/barberia-provider";
 
 interface Product {
     id: string | number;
@@ -24,6 +25,7 @@ interface ProductCarouselProps {
 }
 
 export function ProductCarousel({ products }: ProductCarouselProps) {
+    const href = useBarberiaHref();
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     const scroll = (direction: "left" | "right") => {
@@ -65,16 +67,16 @@ export function ProductCarousel({ products }: ProductCarouselProps) {
                         className="min-w-[260px] max-w-[260px] snap-start"
                     >
                         <Card className="h-full overflow-hidden rounded-xl border-zinc-200 bg-white shadow-sm hover:shadow-md transition-shadow dark:border-zinc-800 dark:bg-zinc-900">
-                            <Link href={`/tienda/${product.id}`} className="block relative h-48 bg-zinc-100 dark:bg-zinc-800">
+                            <Link href={href(`/tienda/${product.id}`)} className="block relative h-48 bg-zinc-100 dark:bg-zinc-800">
                                 <Image
-                                    src={product.imagen_url || "/placeholder.png"}
+                                    src={product.imagen_url || "/placeholder.svg"}
                                     alt={product.nombre}
                                     fill
                                     className="object-cover"
                                 />
                             </Link>
                             <CardContent className="p-4">
-                                <Link href={`/tienda/${product.id}`}>
+                                <Link href={href(`/tienda/${product.id}`)}>
                                     <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 truncate mb-1 hover:text-blue-600 transition-colors">
                                         {product.nombre}
                                     </h3>
@@ -92,7 +94,7 @@ export function ProductCarousel({ products }: ProductCarouselProps) {
                                         price={product.precio}
                                         priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
                                         stock={product.stock}
-                                        image={product.imagen_url || "/placeholder.png"}
+                                        image={product.imagen_url || "/placeholder.svg"}
                                         size="sm"
                                         fullWidth={false}
                                     />

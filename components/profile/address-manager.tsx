@@ -59,8 +59,8 @@ export function AddressManager() {
 
             const { data, error } = await supabase
                 .from("direccion_usuario")
-                .select("*")
-                .eq("usuario_id", user.id)
+                .select("id:id_direccion, nombre_etiqueta, calle, depto, comuna, ciudad, region, telefono, created_at")
+                .eq("id_usuario", user.id)
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
@@ -81,7 +81,7 @@ export function AddressManager() {
             if (!user) return;
 
             const { error } = await supabase.from("direccion_usuario").insert({
-                usuario_id: user.id,
+                id_usuario: user.id,
                 nombre_etiqueta: newAddress.nombre_etiqueta,
                 region: newAddress.region,
                 comuna: newAddress.comuna,
@@ -118,7 +118,7 @@ export function AddressManager() {
             const { error } = await supabase
                 .from("direccion_usuario")
                 .delete()
-                .eq("id", id);
+                .eq("id_direccion", id);
 
             if (error) throw error;
             toast.success("Dirección eliminada");

@@ -48,7 +48,7 @@ export function BarberSelection({ barbers, selectedBarber, onBarberSelect }: Bar
                   <div className="flex items-center gap-3 mb-2">
                     <Avatar className="h-12 w-12 flex-shrink-0">
                       <AvatarImage
-                        src={(barber as any).usuario?.profile_image || undefined}
+                        src={barber.profile_image || undefined}
                         alt={barber.nombre || "Barbero"}
                       />
                       <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">

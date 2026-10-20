@@ -1,12 +1,11 @@
 import Link from 'next/link'
 
 export default async function BookingConfirmed({
-  searchParams,
+  params,
 }: {
-  searchParams: Promise<{ id?: string }>
+  params: Promise<{ slug: string }>
 }) {
-  const params = await searchParams;
-  const bookingId = params.id;
+  const { slug } = await params;
   
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950">
@@ -39,14 +38,14 @@ export default async function BookingConfirmed({
         
         <div className="space-y-3">
           <Link 
-            href="/"
+            href={`/${slug}`}
             className="block w-full bg-black dark:bg-white text-white dark:text-black px-6 py-3 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors font-medium"
           >
             Volver al inicio
           </Link>
           
           <Link 
-            href="/agendar"
+            href={`/${slug}/agendar`}
             className="block w-full border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 px-6 py-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors font-medium"
           >
             Agendar otra cita

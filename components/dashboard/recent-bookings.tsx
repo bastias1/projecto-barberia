@@ -3,22 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-
-interface Booking {
-  id: number;
-  fecha: string;
-  hora: string;
-  estado: string;
-  created_at: string;
-  servicio: {
-    nombre: string;
-    precio: number;
-  } | null;
-  guest_usuario: {
-    nombre: string;
-    apellido: string;
-  } | null;
-}
+import type { Booking } from "@/lib/services/dashboard-service";
+import { formatFecha } from "@/lib/datetime";
 
 interface RecentBookingsProps {
   bookings: Booking[];
@@ -49,14 +35,14 @@ export function RecentBookings({ bookings }: RecentBookingsProps) {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {booking.guest_usuario?.nombre} {booking.guest_usuario?.apellido}
+                      {booking.cliente?.nombre} {booking.cliente?.apellido}
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
                       Reservado {format(new Date(booking.created_at), "dd MMM", { locale: es })}
                     </p>
                   </div>
-                  <Badge className={booking.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : booking.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"}>
-                    {booking.estado === "confirmada" ? "✓ Confirmada" : booking.estado === "cancelada" ? "✗ Cancelada" : "⏳ Pendiente"}
+                  <Badge className={booking.estado === "confirmada" || booking.estado === "completada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : booking.estado === "cancelada" || booking.estado === "no_asistio" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"}>
+                    {booking.estado === "confirmada" ? "✓ Confirmada" : booking.estado === "completada" ? "✓ Completada" : booking.estado === "cancelada" ? "✗ Cancelada" : booking.estado === "no_asistio" ? "✗ Ausente" : "⏳ Pendiente"}
                   </Badge>
                 </div>
                 <div className="space-y-1 text-sm">
@@ -64,11 +50,11 @@ export function RecentBookings({ bookings }: RecentBookingsProps) {
                     <span>{booking.servicio?.nombre}</span>
                     <span className="flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
                       <DollarSign className="h-3 w-3" />
-                      {booking.servicio?.precio.toLocaleString()}
+                      {booking.servicio?.precio.toLocaleString("es-CL")}
                     </span>
                   </div>
                   <div className="text-zinc-500 dark:text-zinc-400">
-                    {format(new Date(booking.fecha), "dd MMM yyyy", { locale: es })} • {booking.hora}
+                    {formatFecha(booking.fecha)} • {booking.hora}
                   </div>
                 </div>
               </div>

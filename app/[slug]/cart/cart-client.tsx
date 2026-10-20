@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Minus, Plus, Trash2 } from "lucide-react";
-import { useCartStore } from "../../lib/cart-store";
+import { useBarberiaCart } from "@/lib/cart-store";
+import { useBarberiaHref } from "@/components/barberia-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -16,9 +17,8 @@ interface CartClientProps {
 }
 
 export function CartClient({ products }: CartClientProps) {
-    const cart = useCartStore((state) => state.items);
-    const removeItem = useCartStore((state) => state.removeItem);
-    const updateQuantity = useCartStore((state) => state.updateQuantity);
+    const href = useBarberiaHref();
+    const { items: cart, removeItem, updateQuantity } = useBarberiaCart();
 
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -29,7 +29,7 @@ export function CartClient({ products }: CartClientProps) {
                     Tu carrito está vacío.
                 </p>
                 <Button asChild>
-                    <Link href="/tienda">Ir a comprar</Link>
+                    <Link href={href("/tienda")}>Ir a comprar</Link>
                 </Button>
 
                 {/* Upsell Carousel for Empty Cart */}
@@ -145,7 +145,7 @@ export function CartClient({ products }: CartClientProps) {
                             </div>
 
                             <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 h-12 text-lg rounded-xl" asChild>
-                                <Link href="/checkout">
+                                <Link href={href("/checkout")}>
                                     Ir a Pagar
                                 </Link>
                             </Button>

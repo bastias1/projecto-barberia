@@ -13,8 +13,8 @@ export async function GET() {
 
         const { data: profile, error } = await supabase
             .from("usuario")
-            .select("*")
-            .eq("id", user.id)
+            .select("nombre, apellido, email, telefono, rut, profile_image")
+            .eq("id_usuario", user.id)
             .single();
 
         if (error) {
@@ -27,7 +27,8 @@ export async function GET() {
             profile.rut = decrypt(profile.rut);
         }
 
-        return NextResponse.json(profile);
+        // La UI usa "correo"
+        return NextResponse.json({ ...profile, correo: profile.email });
     } catch (error) {
         console.error("Error in GET /api/profile:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -44,8 +45,13 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        // Solo campos editables por el titular (los demás están protegidos por permisos de columna)
+        const updateData: Record<string, string | null> = {};
+        for (const campo of ["nombre", "apellido", "telefono", "rut"] as const) {
+            if (body[campo] !== undefined) updateData[campo] = body[campo] || null;
+        }
+
         // Encrypt RUT if present
-        const updateData = { ...body };
         if (updateData.rut) {
             updateData.rut = encrypt(updateData.rut);
         }
@@ -53,8 +59,8 @@ export async function PUT(request: Request) {
         const { data, error } = await supabase
             .from("usuario")
             .update(updateData)
-            .eq("id", user.id)
-            .select()
+            .eq("id_usuario", user.id)
+            .select("nombre, apellido, email, telefono, rut, profile_image")
             .single();
 
         if (error) {

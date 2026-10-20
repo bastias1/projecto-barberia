@@ -1,10 +1,15 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { getBarberiaBySlug } from "@/lib/barberia";
+import { safeNext } from "@/lib/utils";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") || "/dashboard";
+  // Solo rutas internas (evita redirecciones abiertas)
+  const next = safeNext(requestUrl.searchParams.get("next")) ?? "/";
+  // Barbería desde la que se registró (si se registró como cliente de una)
+  const slug = requestUrl.searchParams.get("barberia");
 
   if (code) {
     const supabase = await createClient();
@@ -17,43 +22,33 @@ export async function GET(request: Request) {
       const userMetadata = data.user.user_metadata || {};
       const nombre = userMetadata.nombre || email.split("@")[0];
       const apellido = userMetadata.apellido || "";
-      const especialidad = userMetadata.especialidad || null;
-
-      // Check/create usuario (for regular signups)
+      // Check/create usuario (signups confirmed by email). Las cuentas de
+      // barbero las crea un admin, así que aquí solo se registran clientes.
       const { data: usuarioData } = await supabase
         .from("usuario")
-        .select("*")
-        .eq("id", userId)
-        .single();
+        .select("id_usuario")
+        .eq("id_usuario", userId)
+        .maybeSingle();
 
       if (!usuarioData) {
         await supabase.from("usuario").insert({
-          id: userId,
+          id_usuario: userId,
           nombre: nombre,
-          apellido: apellido,
-          correo: email,
-          telefono: "",
-          rol: "barbero",
+          apellido: apellido || null,
+          email: email.toLowerCase(),
         });
+
+        const barberia = slug ? await getBarberiaBySlug(supabase, slug) : null;
+        if (barberia) {
+          await supabase.from("usuario_barberia").insert({
+            id_usuario: userId,
+            id_barberia: barberia.id_barberia,
+            rol: "cliente",
+          });
+        }
       }
 
-      // Check/create barbero
-      const { data: barberoData } = await supabase
-        .from("barbero")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (!barberoData) {
-        await supabase.from("barbero").insert({
-          id: userId,
-          nombre: nombre,
-          apellido: apellido,
-          especialidad: especialidad,
-        });
-      }
-
-      // Redirect to dashboard
+      // Redirect
       return NextResponse.redirect(new URL(next, requestUrl.origin));
     }
   }

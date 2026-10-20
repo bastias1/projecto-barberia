@@ -1,38 +1,28 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { User, Lock, Image } from "lucide-react";
-import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/dashboard/profile-form";
 import { PasswordForm } from "@/components/dashboard/password-form";
 import { AvatarUpload } from "@/components/dashboard/avatar-upload";
+import { requireStaff } from "@/lib/staff-context";
 
-export default async function ConfiguracionPage() {
-  const supabase = await createClient();
+export default async function ConfiguracionPage({ params }: { params: Promise<{ slug: string }> }) {
+  const ctx = await requireStaff((await params).slug);
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    redirect('/login');
-  }
-
-  // Get user profile data
-  const { data: profile } = await supabase
-    .from('usuario')
-    .select('nombre, apellido, correo, telefono, profile_image, rol')
-    .eq('id', user.id)
-    .single();
-
-  // Check if user is a barber to get additional data
-  let barberData = null;
-  if (profile?.rol === 'barbero') {
-    const { data } = await supabase
-      .from('barbero')
-      .select('especialidad')
-      .eq('id', user.id)
-      .single();
-    barberData = data;
-  }
+  const user = { id: ctx.userId, email: ctx.email };
+  const profile = ctx.usuario;
+  const profileFormProps = {
+    userId: ctx.userId,
+    barberiaId: ctx.barberia.id_barberia,
+    isProfesional: ctx.profesional !== null,
+    initialData: {
+      nombre: profile.nombre || '',
+      apellido: profile.apellido || '',
+      telefono: profile.telefono || '',
+      correo: profile.email || ctx.email,
+      especialidad: ctx.profesional?.especialidad || '',
+    },
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -79,17 +69,7 @@ export default async function ConfiguracionPage() {
             <CardDescription>Actualiza tus datos personales</CardDescription>
           </CardHeader>
           <CardContent>
-            <ProfileForm
-              userId={user.id}
-              initialData={{
-                nombre: profile?.nombre || '',
-                apellido: profile?.apellido || '',
-                telefono: profile?.telefono || '',
-                correo: profile?.correo || user.email || '',
-                especialidad: barberData?.especialidad || '',
-                rol: profile?.rol || '',
-              }}
-            />
+            <ProfileForm {...profileFormProps} />
           </CardContent>
         </Card>
       </div>
@@ -130,17 +110,7 @@ export default async function ConfiguracionPage() {
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
-            <ProfileForm
-              userId={user.id}
-              initialData={{
-                nombre: profile?.nombre || '',
-                apellido: profile?.apellido || '',
-                telefono: profile?.telefono || '',
-                correo: profile?.correo || user.email || '',
-                especialidad: barberData?.especialidad || '',
-                rol: profile?.rol || '',
-              }}
-            />
+            <ProfileForm {...profileFormProps} />
           </AccordionContent>
         </AccordionItem>
 

@@ -1,20 +1,12 @@
-import { createClient } from "@/utils/supabase/server";
-import { getUpcomingAppointments, getRecentBookings } from "@/lib/services/dashboard-service";
+import { getUpcomingAppointments } from "@/lib/services/dashboard-service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatCLP, formatFecha } from "@/lib/datetime";
+import type { StaffContext } from "@/lib/staff-context";
 
-export async function RecentActivity() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return null;
-  }
-
-  const upcomingAppointments = await getUpcomingAppointments(user.id, 5);
+export async function RecentActivity({ ctx }: { ctx: StaffContext }) {
+  const upcomingAppointments = await getUpcomingAppointments(ctx.barberia.id_barberia, ctx.userId, 5);
 
   return (
     <Card>
@@ -43,7 +35,7 @@ export async function RecentActivity() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">
-                    {appointment.guest_usuario?.nombre} {appointment.guest_usuario?.apellido}
+                    {appointment.cliente?.nombre} {appointment.cliente?.apellido}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {appointment.servicio?.nombre || "Sin servicio"}
@@ -54,7 +46,7 @@ export async function RecentActivity() {
                       {appointment.hora}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(appointment.fecha), "dd MMM", { locale: es })}
+                      {formatFecha(appointment.fecha, "dd MMM")}
                     </span>
                     <Badge className={appointment.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 text-xs" : appointment.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 text-xs" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 text-xs"}>
                       {appointment.estado === "confirmada" ? "✓" : appointment.estado === "cancelada" ? "✗" : "⏳"}
@@ -63,7 +55,7 @@ export async function RecentActivity() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-green-600 dark:text-green-400">
-                    ${appointment.servicio?.precio.toFixed(2) || "0.00"}
+                    {formatCLP(appointment.servicio?.precio)}
                   </p>
                 </div>
               </div>

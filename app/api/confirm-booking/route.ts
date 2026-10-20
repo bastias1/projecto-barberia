@@ -1,7 +1,7 @@
-import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
-
-const BOOKING_SECRET = process.env.BOOKING_SECRET || "";
+import { verifyLink } from "@/lib/signed-links";
+import { createServiceRoleClient } from "@/utils/supabase/service-role";
+import { getBarberiaById } from "@/lib/barberia";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -12,29 +12,27 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/error?message=Invalid+link', request.url));
   }
 
-  // Verify token
-  const encoder = new TextEncoder();
-  const tokenData = encoder.encode(`${id}-${BOOKING_SECRET}`);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", tokenData);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const expectedToken = btoa(String.fromCharCode(...hashArray));
-
-  if (token !== expectedToken) {
+  // El link firmado autoriza la acción: quien lo abre no tiene sesión
+  if (!verifyLink("confirmar-reserva", id, token)) {
     return NextResponse.redirect(new URL('/error?message=Invalid+token', request.url));
   }
 
-  const supabase = await createClient();
+  const supabase = createServiceRoleClient();
 
-  // Update booking status to 'confirmada'
+  // Solo se confirma una reserva que sigue pendiente
   const { error } = await supabase
     .from("reserva")
     .update({ estado: 'confirmada' })
-    .eq("id", id);
+    .eq("id_reserva", id)
+    .eq("estado", "pendiente");
 
   if (error) {
     console.error("Error confirming booking:", error);
     return NextResponse.redirect(new URL('/error?message=Could+not+confirm+booking', request.url));
   }
 
-  return NextResponse.redirect(new URL(`/booking-confirmed?id=${id}`, request.url));
+  // La página de resultado vive dentro de la barbería de la reserva
+  const { data: reserva } = await supabase.from("reserva").select("id_barberia").eq("id_reserva", id).maybeSingle();
+  const barberia = reserva ? await getBarberiaById(supabase, reserva.id_barberia) : null;
+  return NextResponse.redirect(new URL(barberia ? `/${barberia.slug}/booking-confirmed` : "/", request.url));
 }

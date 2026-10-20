@@ -1,16 +1,31 @@
 "use client"
 
-import { User, Scissors, Calendar, Check } from "lucide-react";
+import { User, Scissors, Calendar, Check, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ProgressStepsProps {
   currentStep: number;
+  // Barberías con varias sucursales parten eligiendo sucursal (paso 0)
+  conSucursal?: boolean;
 }
 
-export function ProgressSteps({ currentStep }: ProgressStepsProps) {
+export function ProgressSteps({ currentStep, conSucursal = false }: ProgressStepsProps) {
   return (
     <div className="flex justify-center mb-8 px-2 overflow-x-auto">
       <div className="flex items-center gap-2 md:gap-4">
+        {conSucursal && (
+          <>
+            {/* Step 0: Sucursal */}
+            <div className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 rounded-full transition-all whitespace-nowrap bg-blue-500 text-white">
+              <MapPin className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs md:text-sm font-medium hidden sm:inline">Sucursal</span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-4 md:w-8 h-0.5 bg-zinc-300 dark:bg-zinc-700" />
+          </>
+        )}
+
         {/* Step 1: Barber */}
         <div className={cn(
           "flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 rounded-full transition-all whitespace-nowrap",

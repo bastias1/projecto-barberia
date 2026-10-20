@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useBarberia } from "@/components/barberia-provider";
 import { XCircle, RefreshCcw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function PaymentFailurePage() {
+    const { slug } = useBarberia();
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-red-100 to-zinc-100 dark:from-red-950/30 dark:via-zinc-900 dark:to-black p-4">
             <Card className="w-full max-w-md border-2 border-red-100 dark:border-red-900/50 shadow-xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm">
@@ -27,13 +29,13 @@ export default function PaymentFailurePage() {
                     </div>
 
                     <div className="w-full space-y-3 pt-4">
-                        <Link href="/checkout" className="w-full block">
+                        <Link href={`/${slug}/checkout`} className="w-full block">
                             <Button className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base rounded-xl">
                                 <RefreshCcw className="mr-2 h-5 w-5" />
                                 Intentar nuevamente
                             </Button>
                         </Link>
-                        <Link href="/tienda" className="w-full block">
+                        <Link href={`/${slug}/tienda`} className="w-full block">
                             <Button variant="ghost" className="w-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Volver a la tienda

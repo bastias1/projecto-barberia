@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Trash2, Loader2, Star } from "lucide-react";
 import { toast } from "sonner";
+import { useBarberia } from "@/components/barberia-provider";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -23,30 +24,21 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import type { PublicReview } from "@/components/reviews/review-card";
 
-interface Review {
-    id: number;
-    comentario: string;
-    calificacion: number;
-    guest_name?: string;
-    usuario?: {
-        nombre: string;
-        apellido: string;
-    };
-    barbero?: {
-        nombre: string;
-        apellido: string;
-    };
+interface ReviewsTableProps {
+    canDelete: boolean;
 }
 
-export function ReviewsTable() {
-    const [reviews, setReviews] = useState<Review[]>([]);
+export function ReviewsTable({ canDelete }: ReviewsTableProps) {
+    const { slug } = useBarberia();
+    const [reviews, setReviews] = useState<PublicReview[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const fetchReviews = async () => {
         try {
-            const response = await fetch("/api/reviews");
+            const response = await fetch(`/api/reviews?barberia=${slug}&limit=200`);
             const data = await response.json();
             if (data.reviews) {
                 setReviews(data.reviews);
@@ -66,7 +58,7 @@ export function ReviewsTable() {
     const handleDelete = async (id: number) => {
         setDeletingId(id);
         try {
-            const response = await fetch(`/api/reviews/${id}`, {
+            const response = await fetch(`/api/reviews/${id}?barberia=${slug}`, {
                 method: "DELETE",
             });
 
@@ -100,14 +92,14 @@ export function ReviewsTable() {
                         <TableHead>Cliente</TableHead>
                         <TableHead>Calificación</TableHead>
                         <TableHead>Comentario</TableHead>
-                        <TableHead>Barbero</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
+                        <TableHead>Barbero / Producto</TableHead>
+                        {canDelete && <TableHead className="text-right">Acciones</TableHead>}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {reviews.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                            <TableCell colSpan={canDelete ? 5 : 4} className="text-center h-24 text-muted-foreground">
                                 No hay reseñas registradas.
                             </TableCell>
                         </TableRow>
@@ -115,7 +107,7 @@ export function ReviewsTable() {
                         reviews.map((review) => (
                             <TableRow key={review.id}>
                                 <TableCell className="font-medium">
-                                    {review.guest_name || (review.usuario?.nombre || "Anónimo")} {review.usuario?.apellido || ""}
+                                    {review.autor}
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-1">
@@ -123,16 +115,15 @@ export function ReviewsTable() {
                                         <span>{review.calificacion}</span>
                                     </div>
                                 </TableCell>
-                                <TableCell className="max-w-[300px] truncate" title={review.comentario}>
-                                    {review.comentario}
+                                <TableCell className="max-w-[300px] truncate" title={review.comentario ?? undefined}>
+                                    {review.comentario || <span className="text-muted-foreground italic">Sin comentario</span>}
                                 </TableCell>
                                 <TableCell>
-                                    {review.barbero ? (
-                                        `${review.barbero.nombre} ${review.barbero.apellido}`
-                                    ) : (
+                                    {review.producto || review.profesional || (
                                         <span className="text-muted-foreground italic">General</span>
                                     )}
                                 </TableCell>
+                                {canDelete && (
                                 <TableCell className="text-right">
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
@@ -163,6 +154,7 @@ export function ReviewsTable() {
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 </TableCell>
+                                )}
                             </TableRow>
                         ))
                     )}

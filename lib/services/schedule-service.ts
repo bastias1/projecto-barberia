@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 
 export interface HorarioBarbero {
   id: number;
-  barbero: string;
+  id_sucursal: number;
   dia_semana: number;
   hora_inicio: string;
   hora_fin: string;
@@ -14,16 +14,23 @@ export interface DaySchedule {
   horarios: HorarioBarbero[];
 }
 
+export interface BlockedDate {
+  id: number;
+  fecha: string;
+  motivo: string | null;
+}
+
 /**
  * Get all schedules for a barber grouped by day
  */
-export async function getBarberSchedules(barberId: string): Promise<DaySchedule[]> {
+export async function getBarberSchedules(idBarberia: string, barberId: string): Promise<DaySchedule[]> {
   const supabase = await createClient();
-  
+
   const { data, error } = await supabase
-    .from('horario_barbero')
-    .select('*')
-    .eq('barbero', barberId)
+    .from('horario_atencion')
+    .select('id:id_horario, id_sucursal, dia_semana, hora_inicio, hora_fin, activo')
+    .eq('id_barberia', idBarberia)
+    .eq('id_profesional', barberId)
     .order('dia_semana', { ascending: true })
     .order('hora_inicio', { ascending: true });
 
@@ -34,7 +41,7 @@ export async function getBarberSchedules(barberId: string): Promise<DaySchedule[
 
   // Group by day
   const grouped: { [key: number]: HorarioBarbero[] } = {};
-  data?.forEach(schedule => {
+  (data as HorarioBarbero[])?.forEach(schedule => {
     if (!grouped[schedule.dia_semana]) {
       grouped[schedule.dia_semana] = [];
     }
@@ -50,13 +57,14 @@ export async function getBarberSchedules(barberId: string): Promise<DaySchedule[
 /**
  * Get blocked dates for a barber
  */
-export async function getBlockedDates(barberId: string) {
+export async function getBlockedDates(idBarberia: string, barberId: string): Promise<BlockedDate[]> {
   const supabase = await createClient();
-  
+
   const { data, error } = await supabase
     .from('dia_bloqueado')
-    .select('*')
-    .eq('barbero', barberId)
+    .select('id:id_dia_bloqueado, fecha, motivo')
+    .eq('id_barberia', idBarberia)
+    .eq('id_profesional', barberId)
     .order('fecha', { ascending: true });
 
   if (error) {
@@ -64,5 +72,5 @@ export async function getBlockedDates(barberId: string) {
     return [];
   }
 
-  return data || [];
+  return (data as BlockedDate[]) || [];
 }

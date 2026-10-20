@@ -1,7 +1,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, BarChart3, PieChart, LineChart } from "lucide-react";
+import { requireStaff } from "@/lib/staff-context";
+import { getModulosCached } from "@/lib/barberia-server";
+import { ModuloNoDisponible } from "@/components/modulo-no-disponible";
 
-export default async function EstadisticasPage() {
+export default async function EstadisticasPage({ params }: { params: Promise<{ slug: string }> }) {
+  const ctx = await requireStaff((await params).slug);
+    if (!(await getModulosCached(ctx.barberia.id_barberia)).includes("bi")) {
+      return (
+          <ModuloNoDisponible
+              titulo="Las estadísticas no están incluidas en tu plan"
+              descripcion="Cambia a un plan que lo incluya para activarlo."
+              volverHref={`/${ctx.barberia.slug}/dashboard/suscripcion`}
+              volverLabel="Ver planes"
+          />
+      );
+  }
+
   return (
     <div className="space-y-6">
       <div>

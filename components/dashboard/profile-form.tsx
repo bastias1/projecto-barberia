@@ -11,17 +11,18 @@ import { toast } from "sonner";
 
 interface ProfileFormProps {
   userId: string;
+  barberiaId: string;
+  isProfesional: boolean;
   initialData: {
     nombre: string;
     apellido: string;
     telefono: string;
     correo: string;
     especialidad?: string;
-    rol: string;
   };
 }
 
-export function ProfileForm({ userId, initialData }: ProfileFormProps) {
+export function ProfileForm({ userId, barberiaId, isProfesional, initialData }: ProfileFormProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState(initialData);
   const router = useRouter();
@@ -36,11 +37,9 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
       const { error: userError } = await supabase
         .from('usuario')
         .update({
-          nombre: formData.nombre,
-          apellido: formData.apellido,
           telefono: formData.telefono,
         })
-        .eq('id', userId);
+        .eq('id_usuario', userId);
 
       if (userError) throw userError;
 
@@ -53,14 +52,15 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
         if (emailError) throw emailError;
       }
 
-      // Update barbero table if user is a barber
-      if (initialData.rol === 'barbero' && formData.especialidad !== undefined) {
+      // Update profesional table if user is a barber
+      if (isProfesional && formData.especialidad !== undefined) {
         const { error: barberError } = await supabase
-          .from('barbero')
+          .from('profesional')
           .update({
-            especialidad: formData.especialidad,
+            especialidad: formData.especialidad || null,
           })
-          .eq('id', userId);
+          .eq('id_barberia', barberiaId)
+          .eq('id_profesional', userId);
 
         if (barberError) throw barberError;
       }
@@ -119,7 +119,7 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
           />
         </div>
 
-        {initialData.rol === 'barbero' && (
+        {isProfesional && (
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="especialidad">Especialidad</Label>
             <Input

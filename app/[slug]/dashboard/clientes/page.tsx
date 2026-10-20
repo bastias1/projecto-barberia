@@ -1,15 +1,14 @@
-import { createClient } from "@/utils/supabase/server";
 import { getClientsWithStats, getMonthlyAttendanceStats } from "@/lib/services/dashboard-service";
 import { ClientsList } from "@/components/dashboard/clients-list";
+import { requireStaff } from "@/lib/staff-context";
 
-export default async function ClientesPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+export default async function ClientesPage({ params }: { params: Promise<{ slug: string }> }) {
+  const ctx = await requireStaff((await params).slug);
+  const idBarberia = ctx.barberia.id_barberia;
 
   const [clients, monthlyStats] = await Promise.all([
-    getClientsWithStats(user.id),
-    getMonthlyAttendanceStats(user.id),
+    getClientsWithStats(idBarberia, ctx.userId),
+    getMonthlyAttendanceStats(idBarberia, ctx.userId),
   ]);
 
   return (
@@ -23,7 +22,7 @@ export default async function ClientesPage() {
         </p>
       </div>
 
-      <ClientsList clients={clients} monthlyStats={monthlyStats} barberId={user.id} />
+      <ClientsList clients={clients} monthlyStats={monthlyStats} barberId={ctx.userId} />
     </div>
   );
 }

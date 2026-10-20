@@ -1,0 +1,221 @@
+import { createServiceRoleClient } from "@/utils/supabase/service-role";
+import { getBarberiaById, DEFAULT_TZ } from "./barberia";
+import { formatCLP, formatFecha, toZoned } from "./datetime";
+import { emailButton, emailDetalle, emailLayout, escapeHtml, sendEmail } from "./email";
+import { bookingActionUrl, getSiteUrl, reviewUrl } from "./signed-links";
+import { one } from "./utils";
+
+/*
+ * Correos transaccionales. Se leen los datos con service role porque quien
+ * dispara el correo (un invitado sin sesión o un barbero) no siempre puede ver
+ * el contacto del destinatario por RLS. Solo se usan en el servidor.
+ */
+
+interface Contacto {
+  nombre: string;
+  correo: string;
+}
+
+async function cargarReserva(idReserva: number) {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("reserva")
+    .select(`
+      id_reserva, id_barberia, estado, fecha_hora_inicio, monto,
+      servicio:servicio!reserva_servicio_fkey (nombre),
+      sucursal:sucursal!reserva_sucursal_fkey (nombre, direccion, comuna, zona_horaria),
+      profesional:profesional!reserva_profesional_fkey (alias, usuario:usuario!profesional_usuario_fkey (nombre, apellido)),
+      guest:guest_usuario!reserva_guest_fkey (nombre, correo),
+      cliente:usuario!reserva_cliente_fkey (nombre, email)
+    `)
+    .eq("id_reserva", idReserva)
+    .single();
+
+  if (error || !data) {
+    console.error(`[notificaciones] No se pudo cargar la reserva ${idReserva}:`, error);
+    return null;
+  }
+
+  const guest = one<{ nombre: string; correo: string }>(data.guest);
+  const cliente = one<{ nombre: string; email: string }>(data.cliente);
+  const contacto: Contacto | null = guest
+    ? { nombre: guest.nombre, correo: guest.correo }
+    : cliente
+      ? { nombre: cliente.nombre, correo: cliente.email }
+      : null;
+
+  const profesional = one<{ alias: string | null; usuario: unknown }>(data.profesional);
+  const usuarioProf = one<{ nombre: string; apellido: string | null }>(profesional?.usuario);
+  const sucursal = one<{ nombre: string; direccion: string; comuna: string; zona_horaria: string }>(data.sucursal);
+  const { fecha, hora } = toZoned(data.fecha_hora_inicio, sucursal?.zona_horaria || DEFAULT_TZ);
+
+  const barberia = await getBarberiaById(supabase, data.id_barberia);
+  if (!barberia) return null;
+
+  return {
+    supabase,
+    barberia,
+    reserva: data,
+    contacto,
+    servicio: one<{ nombre: string }>(data.servicio)?.nombre ?? "Servicio",
+    barbero: profesional?.alias || [usuarioProf?.nombre, usuarioProf?.apellido].filter(Boolean).join(" ") || "Barbero",
+    sucursal,
+    fecha,
+    hora,
+  };
+}
+
+/** Correo con los links de confirmar/cancelar, al crear una reserva. */
+export async function notificarReservaCreada(idReserva: number): Promise<void> {
+  const info = await cargarReserva(idReserva);
+  if (!info?.contacto) return;
+
+  const { barberia } = info;
+  const confirmar = bookingActionUrl("confirm", idReserva);
+  const cancelar = bookingActionUrl("cancel", idReserva);
+
+  const html = emailLayout(
+    "Recibimos tu reserva",
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, estos son los datos de tu cita:</p>
+     ${emailDetalle([
+       ["Servicio", info.servicio],
+       ["Barbero", info.barbero],
+       ["Fecha", formatFecha(info.fecha, "EEEE d 'de' MMMM")],
+       ["Hora", info.hora],
+       ...(info.sucursal ? [["Sucursal", `${info.sucursal.nombre} · ${info.sucursal.direccion}`] as [string, string]] : []),
+       ["Total", formatCLP(info.reserva.monto)],
+     ])}
+     <p style="margin:0 0 12px">Por favor confirma tu asistencia:</p>
+     <p style="margin:0">${emailButton(confirmar, "Confirmar cita", "#16a34a")}${emailButton(cancelar, "Cancelar cita", "#dc2626")}</p>`,
+    barberia.nombre,
+  );
+
+  const enviado = await sendEmail({ to: info.contacto.correo, subject: `Tu reserva en ${barberia.nombre}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  if (!enviado) console.info(`[notificaciones] Links reserva ${idReserva}: confirmar=${confirmar} cancelar=${cancelar}`);
+}
+
+/** Correo con el link de reseña, cuando una reserva se marca como completada. */
+export async function notificarResenaReserva(idReserva: number): Promise<void> {
+  const info = await cargarReserva(idReserva);
+  if (!info?.contacto || info.reserva.estado !== "completada") return;
+
+  const { count } = await info.supabase
+    .from("resena")
+    .select("id_resena", { count: "exact", head: true })
+    .eq("id_reserva", idReserva);
+  if (count) return; // ya opinó
+
+  const { barberia } = info;
+  const link = reviewUrl("reserva", idReserva);
+
+  const html = emailLayout(
+    "¿Cómo te fue con tu corte?",
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, gracias por visitarnos.
+     Nos encantaría saber qué te pareció tu ${escapeHtml(info.servicio.toLowerCase())} con ${escapeHtml(info.barbero)}
+     del ${escapeHtml(formatFecha(info.fecha, "d 'de' MMMM"))}.</p>
+     <p style="margin:0">${emailButton(link, "Dejar mi reseña")}</p>`,
+    barberia.nombre,
+  );
+
+  const enviado = await sendEmail({ to: info.contacto.correo, subject: `¿Qué te pareció tu visita a ${barberia.nombre}?`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  if (!enviado) console.info(`[notificaciones] Link reseña reserva ${idReserva}: ${link}`);
+}
+
+/** Correo con el link de reseña, cuando un pedido se marca como entregado. */
+export async function notificarResenaPedido(idPedido: number): Promise<void> {
+  const supabase = createServiceRoleClient();
+  const { data: pedido, error } = await supabase
+    .from("pedido")
+    .select(`
+      id_pedido, id_barberia, estado, id_cliente,
+      cliente:usuario!pedido_cliente_fkey (nombre, email),
+      detalle_pedido!detalle_pedido_pedido_fkey (id_producto, producto:producto!detalle_pedido_producto_fkey (nombre))
+    `)
+    .eq("id_pedido", idPedido)
+    .single();
+
+  if (error || !pedido) {
+    console.error(`[notificaciones] No se pudo cargar el pedido ${idPedido}:`, error);
+    return;
+  }
+
+  const cliente = one<{ nombre: string; email: string }>(pedido.cliente);
+  if (!cliente || pedido.estado !== "entregado") return;
+
+  const detalles = (pedido.detalle_pedido ?? []) as Array<{ id_producto: number; producto: unknown }>;
+  const { data: yaResenados } = await supabase
+    .from("resena")
+    .select("id_producto")
+    .eq("id_cliente", pedido.id_cliente)
+    .in("id_producto", detalles.map((d) => d.id_producto));
+  const resenados = new Set((yaResenados ?? []).map((r) => r.id_producto));
+  const pendientes = detalles.filter((d) => !resenados.has(d.id_producto));
+  if (pendientes.length === 0) return;
+
+  const barberia = await getBarberiaById(supabase, pedido.id_barberia);
+  if (!barberia) return;
+  const link = reviewUrl("pedido", idPedido);
+  const lista = pendientes
+    .map((d) => `<li style="margin:4px 0">${escapeHtml(one<{ nombre: string }>(d.producto)?.nombre)}</li>`)
+    .join("");
+
+  const html = emailLayout(
+    "¿Qué te parecieron tus productos?",
+    `<p style="margin:0 0 12px">Hola ${escapeHtml(cliente.nombre)}, tu pedido #${idPedido} ya fue entregado.
+     Cuéntanos qué te parecieron:</p>
+     <ul style="margin:0 0 20px;padding-left:20px">${lista}</ul>
+     <p style="margin:0">${emailButton(link, "Calificar productos")}</p>`,
+    barberia.nombre,
+  );
+
+  const enviado = await sendEmail({ to: cliente.email, subject: `Califica tu pedido #${idPedido}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  if (!enviado) console.info(`[notificaciones] Link reseña pedido ${idPedido}: ${link}`);
+}
+
+/** Correo de invitación al equipo de una barbería (link a /invitacion/<token>). */
+export async function notificarInvitacion(idInvitacion: number): Promise<void> {
+  const supabase = createServiceRoleClient();
+  const { data: inv, error } = await supabase
+    .from("invitacion")
+    .select("id_barberia, correo, rol, token, estado, expira_at, invitado_por")
+    .eq("id_invitacion", idInvitacion)
+    .single();
+
+  if (error || !inv || inv.estado !== "pendiente") {
+    console.error(`[notificaciones] No se pudo cargar la invitación ${idInvitacion}:`, error);
+    return;
+  }
+
+  const [barberia, { data: quien }] = await Promise.all([
+    getBarberiaById(supabase, inv.id_barberia),
+    inv.invitado_por
+      ? supabase.from("usuario").select("nombre, apellido").eq("id_usuario", inv.invitado_por).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (!barberia) return;
+
+  const link = `${getSiteUrl()}/invitacion/${inv.token}`;
+  const rol = inv.rol === "admin" ? "administrador" : "barbero";
+  const invitador = quien ? [quien.nombre, quien.apellido].filter(Boolean).join(" ") : barberia.nombre;
+  const vence = formatFecha(toZoned(inv.expira_at, DEFAULT_TZ).fecha, "d 'de' MMMM");
+
+  const html = emailLayout(
+    `Te invitan a ${barberia.nombre}`,
+    `<p style="margin:0 0 16px">${escapeHtml(invitador)} te invita a unirte al equipo de
+     <strong>${escapeHtml(barberia.nombre)}</strong> como ${rol}.</p>
+     <p style="margin:0 0 16px">Si aún no tienes cuenta, podrás crearla gratis con este mismo correo.
+     La invitación vence el ${escapeHtml(vence)}.</p>
+     <p style="margin:0">${emailButton(link, "Ver invitación")}</p>`,
+    barberia.nombre,
+    `Recibes este correo porque ${barberia.nombre} te invitó a su equipo. Si no esperabas esta invitación, ignora este mensaje.`,
+  );
+
+  const enviado = await sendEmail({
+    to: inv.correo,
+    subject: `${barberia.nombre} te invita a su equipo`,
+    html,
+    fromName: barberia.nombre,
+    replyTo: barberia.email_contacto,
+  });
+  if (!enviado) console.info(`[notificaciones] Link invitación ${idInvitacion} (${inv.correo}): ${link}`);
+}

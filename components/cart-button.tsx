@@ -5,12 +5,13 @@ import Image from "next/image";
 import { ShoppingCart, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useCartStore } from "@/lib/cart-store";
+import { useBarberiaCart } from "@/lib/cart-store";
+import { useBarberiaHref } from "@/components/barberia-provider";
 
 export function CartButton() {
-  const { items, removeItem } = useCartStore();
+  const { items, removeItem, total } = useBarberiaCart();
+  const href = useBarberiaHref();
   const itemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -84,7 +85,7 @@ export function CartButton() {
                   className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800"
                 >
                   <Image
-                    src={item.image || "/placeholder.png"}
+                    src={item.image || "/placeholder.svg"}
                     alt={item.name}
                     width={60}
                     height={60}
@@ -121,7 +122,7 @@ export function CartButton() {
                     ${total.toLocaleString("es-CL")}
                   </span>
                 </div>
-                <Link href="/cart" className="block">
+                <Link href={href("/cart")} className="block">
                   <Button
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
                     onClick={() => setOpen(false)}

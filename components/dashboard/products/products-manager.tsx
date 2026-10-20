@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Loader2, Search, Package, Edit, Upload, Image as ImageIcon, Archive, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useBarberia } from "@/components/barberia-provider";
 import {
     Dialog,
     DialogContent,
@@ -40,7 +41,10 @@ import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 import { DashboardTableSkeleton } from "@/components/dashboard/loading-skeletons";
 
+const CATEGORIAS_BASE = ["Accesorios", "Afeitado", "Barba", "Cuidado capilar", "Estilizado", "Kits"];
+
 export function ProductsManager() {
+    const { id_barberia: idBarberia } = useBarberia();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -75,7 +79,7 @@ export function ProductsManager() {
     async function loadProducts() {
         try {
             setLoading(true);
-            const data = await getProducts();
+            const data = await getProducts(idBarberia);
             setProducts(data);
         } catch (error) {
             console.error("Error loading products:", error);
@@ -141,7 +145,7 @@ export function ProductsManager() {
             let imageUrl = editingProduct?.imagen_url || null;
 
             if (imageFile) {
-                imageUrl = await uploadProductImage(imageFile);
+                imageUrl = await uploadProductImage(idBarberia, imageFile);
             }
 
             const productData = {
@@ -150,7 +154,7 @@ export function ProductsManager() {
                 precio: Number(formData.precio),
                 categoria: formData.categoria,
                 stock: Number(formData.stock) || 0,
-                tag: formData.tag || undefined,
+                tag: formData.tag || null,
                 imagen_url: imageUrl
             };
 
@@ -161,7 +165,7 @@ export function ProductsManager() {
                     toast.success("Producto actualizado");
                 }
             } else {
-                const created = await createProduct(productData);
+                const created = await createProduct(idBarberia, productData);
                 if (created) {
                     setProducts([created, ...products]);
                     toast.success("Producto creado");
@@ -231,6 +235,9 @@ export function ProductsManager() {
             toast.error("Error al restaurar el producto");
         }
     }
+
+    // Categorías base más las que ya existen en el catálogo
+    const categorias = Array.from(new Set([...CATEGORIAS_BASE, ...products.map(p => p.categoria)])).sort();
 
     const filteredProducts = products.filter(product =>
         product.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -334,9 +341,9 @@ export function ProductsManager() {
                                                 <SelectValue placeholder="Selecciona una categoría" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="Cuidado Capilar">Cuidado Capilar</SelectItem>
-                                                <SelectItem value="Accesorios">Accesorios</SelectItem>
-                                                <SelectItem value="Barba">Barba</SelectItem>
+                                                {categorias.map((categoria) => (
+                                                    <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -475,7 +482,7 @@ export function ProductsManager() {
                                             {product.categoria}
                                         </div>
                                         <div className="col-span-2 sm:col-span-2 text-sm font-medium">
-                                            ${product.precio.toLocaleString()}
+                                            ${product.precio.toLocaleString("es-CL")}
                                         </div>
                                         <div className="col-span-2 sm:col-span-1 text-sm">
                                             <Badge variant={product.stock > 0 ? "secondary" : "destructive"}>

@@ -8,19 +8,35 @@ export interface Product {
     imagen_url: string | null;
     categoria: string;
     stock: number;
+    stock_minimo?: number;
     created_at: string;
     rating?: number;
-    tag?: string;
+    tag?: string | null;
     activo?: boolean;
 }
 
+// Alias de columnas para mantener la forma que usa la UI
+const PRODUCT_COLUMNS = "id:id_producto, nombre, descripcion, precio, imagen_url, categoria, stock, stock_minimo, created_at, tag, activo";
+
+type ProductInput = Partial<Omit<Product, "id" | "created_at" | "rating">>;
+
+// Solo columnas editables (evita enviar id, rating u otros campos calculados)
+function toRow(product: ProductInput) {
+    const { nombre, descripcion, precio, imagen_url, categoria, stock, stock_minimo, tag, activo } = product;
+    return Object.fromEntries(
+        Object.entries({ nombre, descripcion, precio, imagen_url, categoria, stock, stock_minimo, tag, activo })
+            .filter(([, v]) => v !== undefined)
+    );
+}
+
 // Get all products (for dashboard - includes archived)
-export async function getProducts(query?: string): Promise<Product[]> {
+export async function getProducts(idBarberia: string, query?: string): Promise<Product[]> {
     const supabase = createClient();
 
     let queryBuilder = supabase
-        .from('productos')
-        .select('*')
+        .from('producto')
+        .select(PRODUCT_COLUMNS)
+        .eq('id_barberia', idBarberia)
         .order('created_at', { ascending: false });
 
     if (query) {
@@ -34,16 +50,17 @@ export async function getProducts(query?: string): Promise<Product[]> {
         return [];
     }
 
-    return data || [];
+    return (data as Product[]) || [];
 }
 
 // Get only active products (for store/public pages)
-export async function getActiveProducts(query?: string): Promise<Product[]> {
+export async function getActiveProducts(idBarberia: string, query?: string): Promise<Product[]> {
     const supabase = createClient();
 
     let queryBuilder = supabase
-        .from('productos')
-        .select('*')
+        .from('producto')
+        .select(PRODUCT_COLUMNS)
+        .eq('id_barberia', idBarberia)
         .eq('activo', true)
         .order('created_at', { ascending: false });
 
@@ -58,17 +75,25 @@ export async function getActiveProducts(query?: string): Promise<Product[]> {
         return [];
     }
 
-    return data || [];
+    return (data as Product[]) || [];
 }
 
-export async function getProductById(id: number): Promise<Product | null> {
+export async function getProductById(idBarberia: string, id: number): Promise<Product | null> {
     const supabase = createClient();
 
-    const { data, error } = await supabase
-        .from('productos')
-        .select('*')
-        .eq('id', id)
-        .single();
+    const [{ data, error }, { data: resenas }] = await Promise.all([
+        supabase
+            .from('producto')
+            .select(PRODUCT_COLUMNS)
+            .eq('id_barberia', idBarberia)
+            .eq('id_producto', id)
+            .maybeSingle(),
+        supabase
+            .from('resena')
+            .select('calificacion')
+            .eq('id_barberia', idBarberia)
+            .eq('id_producto', id),
+    ]);
 
     if (error) {
         console.error(`Error fetching product ${id}:`, error);
@@ -76,20 +101,27 @@ export async function getProductById(id: number): Promise<Product | null> {
     }
 
     // Return null if product is archived (for public-facing pages)
-    if (data && data.activo === false) {
+    if (!data || data.activo === false) {
         return null;
     }
 
-    return data;
+    // Promedio de las reseñas reales del producto
+    const product = data as Product;
+    if (resenas && resenas.length > 0) {
+        const promedio = resenas.reduce((acc, r) => acc + Number(r.calificacion), 0) / resenas.length;
+        product.rating = Math.round(promedio * 10) / 10;
+    }
+
+    return product;
 }
 
-export async function createProduct(product: Omit<Product, 'id' | 'created_at'>): Promise<Product | null> {
+export async function createProduct(idBarberia: string, product: ProductInput): Promise<Product | null> {
     const supabase = createClient();
 
     const { data, error } = await supabase
-        .from('productos')
-        .insert(product)
-        .select()
+        .from('producto')
+        .insert({ ...toRow(product), id_barberia: idBarberia })
+        .select(PRODUCT_COLUMNS)
         .single();
 
     if (error) {
@@ -97,17 +129,17 @@ export async function createProduct(product: Omit<Product, 'id' | 'created_at'>)
         throw error;
     }
 
-    return data;
+    return data as Product;
 }
 
-export async function updateProduct(id: number, updates: Partial<Product>): Promise<Product | null> {
+export async function updateProduct(id: number, updates: ProductInput): Promise<Product | null> {
     const supabase = createClient();
 
     const { data, error } = await supabase
-        .from('productos')
-        .update(updates)
-        .eq('id', id)
-        .select()
+        .from('producto')
+        .update(toRow(updates))
+        .eq('id_producto', id)
+        .select(PRODUCT_COLUMNS)
         .single();
 
     if (error) {
@@ -115,93 +147,77 @@ export async function updateProduct(id: number, updates: Partial<Product>): Prom
         throw error;
     }
 
-    return data;
+    return data as Product;
 }
 
 export async function deleteProduct(id: number): Promise<boolean> {
     const supabase = createClient();
 
-    // First check if product exists and can be accessed
-    const { data: product, error: fetchError } = await supabase
-        .from('productos')
-        .select('id')
-        .eq('id', id)
-        .single();
-
-    if (fetchError) {
-        console.error('Error fetching product for deletion:', fetchError.message, fetchError.code);
-        throw new Error(`No se pudo encontrar el producto: ${fetchError.message}`);
-    }
-
-    const { error, count } = await supabase
-        .from('productos')
+    const { data, error } = await supabase
+        .from('producto')
         .delete()
-        .eq('id', id);
+        .eq('id_producto', id)
+        .select('id_producto');
 
     if (error) {
         console.error('Error deleting product:', error.message, error.code, error.details, error.hint);
-        
+
         // Check for foreign key constraint violation
         if (error.code === '23503') {
             throw new Error('No se puede eliminar el producto porque tiene ventas o reseñas asociadas');
         }
-        
+
         // Check for RLS policy violation
         if (error.code === '42501' || error.message?.includes('policy')) {
             throw new Error('No tienes permisos para eliminar productos');
         }
-        
+
         throw new Error(error.message || 'Error al eliminar el producto');
+    }
+
+    // Con RLS, un DELETE sin permiso no falla: simplemente no borra filas
+    if (!data || data.length === 0) {
+        throw new Error('No tienes permisos para eliminar productos');
     }
 
     return true;
 }
 
-// Archive product (soft delete - keeps sales history)
-export async function archiveProduct(id: number): Promise<Product | null> {
+async function setProductActive(id: number, activo: boolean): Promise<Product | null> {
     const supabase = createClient();
 
     const { data, error } = await supabase
-        .from('productos')
-        .update({ activo: false })
-        .eq('id', id)
-        .select()
+        .from('producto')
+        .update({ activo })
+        .eq('id_producto', id)
+        .select(PRODUCT_COLUMNS)
         .single();
 
     if (error) {
-        console.error('Error archiving product:', error.message);
-        throw new Error('Error al archivar el producto');
+        console.error(`Error ${activo ? 'restoring' : 'archiving'} product:`, error.message);
+        throw new Error(activo ? 'Error al restaurar el producto' : 'Error al archivar el producto');
     }
 
-    return data;
+    return data as Product;
+}
+
+// Archive product (soft delete - keeps sales history)
+export async function archiveProduct(id: number): Promise<Product | null> {
+    return setProductActive(id, false);
 }
 
 // Restore archived product
 export async function restoreProduct(id: number): Promise<Product | null> {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-        .from('productos')
-        .update({ activo: true })
-        .eq('id', id)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error restoring product:', error.message);
-        throw new Error('Error al restaurar el producto');
-    }
-
-    return data;
+    return setProductActive(id, true);
 }
 
-export async function uploadProductImage(file: File): Promise<string | null> {
+export async function uploadProductImage(idBarberia: string, file: File): Promise<string | null> {
     const supabase = createClient();
 
-    // Create a unique file name
+    // Create a unique file name (Storage solo deja escribir en la carpeta de la propia barbería)
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-    const filePath = `productos/${fileName}`;
+    const filePath = `productos/${idBarberia}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
         .from('imgs')

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +8,29 @@ import { RecentCutsCarousel } from "@/components/recent-cuts-carousel";
 import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
 import Link from "next/link";
 import { Calendar, ShoppingBag, Clock, MapPin, Instagram, LogIn, Scissors, Star } from "lucide-react";
+import { createClient } from "@/utils/supabase/server";
+import { getSucursales } from "@/lib/barberia";
+import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
+import { getHorarioResumen, instagramUrl, mapaEmbedUrl, tieneTienda } from "@/lib/barberia-publica";
+import { PLATAFORMA } from "@/lib/plataforma";
 
-export default function Home() {
+export default async function BarberiaHome({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const barberia = await getBarberiaCached(slug);
+  if (!barberia) notFound();
+
+  const supabase = await createClient();
+  const [sucursales, horario, hayProductos, modulos] = await Promise.all([
+    getSucursales(supabase, barberia.id_barberia),
+    getHorarioResumen(supabase, barberia.id_barberia),
+    tieneTienda(supabase, barberia.id_barberia),
+    getModulosCached(barberia.id_barberia),
+  ]);
+  const conTienda = hayProductos && modulos.includes("ecommerce");
+  const conAgenda = modulos.includes("agenda");
+
+  const principal = sucursales[0];
+  const parrafos = (barberia.descripcion ?? "").split(/\n\s*\n/).filter(Boolean);
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden selection:bg-primary/20">
@@ -23,7 +45,7 @@ export default function Home() {
       <nav className="fixed top-0 w-full z-50 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Link href="/login">
+            <Link href={`/login?barberia=${slug}`}>
               <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
                 <LogIn className="h-4 w-4" />
                 <span className="hidden sm:inline">Iniciar Sesión</span>
@@ -40,38 +62,45 @@ export default function Home() {
 
         {/* Hero Section */}
         <div className="flex flex-col items-center text-center mb-16 lg:mb-24 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          <div className="relative w-full max-w-3xl mx-auto mb-8">
-            <div className="aspect-[3/1] relative flex items-center justify-center">
-              <img
-                src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/BLACK.png"
-                alt="Logo Barbería BENJVMIN"
-                className="h-32 sm:h-48 object-contain dark:hidden drop-shadow-2xl"
-              />
-              <img
-                src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/WHITE.png"
-                alt="Logo Barbería BENJVMIN"
-                className="h-32 sm:h-48 object-contain hidden dark:block drop-shadow-2xl"
-              />
+          {barberia.logo_url && (
+            <div className="relative w-full max-w-3xl mx-auto mb-8">
+              <div className="aspect-[3/1] relative flex items-center justify-center">
+                <img
+                  src={barberia.logo_url}
+                  alt={`Logo ${barberia.nombre}`}
+                  className={`h-32 sm:h-48 object-contain drop-shadow-2xl ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`}
+                />
+                {barberia.logo_oscuro_url && (
+                  <img
+                    src={barberia.logo_oscuro_url}
+                    alt={`Logo ${barberia.nombre}`}
+                    className="h-32 sm:h-48 object-contain hidden dark:block drop-shadow-2xl"
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <Badge variant="outline" className="mb-6 px-6 py-1.5 text-sm uppercase tracking-widest border-primary/20 bg-primary/5">
-            Barberia · Profesional · Premium
+            {principal ? `Barbería · ${principal.comuna}` : "Barbería"}
           </Badge>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-zinc-900 via-zinc-700 to-zinc-900 dark:from-white dark:via-zinc-400 dark:to-white">
-            Tu estilo, nuestra pasión.
+            {barberia.logo_url ? (barberia.eslogan || barberia.nombre) : barberia.nombre}
           </h1>
 
-          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-light">
-            Descubre la excelencia en cada corte. Una experiencia diseñada para el hombre moderno.
-          </p>
+          {!barberia.logo_url && barberia.eslogan && (
+            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-light">
+              {barberia.eslogan}
+            </p>
+          )}
         </div>
 
         {/* Primary Actions Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-16 max-w-4xl mx-auto">
+        <div className={`grid grid-cols-1 gap-4 lg:gap-6 mb-16 mx-auto ${conTienda ? "md:grid-cols-2 max-w-4xl" : "max-w-md"}`}>
           {/* Booking Card */}
-          <Link href="/agendar" className="group h-full">
+          {conAgenda ? (
+          <Link href={`/${slug}/agendar`} className="group h-full">
             <Card className="h-full overflow-hidden border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 group-hover:border-primary/50 relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardContent className="p-6 flex flex-col items-center text-center h-full justify-center relative z-10">
@@ -86,38 +115,89 @@ export default function Home() {
               </CardContent>
             </Card>
           </Link>
-
-          {/* Store Card */}
-          <Link href="/tienda" className="group h-full">
-            <Card className="h-full overflow-hidden border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/5 hover:-translate-y-1 group-hover:border-blue-500/50 relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <CardContent className="p-6 flex flex-col items-center text-center h-full justify-center relative z-10">
-                <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 shadow-inner">
-                  <ShoppingBag className="h-8 w-8 text-zinc-900 dark:text-white" />
+          ) : (
+            <Card className="h-full border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent">
+              <CardContent className="p-6 flex flex-col items-center text-center h-full justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
+                  <Calendar className="h-8 w-8 text-zinc-400" />
                 </div>
-                <h3 className="text-xl font-bold mb-2 group-hover:text-blue-500 transition-colors">Tienda Online</h3>
-                <p className="text-sm text-muted-foreground mb-4">Productos premium seleccionados para tu rutina.</p>
-                <div className="mt-auto flex items-center text-sm font-medium text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-                  Ver Productos <span className="ml-2">→</span>
-                </div>
+                <h3 className="text-xl font-bold mb-2">Reservas en línea no disponibles</h3>
+                <p className="text-sm text-muted-foreground">
+                  {barberia.telefono ? `Agenda llamando al ${barberia.telefono}.` : "Contacta a la barbería para agendar."}
+                </p>
               </CardContent>
             </Card>
-          </Link>
+          )}
+
+          {/* Store Card */}
+          {conTienda && (
+            <Link href={`/${slug}/tienda`} className="group h-full">
+              <Card className="h-full overflow-hidden border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/5 hover:-translate-y-1 group-hover:border-blue-500/50 relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <CardContent className="p-6 flex flex-col items-center text-center h-full justify-center relative z-10">
+                  <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 shadow-inner">
+                    <ShoppingBag className="h-8 w-8 text-zinc-900 dark:text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2 group-hover:text-blue-500 transition-colors">Tienda Online</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Productos premium seleccionados para tu rutina.</p>
+                  <div className="mt-auto flex items-center text-sm font-medium text-blue-500 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                    Ver Productos <span className="ml-2">→</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
         </div>
 
+        {/* Branches Section */}
+        {sucursales.length > 1 && (
+          <div className="mb-20">
+            <div className="flex items-center justify-center mb-8 px-2">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Nuestras Sucursales
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+              {sucursales.map((s) => (
+                <Card key={s.id_sucursal} className="border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50">
+                  <CardContent className="p-6 flex flex-col gap-4 h-full">
+                    <div>
+                      <h3 className="text-xl font-bold">{s.nombre}</h3>
+                      <p className="text-sm text-muted-foreground">{s.direccion}, {s.comuna}</p>
+                    </div>
+                    <div className="flex gap-2 mt-auto">
+                      <Link href={`/${slug}/${s.slug}`} className="flex-1">
+                        <Button variant="outline" className="w-full">Ver sucursal</Button>
+                      </Link>
+                      {conAgenda && (
+                        <Link href={`/${slug}/agendar?sucursal=${s.slug}`} className="flex-1">
+                          <Button className="w-full">Agendar aquí</Button>
+                        </Link>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Recent Cuts Section */}
-        <div className="mb-20">
-          <div className="flex items-center justify-between mb-8 px-2 max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Scissors className="h-5 w-5" />
-              Trabajos Recientes
-            </h2>
-            <Badge variant="secondary">Galería</Badge>
+        {barberia.galeria.length > 0 && (
+          <div className="mb-20">
+            <div className="flex items-center justify-between mb-8 px-2 max-w-3xl mx-auto">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Scissors className="h-5 w-5" />
+                Trabajos Recientes
+              </h2>
+              <Badge variant="secondary">Galería</Badge>
+            </div>
+            <div className="max-w-3xl mx-auto">
+              <RecentCutsCarousel imagenes={barberia.galeria} />
+            </div>
           </div>
-          <div className="max-w-3xl mx-auto">
-            <RecentCutsCarousel />
-          </div>
-        </div>
+        )}
 
         {/* Bento Grid Info Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-20">
@@ -131,15 +211,12 @@ export default function Home() {
                 <span className="font-bold tracking-wider text-sm uppercase">Sobre Nosotros</span>
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">
-                Sobre BENJVMIN
+                Sobre {barberia.nombre}
               </h3>
               <div className="space-y-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-                <p>
-                  BENJVMIN es una marca dedicada al corte de cabello con un enfoque a público masculino, llegando a un acuerdo mutuo entre el deseo y la realidad.
-                </p>
-                <p>
-                  Trabajamos con pasión, innovación y un compromiso constante por mejorar y brindar una experiencia premium y personalizada.
-                </p>
+                {parrafos.length > 0
+                  ? parrafos.map((p, i) => <p key={i}>{p}</p>)
+                  : <p>Agenda tu próxima visita en línea y elige a tu barbero.</p>}
               </div>
             </CardContent>
           </Card>
@@ -152,40 +229,59 @@ export default function Home() {
                 <div className="p-3 rounded-xl bg-background shadow-sm">
                   <Clock className="h-6 w-6 text-primary" />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <h4 className="font-bold text-lg mb-1">Horario</h4>
-                  <p className="text-muted-foreground">Lun - Sáb</p>
-                  <p className="font-medium text-lg">9:00 AM - 8:00 PM</p>
+                  {horario.length === 0 ? (
+                    <p className="text-muted-foreground">Consulta disponibilidad al agendar</p>
+                  ) : (
+                    horario.map((tramo) => (
+                      <div key={tramo.dias}>
+                        <p className="text-muted-foreground">{tramo.dias}</p>
+                        <p className="font-medium text-lg">{tramo.horas}</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
 
             {/* Location */}
-            <Card className="flex-[2] border-none bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors overflow-hidden">
-              <CardContent className="p-0 h-full flex flex-col">
-                <div className="p-6 flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-background shadow-sm">
-                    <MapPin className="h-6 w-6 text-primary" />
+            {principal && (
+              <Card className="flex-[2] border-none bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors overflow-hidden">
+                <CardContent className="p-0 h-full flex flex-col">
+                  <div className="p-6 flex items-start gap-4">
+                    <div className="p-3 rounded-xl bg-background shadow-sm">
+                      <MapPin className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-lg mb-1">{sucursales.length > 1 ? "Sucursales" : "Ubicación"}</h4>
+                      {sucursales.map((s) => (
+                        <p key={s.id_sucursal} className="text-muted-foreground">
+                          {sucursales.length > 1 && (
+                            <Link href={`/${slug}/${s.slug}`} className="font-medium text-foreground hover:underline underline-offset-4">
+                              {s.nombre}:{" "}
+                            </Link>
+                          )}
+                          {s.direccion}, {s.comuna}
+                        </p>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-lg mb-1">Ubicación</h4>
-                    <p className="text-muted-foreground">Haverbeck 1815, Valdivia</p>
+                  <div className="flex-1 min-h-[150px] relative grayscale hover:grayscale-0 transition-all duration-500">
+                    <iframe
+                      title="Ubicación en Google Maps"
+                      src={mapaEmbedUrl(`${principal.direccion}, ${principal.comuna}, Chile`)}
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0, position: 'absolute', inset: 0 }}
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
                   </div>
-                </div>
-                <div className="flex-1 min-h-[150px] relative grayscale hover:grayscale-0 transition-all duration-500">
-                  <iframe
-                    title="Ubicación en Google Maps"
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3238.866827182495!2d-73.240!3d-39.820!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9615ef8cba8f4c15%3A0x5c2b7ed6f1c2b7b5!2sHaverbeck%201815%2C%20Valdivia!5e0!3m2!1ses!2scl!4v1700000000000!5m2!1ses!2scl"
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0, position: 'absolute', inset: 0 }}
-                    allowFullScreen
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
 
@@ -206,16 +302,22 @@ export default function Home() {
 
         {/* Footer Section */}
         <footer className="flex flex-col items-center justify-center gap-8 pb-8">
-          <div className="flex gap-6">
-            <Link href="https://www.instagram.com/benjvmin._/" target="_blank" className="group">
-              <div className="p-4 rounded-full bg-zinc-100 dark:bg-zinc-900 group-hover:bg-pink-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-lg group-hover:shadow-pink-600/20">
-                <Instagram className="h-6 w-6" />
-              </div>
-            </Link>
-          </div>
-          <div className="text-center">
+          {barberia.instagram && (
+            <div className="flex gap-6">
+              <Link href={instagramUrl(barberia.instagram)} target="_blank" className="group" aria-label="Instagram">
+                <div className="p-4 rounded-full bg-zinc-100 dark:bg-zinc-900 group-hover:bg-pink-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-lg group-hover:shadow-pink-600/20">
+                  <Instagram className="h-6 w-6" />
+                </div>
+              </Link>
+            </div>
+          )}
+          <div className="text-center space-y-1">
             <p className="text-sm font-medium text-muted-foreground">
-              © 2025 Barbería BENJVMIN
+              © {new Date().getFullYear()} {barberia.nombre}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Reservas con{" "}
+              <Link href="/" className="underline-offset-4 hover:underline">{PLATAFORMA.nombre}</Link>
             </p>
           </div>
         </footer>

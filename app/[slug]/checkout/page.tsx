@@ -5,13 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, MapPin, Store, Truck } from "lucide-react";
-import { useCartStore } from "../../lib/cart-store";
+import { useBarberiaCart } from "@/lib/cart-store";
+import { useBarberia } from "@/components/barberia-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 type Address = {
   id: string;
@@ -23,9 +25,10 @@ type Address = {
 };
 
 export default function CheckoutPage() {
-  const cart = useCartStore((state) => state.items);
-  const clearCart = useCartStore((state) => state.clearCart);
+  const { slug } = useBarberia();
+  const { items: cart } = useBarberiaCart();
   const router = useRouter();
+  const loginUrl = `/login?barberia=${slug}&next=/${slug}/checkout`;
   const supabase = createClient();
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -60,19 +63,19 @@ export default function CheckoutPage() {
     const fetchAddresses = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push("/login?redirect=/checkout");
+        router.push(loginUrl);
         return;
       }
 
       const { data } = await supabase
         .from('direccion_usuario')
-        .select('*')
-        .eq('usuario_id', user.id);
+        .select('id:id_direccion, calle, ciudad, comuna, telefono, nombre_etiqueta, depto, region')
+        .eq('id_usuario', user.id);
 
       if (data) setAddresses(data);
     };
     fetchAddresses();
-  }, [router, supabase]);
+  }, [router, supabase, loginUrl]);
 
   const handleSaveAddress = async () => {
     setIsLoading(true);
@@ -82,12 +85,15 @@ export default function CheckoutPage() {
     const { data, error } = await supabase
       .from('direccion_usuario')
       .insert({
-        usuario_id: user.id,
+        id_usuario: user.id,
         ...newAddress
       })
-      .select()
+      .select('id:id_direccion, calle, ciudad, comuna, telefono, nombre_etiqueta, depto, region')
       .single();
 
+    if (error) {
+      toast.error('No se pudo guardar la dirección');
+    }
     if (data) {
       setAddresses([...addresses, data]);
       setSelectedAddressId(data.id);
@@ -107,6 +113,7 @@ export default function CheckoutPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          barberia: slug,
           items: cart.map((item) => ({
             id: item.id,
             title: item.name,
@@ -119,11 +126,15 @@ export default function CheckoutPage() {
       });
 
       if (response.status === 401) {
-        router.push("/login?redirect=/checkout");
+        router.push(loginUrl);
         return;
       }
 
       const data = await response.json();
+      if (!response.ok) {
+        toast.error(data.error || 'No se pudo iniciar el pago');
+        return;
+      }
       if (data.id) {
         setPreferenceId(data.id);
         setStep('payment');
@@ -138,9 +149,9 @@ export default function CheckoutPage() {
   // Redirect to cart if empty
   useEffect(() => {
     if (cart.length === 0) {
-      router.push('/cart');
+      router.push(`/${slug}/cart`);
     }
-  }, [cart.length, router]);
+  }, [cart.length, router, slug]);
 
   if (cart.length === 0) {
     return null;
@@ -149,7 +160,7 @@ export default function CheckoutPage() {
   return (
     <main className="mx-auto w-full max-w-4xl">
       <Link
-        href="/cart"
+        href={`/${slug}/cart`}
         className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors mb-6"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -292,7 +303,7 @@ export default function CheckoutPage() {
                   <div key={item.id} className="flex gap-3">
                     <div className="relative h-16 w-16 rounded-md overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0">
                       <Image
-                        src={item.image || '/placeholder.png'}
+                        src={item.image || '/placeholder.svg'}
                         alt={item.name}
                         fill
                         className="object-cover"

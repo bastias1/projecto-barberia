@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,20 +11,20 @@ import { CalendarX, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-
-interface BlockedDate {
-  id: number;
-  fecha: string;
-  motivo: string | null;
-}
+import type { BlockedDate } from "@/lib/services/schedule-service";
+import { localDateString } from "@/lib/datetime";
 
 interface BlockedDatesProps {
   barberId: string;
+  barberiaId: string;
   initialBlockedDates: BlockedDate[];
 }
 
-export function BlockedDates({ barberId, initialBlockedDates }: BlockedDatesProps) {
+export function BlockedDates({ barberId, barberiaId, initialBlockedDates }: BlockedDatesProps) {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>(initialBlockedDates);
+
+  // router.refresh() trae los datos nuevos por props
+  useEffect(() => setBlockedDates(initialBlockedDates), [initialBlockedDates]);
   const [newBlock, setNewBlock] = useState({
     fecha: "",
     motivo: "",
@@ -45,7 +45,8 @@ export function BlockedDates({ barberId, initialBlockedDates }: BlockedDatesProp
       const { error } = await supabase
         .from('dia_bloqueado')
         .insert({
-          barbero: barberId,
+          id_barberia: barberiaId,
+          id_profesional: barberId,
           fecha: newBlock.fecha,
           motivo: newBlock.motivo || null,
         });
@@ -72,7 +73,7 @@ export function BlockedDates({ barberId, initialBlockedDates }: BlockedDatesProp
       const { error } = await supabase
         .from('dia_bloqueado')
         .delete()
-        .eq('id', dateToDelete);
+        .eq('id_dia_bloqueado', dateToDelete);
 
       if (error) throw error;
 
@@ -129,7 +130,7 @@ export function BlockedDates({ barberId, initialBlockedDates }: BlockedDatesProp
                     type="date"
                     value={newBlock.fecha}
                     onChange={(e) => setNewBlock({ ...newBlock, fecha: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={localDateString(new Date())}
                   />
                 </div>
                 <div className="space-y-2">

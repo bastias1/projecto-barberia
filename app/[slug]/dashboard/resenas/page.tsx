@@ -1,7 +1,10 @@
 import { ReviewsTable } from "@/components/dashboard/reviews/reviews-table";
 import { Separator } from "@/components/ui/separator";
+import { requireStaff } from "@/lib/staff-context";
 
-export default function ReviewsPage() {
+export default async function ReviewsPage({ params }: { params: Promise<{ slug: string }> }) {
+    const ctx = await requireStaff((await params).slug);
+
     return (
         <div className="space-y-6">
             <div>
@@ -11,7 +14,8 @@ export default function ReviewsPage() {
                 </p>
             </div>
             <Separator />
-            <ReviewsTable />
+            {/* Por RLS solo un administrador puede eliminar reseñas */}
+            <ReviewsTable canDelete={ctx.isAdmin} />
         </div>
     );
 }

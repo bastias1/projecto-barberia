@@ -4,24 +4,27 @@ import { ArrowLeft, Star, Droplets, Scissors, ShoppingCart } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/services/product-service";
+import { getBarberiaCached } from "@/lib/barberia-server";
 
 type PageProps = {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string; id: string }>;
 };
 
 export default async function ProductPage({ params }: PageProps) {
-  const { id } = await params;
-  const productId = Number(id);
+  const { slug, id } = await params;
+  const barberia = await getBarberiaCached(slug);
+  if (!barberia) notFound();
 
-  const product = await getProductById(productId);
+  const product = await getProductById(barberia.id_barberia, Number(id));
 
   if (!product) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-4">
         <p className="mb-4 text-lg text-zinc-500 dark:text-zinc-400">Producto no encontrado.</p>
         <Link
-          href="/tienda"
+          href={`/${slug}/tienda`}
           className="inline-flex items-center gap-2 text-sm font-medium text-zinc-900 hover:text-zinc-700 dark:text-zinc-100 dark:hover:text-zinc-300 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -32,20 +35,20 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   const priceLabel = `$${product.precio.toLocaleString("es-CL")}`;
-  const imageUrl = product.imagen_url || "/placeholder.png";
+  const imageUrl = product.imagen_url || "/placeholder.svg";
 
   // Parse details if stored as JSON string or array, otherwise use default or split description
   const details = [
     "Calidad profesional garantizada",
     "Ideal para uso diario",
-    "Producto exclusivo de Barbería BENJVMIN"
+    `Producto exclusivo de ${barberia.nombre}`
   ];
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="mb-8">
         <Link
-          href="/tienda"
+          href={`/${slug}/tienda`}
           className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />

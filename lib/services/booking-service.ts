@@ -1,233 +1,92 @@
 import { createClient } from "@/utils/supabase/client";
-import { Database } from "../database.types";
+import { getSucursales, DEFAULT_TZ } from "@/lib/barberia";
+import { dayOfWeek, fromZoned, localDateString, addDays } from "@/lib/datetime";
 
-export type Reserva = Database["public"]["Tables"]["reserva"]["Row"];
-export type ReservaInsert = Database["public"]["Tables"]["reserva"]["Insert"];
-
-export interface BookingData {
-  barberoId: string;
-  serviceId: number;
-  date: Date;
-  time: string;
-  customerInfo: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-  };
+export interface TimeSlot {
+  hora: string; // HH:mm local de la sucursal
+  idSucursal: number;
 }
 
-// Create a new booking
-export async function createBooking(bookingData: BookingData): Promise<{ success: boolean; data?: Reserva; error?: string }> {
-  const supabase = createClient();
+// Intervalo entre horarios ofrecidos y anticipación mínima para reservar
+const SLOT_STEP_MIN = 30;
+const MIN_ADVANCE_MS = 2 * 60 * 60 * 1000;
 
-  try {
-    // Check if client is blocked by email OR phone
-    const email = bookingData.customerInfo.email.toLowerCase();
-    const phone = bookingData.customerInfo.phone?.trim() || null;
-
-    const { data: blocked } = await supabase
-      .from('cliente_bloqueado')
-      .select('id')
-      .or(
-        phone
-          ? `correo.eq.${email},telefono.eq.${phone}`
-          : `correo.eq.${email}`
-      )
-      .limit(1);
-
-    if (blocked && blocked.length > 0) {
-      return { success: false, error: 'CLIENT_BLOCKED' };
-    }
-
-    // Create a new guest user for each booking
-    const { data: newGuest, error: createGuestError } = await supabase
-      .from("guest_usuario")
-      .insert({
-        nombre: bookingData.customerInfo.firstName,
-        apellido: bookingData.customerInfo.lastName,
-        correo: bookingData.customerInfo.email,
-        telefono: bookingData.customerInfo.phone,
-      })
-      .select()
-      .single();
-
-    if (createGuestError) {
-      console.error("Error creating guest user:", createGuestError);
-      return { success: false, error: "No se pudo crear el usuario invitado" };
-    }
-
-    const guestClienteId = newGuest.id;
-
-    // Format date for PostgreSQL using local date (not UTC)
-    // This prevents timezone shifting the date by a day
-    const year = bookingData.date.getFullYear();
-    const month = String(bookingData.date.getMonth() + 1).padStart(2, '0');
-    const day = String(bookingData.date.getDate()).padStart(2, '0');
-    const fecha = `${year}-${month}-${day}`;
-    const hora = bookingData.time;
-
-    // Create the reservation - el webhook se dispara automáticamente
-    const { data: reservaData, error: reservaError } = await supabase
-      .from("reserva")
-      .insert({
-        fecha,
-        hora,
-        estado: "pendiente",
-        guest_cliente: guestClienteId,
-        cliente: null,
-        servicio: bookingData.serviceId,
-        barbero: bookingData.barberoId
-      })
-      .select(`
-        *,
-        barbero:barbero(nombre, apellido),
-        servicio:servicio(nombre, precio, duracion)
-      `)
-      .single();
-
-    if (reservaError) {
-      console.error("Error creating reservation:", reservaError);
-      return { success: false, error: "No se pudo crear la reserva" };
-    }
-
-    console.log("✅ Reserva creada exitosamente. Email enviándose automáticamente vía webhook...");
-
-    return { success: true, data: reservaData };
-  } catch (error) {
-    console.error("Unexpected error:", error);
-    return { success: false, error: "Error inesperado al crear la reserva" };
-  }
+function toMinutes(hora: string) {
+  const [h, m] = hora.split(":").map(Number);
+  return h * 60 + m;
 }
 
-// Get available time slots for a specific date and barber
-export async function getAvailableTimeSlots(date: Date, barberId?: string): Promise<string[]> {
+function toHora(minutes: number) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Horarios disponibles de un barbero para una fecha y la duración del servicio.
+ * Cruza su horario de atención con los días bloqueados y las reservas existentes
+ * (vía RPC públicas, ya que un visitante no puede leer reservas ajenas).
+ */
+export async function getAvailableTimeSlots(
+  idBarberia: string,
+  date: Date,
+  barberId: string,
+  duracionMin: number,
+  idSucursal?: number,
+  // El personal agenda sin anticipación (p. ej. alguien que llega sin hora)
+  minAnticipacionMs: number = MIN_ADVANCE_MS,
+): Promise<TimeSlot[]> {
   const supabase = createClient();
-  
-  // Format date using local date (not UTC) to prevent timezone issues
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const fecha = `${year}-${month}-${day}`;
-  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+  const fecha = localDateString(date);
 
-  // If barber is specified, check if date is blocked
-  if (barberId) {
-    const { data: blockedDate } = await supabase
-      .from('dia_bloqueado')
-      .select('id')
-      .eq('barbero', barberId)
-      .eq('fecha', fecha)
-      .maybeSingle();
+  const [{ data: bloqueados }, { data: todosHorarios }, sucursales] = await Promise.all([
+    supabase.rpc("dias_bloqueados", { p_barberia: idBarberia, p_profesional: barberId, p_desde: fecha, p_hasta: fecha }),
+    supabase
+      .from("horario_atencion")
+      .select("id_sucursal, hora_inicio, hora_fin")
+      .eq("id_barberia", idBarberia)
+      .eq("id_profesional", barberId)
+      .eq("dia_semana", dayOfWeek(fecha))
+      .eq("activo", true),
+    getSucursales(supabase, idBarberia),
+  ]);
 
-    if (blockedDate) {
-      return []; // Date is blocked
-    }
+  // Solo turnos de sucursales activas (y de la elegida, si se indicó)
+  const horarios = (todosHorarios ?? []).filter((h) =>
+    sucursales.some((s) => s.id_sucursal === h.id_sucursal) && (!idSucursal || h.id_sucursal === idSucursal)
+  );
 
-    // Get barber's schedule for this day
-    const { data: schedules } = await supabase
-      .from('horario_barbero')
-      .select('hora_inicio, hora_fin')
-      .eq('barbero', barberId)
-      .eq('dia_semana', dayOfWeek)
-      .eq('activo', true);
-
-    if (!schedules || schedules.length === 0) {
-      return []; // No schedule configured for this day
-    }
-
-    // Generate time slots based on barber's schedule
-    const allTimeSlots: string[] = [];
-    schedules.forEach(schedule => {
-      const startHour = parseInt(schedule.hora_inicio.split(':')[0]);
-      const endHour = parseInt(schedule.hora_fin.split(':')[0]);
-      
-      for (let hour = startHour; hour < endHour; hour++) {
-        const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-        if (!allTimeSlots.includes(timeSlot)) {
-          allTimeSlots.push(timeSlot);
-        }
-      }
-    });
-
-    // Get already booked times for this barber
-    const { data: bookings } = await supabase
-      .from("reserva")
-      .select("hora")
-      .eq("fecha", fecha)
-      .eq("barbero", barberId)
-      .neq("estado", "cancelada");
-
-    const bookedTimes = bookings?.map(b => b.hora.substring(0, 5)) || [];
-    let availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
-
-    // Filter out slots that are less than 2 hours from now for same-day bookings
-    const now = new Date();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
-    
-    if (checkDate.getTime() === today.getTime()) {
-      // Same day booking - require 2 hours advance
-      const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-      const minHour = twoHoursFromNow.getHours();
-      const minMinute = twoHoursFromNow.getMinutes();
-      
-      availableSlots = availableSlots.filter(slot => {
-        const [slotHour, slotMinute] = slot.split(':').map(Number);
-        return slotHour > minHour || (slotHour === minHour && slotMinute >= minMinute);
-      });
-    }
-
-    return availableSlots.sort();
-  }
-
-  // Fallback to default slots if no barber specified
-  const { data: bookings, error } = await supabase
-    .from("reserva")
-    .select("hora")
-    .eq("fecha", fecha)
-    .neq("estado", "cancelada");
-
-  if (error) {
-    console.error("Error fetching bookings:", error);
+  if ((bloqueados && bloqueados.length > 0) || horarios.length === 0) {
     return [];
   }
 
-  const allTimeSlots = [
-    "09:00", "10:00", "11:00", "12:00", "13:00",
-    "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"
-  ];
+  const tzOf = (idSucursal: number) =>
+    sucursales.find((s) => s.id_sucursal === idSucursal)?.zona_horaria || DEFAULT_TZ;
 
-  const bookedTimes = bookings?.map(b => b.hora.substring(0, 5)) || [];
-  const availableSlots = allTimeSlots.filter(slot => !bookedTimes.includes(slot));
+  const tz = tzOf(horarios[0].id_sucursal);
+  const { data: ocupados } = await supabase.rpc("horarios_ocupados", {
+    p_barberia: idBarberia,
+    p_profesional: barberId,
+    p_desde: fromZoned(fecha, "00:00", tz).toISOString(),
+    p_hasta: fromZoned(addDays(fecha, 1), "00:00", tz).toISOString(),
+  });
+  const busy = (ocupados || []).map((o: { inicio: string; fin: string }) => [Date.parse(o.inicio), Date.parse(o.fin)]);
 
-  return availableSlots;
-}
+  const minStart = Date.now() + minAnticipacionMs;
+  const duracionMs = duracionMin * 60 * 1000;
+  const slots = new Map<string, TimeSlot>();
 
-// Check if a specific time slot is available
-export async function isTimeSlotAvailable(date: Date, time: string): Promise<boolean> {
-  const supabase = createClient();
-  
-  // Format date using local date (not UTC) to prevent timezone issues
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const fecha = `${year}-${month}-${day}`;
+  for (const horario of horarios) {
+    const fin = toMinutes(horario.hora_fin);
+    for (let t = toMinutes(horario.hora_inicio); t + duracionMin <= fin; t += SLOT_STEP_MIN) {
+      const hora = toHora(t);
+      const inicio = fromZoned(fecha, hora, tzOf(horario.id_sucursal)).getTime();
+      const termino = inicio + duracionMs;
 
-  const { data, error } = await supabase
-    .from("reserva")
-    .select("id")
-    .eq("fecha", fecha)
-    .eq("hora", time)
-    .neq("estado", "cancelada")
-    .maybeSingle();
+      if (inicio < minStart) continue;
+      if (busy.some(([bInicio, bFin]: number[]) => inicio < bFin && termino > bInicio)) continue;
 
-  if (error) {
-    console.error("Error checking availability:", error);
-    return false;
+      slots.set(hora, { hora, idSucursal: horario.id_sucursal });
+    }
   }
 
-  return !data;
+  return Array.from(slots.values()).sort((a, b) => a.hora.localeCompare(b.hora));
 }

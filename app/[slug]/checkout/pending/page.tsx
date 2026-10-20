@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useBarberia } from "@/components/barberia-provider";
 import { Clock, ShoppingBag, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function PaymentPendingPage() {
+    const { slug } = useBarberia();
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-yellow-100 to-zinc-100 dark:from-yellow-950/30 dark:via-zinc-900 dark:to-black p-4">
             <Card className="w-full max-w-md border-2 border-yellow-100 dark:border-yellow-900/50 shadow-xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm">
@@ -27,7 +29,7 @@ export default function PaymentPendingPage() {
                     </div>
 
                     <div className="w-full space-y-3 pt-4">
-                        <Link href="/tienda" className="w-full block">
+                        <Link href={`/${slug}/tienda`} className="w-full block">
                             <Button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-12 text-base rounded-xl group">
                                 <ShoppingBag className="mr-2 h-5 w-5" />
                                 Volver a la tienda

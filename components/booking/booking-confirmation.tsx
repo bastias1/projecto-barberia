@@ -6,6 +6,8 @@ import { Check } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import Link from "next/link";
+import { useBarberiaHref } from "@/components/barberia-provider";
+import type { Sucursal } from "@/lib/barberia";
 
 interface Service {
   id: number;
@@ -31,6 +33,7 @@ interface BookingConfirmationProps {
     email: string;
     phone: string;
   };
+  sucursal: Sucursal | null;
   onNewBooking: () => void;
 }
 
@@ -40,8 +43,11 @@ export function BookingConfirmation({
   selectedDate,
   selectedTime,
   formData,
+  sucursal,
   onNewBooking
 }: BookingConfirmationProps) {
+  const href = useBarberiaHref();
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card className="border-2 border-green-500">
@@ -54,6 +60,15 @@ export function BookingConfirmation({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-zinc-100 dark:bg-zinc-800 p-4 md:p-6 rounded-lg space-y-2 md:space-y-3">
+            {sucursal && (
+              <div className="flex justify-between gap-4 text-sm md:text-base">
+                <span className="text-zinc-600 dark:text-zinc-400">Sucursal:</span>
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">
+                  {sucursal.nombre}
+                  <span className="block text-xs font-normal text-zinc-500">{sucursal.direccion}, {sucursal.comuna}</span>
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-sm md:text-base">
               <span className="text-zinc-600 dark:text-zinc-400">Barbero:</span>
               <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">{selectedBarber.nombre || "Barbero"}</span>
@@ -99,7 +114,7 @@ export function BookingConfirmation({
           </p>
 
           <div className="flex gap-2 md:gap-3">
-            <Link href="/" className="flex-1">
+            <Link href={href()} className="flex-1">
               <Button variant="outline" className="w-full text-sm md:text-base">
                 Volver al Inicio
               </Button>

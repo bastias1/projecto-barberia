@@ -1,25 +1,20 @@
 import { ProductsManager } from "@/components/dashboard/products/products-manager";
-import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
+import { requireStaff } from "@/lib/staff-context";
+import { getModulosCached } from "@/lib/barberia-server";
+import { ModuloNoDisponible } from "@/components/modulo-no-disponible";
 
-export default async function ProductsPage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    // Check user role
-    const { data: barber } = await supabase
-        .from("barberos")
-        .select("rol")
-        .eq("user_id", user.id)
-        .single();
-
-    // Redirect if role is 'barbero' (unauthorized)
-    if (barber?.rol === "barbero") {
-        redirect("/dashboard");
+export default async function ProductsPage({ params }: { params: Promise<{ slug: string }> }) {
+    // La gestión de la tienda es solo para administradores
+    const ctx = await requireStaff((await params).slug, { admin: true });
+    if (!(await getModulosCached(ctx.barberia.id_barberia)).includes("ecommerce")) {
+        return (
+            <ModuloNoDisponible
+                titulo="La tienda no está incluida en tu plan"
+                descripcion="Cambia a un plan que lo incluya para activarlo."
+                volverHref={`/${ctx.barberia.slug}/dashboard/suscripcion`}
+                volverLabel="Ver planes"
+            />
+        );
     }
 
     return (

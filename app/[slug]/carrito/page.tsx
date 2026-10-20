@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCartStore } from "@/lib/cart-store";
+import { useBarberiaCart } from "@/lib/cart-store";
+import { useBarberia } from "@/components/barberia-provider";
+import { RequiereModulo } from "@/components/requiere-modulo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,12 +23,18 @@ function formatCLP(value: number) {
   });
 }
 
-export default function CartPage() {
-  const items = useCartStore((state) => state.items);
-  const removeItem = useCartStore((state) => state.removeItem);
-  const clearCart = useCartStore((state) => state.clearCart);
-  const updateQuantity = useCartStore((state) => state.updateQuantity);
-  const total = useCartStore((state) => state.total());
+export default function CarritoPage() {
+  return (
+    <RequiereModulo modulo="ecommerce">
+      <Carrito />
+    </RequiereModulo>
+  );
+}
+
+function Carrito() {
+  const barberia = useBarberia();
+  const { items, removeItem, clearCart, updateQuantity } = useBarberiaCart();
+  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const isEmpty = items.length === 0;
 
@@ -36,7 +44,7 @@ export default function CartPage() {
         {/* Header */}
         <header className="flex items-center justify-between gap-4">
           <Link
-            href="/tienda"
+            href={`/${barberia.slug}/tienda`}
             className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -61,7 +69,7 @@ export default function CartPage() {
               <p className="text-sm text-zinc-600">
                 Tu carrito está vacío. Agrega productos desde la tienda.
               </p>
-              <Link href="/tienda">
+              <Link href={`/${barberia.slug}/tienda`}>
                 <Button className="gap-2">
                   <ShoppingBag className="h-4 w-4" />
                   Ir a la tienda
@@ -172,7 +180,7 @@ export default function CartPage() {
                     </span>
                   </div>
 
-                  <Link href="/checkout">
+                  <Link href={`/${barberia.slug}/checkout`}>
                     <Button className="mt-2 w-full justify-center gap-2">
                       <ShoppingBag className="h-4 w-4" />
                       Ir al checkout
@@ -184,7 +192,7 @@ export default function CartPage() {
 
             <p className="text-center text-xs text-zinc-500">
               Este flujo de carrito y checkout forma parte del prototipo de
-              E-Commerce para Barbería BENJVMIN.
+              E-Commerce para {barberia.nombre}.
             </p>
           </>
         )}

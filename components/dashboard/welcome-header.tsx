@@ -1,21 +1,9 @@
-import { createClient } from "@/utils/supabase/server";
-import { getBarberInfo } from "@/lib/services/dashboard-service";
+import type { StaffContext } from "@/lib/staff-context";
+import { toZoned } from "@/lib/datetime";
 
-export async function WelcomeHeader() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return null;
-  }
-
-  const barberInfo = await getBarberInfo(user.id);
-
-  if (!barberInfo) {
-    return null;
-  }
-
-  const currentHour = new Date().getHours();
+export function WelcomeHeader({ ctx }: { ctx: StaffContext }) {
+  // Hora local de la barbería (el servidor corre en UTC)
+  const currentHour = Number(toZoned(new Date()).hora.slice(0, 2));
   let greeting = "Buenos días";
   if (currentHour >= 12 && currentHour < 19) {
     greeting = "Buenas tardes";
@@ -24,9 +12,9 @@ export async function WelcomeHeader() {
   }
 
   return (
-    <div className="mb-8 pr-14 md:pr-0">
+    <div className="mb-8">
       <h1 className="text-3xl font-bold tracking-tight">
-        {greeting}, {barberInfo.nombre}
+        {greeting}, {ctx.usuario.nombre}
       </h1>
       <p className="text-muted-foreground mt-1">
         Aquí tienes un resumen de tu actividad hoy

@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useBarberia } from "@/components/barberia-provider";
 import { CheckCircle2, ShoppingBag, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect } from "react";
-import { useCartStore } from "@/lib/cart-store";
+import { useBarberiaCart } from "@/lib/cart-store";
 
 export default function PaymentSuccessPage() {
-    const clearCart = useCartStore((state) => state.clearCart);
+    const { slug } = useBarberia();
+    const { clearCart } = useBarberiaCart();
 
     useEffect(() => {
         clearCart();
@@ -35,7 +37,7 @@ export default function PaymentSuccessPage() {
                     </div>
 
                     <div className="w-full space-y-3 pt-4">
-                        <Link href="/tienda" className="w-full block">
+                        <Link href={`/${slug}/tienda`} className="w-full block">
                             <Button className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base rounded-xl group">
                                 <ShoppingBag className="mr-2 h-5 w-5" />
                                 Seguir comprando

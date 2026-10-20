@@ -4,12 +4,11 @@ import { XCircle } from "lucide-react";
 import Link from "next/link";
 
 export default async function BookingCancelledPage({
-  searchParams,
+  params,
 }: {
-  searchParams: Promise<{ id?: string }>
+  params: Promise<{ slug: string }>
 }) {
-  const params = await searchParams;
-  const bookingId = params.id;
+  const { slug } = await params;
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center p-4">
@@ -29,7 +28,7 @@ export default async function BookingCancelledPage({
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             Si deseas reagendar, puedes crear una nueva reserva en cualquier momento.
           </p>
-          <Link href="/agendar">
+          <Link href={`/${slug}/agendar`}>
             <Button className="w-full">
               Agendar Nueva Cita
             </Button>

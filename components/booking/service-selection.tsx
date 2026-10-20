@@ -49,7 +49,7 @@ export function ServiceSelection({ services, selectedService, onServiceSelect, o
                 </div>
                 <div className="flex items-center text-xs md:text-sm text-zinc-600 dark:text-zinc-400">
                   <Clock className="h-3 w-3 md:h-4 md:w-4 mr-1 flex-shrink-0" />
-                  60 min
+                  {service.duracion} min
                 </div>
               </div>
             ))}

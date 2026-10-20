@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,17 +9,58 @@ import { Label } from "@/components/ui/label";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Scissors, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
+import { destinoTrasLogin, getMembresias } from "@/lib/roles";
+import { getBarberiaBySlug, type Barberia } from "@/lib/barberia";
+import { safeNext } from "@/lib/utils";
+import { PLATAFORMA } from "@/lib/plataforma";
 import { toast } from "sonner";
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+/**
+ * Login único de la plataforma. Desde una barbería llega con ?barberia=<slug>
+ * (y opcionalmente ?next=<ruta>) para volver a ella al iniciar sesión.
+ */
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const slug = searchParams.get("barberia");
+  const next = safeNext(searchParams.get("next"));
+  const [barberia, setBarberia] = useState<Barberia | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (slug) getBarberiaBySlug(createClient(), slug).then(setBarberia);
+  }, [slug]);
+
+  // Recuperación: llega un correo con un link que abre /cuenta/clave con sesión
+  const handleOlvideClave = async () => {
+    const correo = email.trim();
+    if (!correo) {
+      toast.info("Escribe tu correo arriba y vuelve a presionar \"¿Olvidaste tu contraseña?\"");
+      return;
+    }
+    const { error } = await createClient().auth.resetPasswordForEmail(correo, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/cuenta/clave`,
+    });
+    if (error) {
+      console.error("Reset password error:", error);
+      toast.error("No se pudo enviar el correo de recuperación. Intenta más tarde.");
+      return;
+    }
+    toast.success(`Si ${correo} tiene una cuenta, te enviamos un link para crear una nueva contraseña.`);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,30 +108,8 @@ export default function LoginPage() {
       if (data.user) {
         console.log("User authenticated:", data.user.id);
 
-        // Check user role in 'usuario' table
-        const { data: userData, error: userError } = await supabase
-          .from('usuario')
-          .select('rol')
-          .eq('id', data.user.id)
-          .single();
-
-        if (userError) {
-          console.error("Error fetching user role:", userError);
-          // Fallback or default behavior
-          router.push('/');
-          router.refresh();
-          return;
-        }
-
-        const role = userData?.rol;
-        console.log("User role:", role);
-
-        if (role === 'admin' || role === 'owner' || role === 'barbero') {
-          router.push('/dashboard');
-        } else {
-          // Default for clients or others
-          router.push('/tienda');
-        }
+        // Destino según sus barberías (personal -> dashboard, cliente -> página de la barbería)
+        router.push(next ?? destinoTrasLogin(await getMembresias(supabase, data.user.id), slug));
 
         router.refresh();
       }
@@ -111,7 +130,7 @@ export default function LoginPage() {
 
       {/* Back Button */}
       <div className="fixed top-4 left-4 z-50">
-        <Link href="/">
+        <Link href={slug ? `/${slug}` : "/"}>
           <Button variant="ghost" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Volver</span>
@@ -201,7 +220,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     className="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:underline"
-                    onClick={() => toast.info("Contacta al administrador para recuperar tu contraseña")}
+                    onClick={handleOlvideClave}
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
@@ -212,21 +231,32 @@ export default function LoginPage() {
             {/* Right Side: Sign Up Call to Action */}
             <div className="p-8 md:p-12 bg-zinc-100 dark:bg-zinc-900 flex flex-col items-center justify-center text-center border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800">
               <div className="w-32 h-32 mb-6 relative flex items-center justify-center">
-                <Image
-                  src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/design.png"
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                  priority
-                />
+                {barberia?.logo_url ? (
+                  <>
+                    <img
+                      src={barberia.logo_url}
+                      alt={`Logo ${barberia.nombre}`}
+                      className={`max-h-full object-contain ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`}
+                    />
+                    {barberia.logo_oscuro_url && (
+                      <img src={barberia.logo_oscuro_url} alt={`Logo ${barberia.nombre}`} className="max-h-full object-contain hidden dark:block" />
+                    )}
+                  </>
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center">
+                    <Scissors className="h-10 w-10 text-white dark:text-zinc-900" />
+                  </div>
+                )}
               </div>
 
               <h2 className="text-2xl font-bold mb-4">¿Eres nuevo aquí?</h2>
               <p className="text-muted-foreground mb-8 max-w-xs">
-                Regístrate para agendar tus citas, comprar productos exclusivos y gestionar tu perfil.
+                {barberia
+                  ? `Regístrate en ${barberia.nombre} para agendar tus citas, comprar productos y gestionar tu perfil.`
+                  : `Crea tu cuenta en ${PLATAFORMA.nombre} para registrar tu barbería o reservar en una.`}
               </p>
 
-              <Link href="/signup" className="w-full max-w-xs">
+              <Link href={`/signup?${new URLSearchParams({ ...(slug ? { barberia: slug } : {}), ...(next ? { next } : {}) })}`} className="w-full max-w-xs">
                 <Button variant="outline" className="w-full h-11 text-base border-2 hover:bg-zinc-200 dark:hover:bg-zinc-800">
                   Crear Cuenta
                 </Button>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Accordion,
@@ -10,11 +9,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, LayoutDashboard, ShieldCheck, MessageSquare, ChevronDown } from "lucide-react";
+import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, MessageSquare, ChevronDown, Store, ExternalLink, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
+import { isAdminRol, ROL_LABEL, type RolApp } from "@/lib/roles";
+import { useBarberiaHref, useModulos } from "@/components/barberia-provider";
 
 interface Barbero {
   id: string;
@@ -27,53 +28,56 @@ interface Barbero {
 
 interface DashboardSidebarProps {
   barber: Barbero;
+  rol: RolApp;
+  barberiaNombre: string;
+  citasHoy: number; // pendientes o confirmadas de hoy
 }
 
+// Rutas relativas a /<slug>/dashboard
 const principalItems = [
-  { href: "/dashboard", icon: Home, label: "Inicio" },
-  { href: "/dashboard/resumen", icon: BarChart3, label: "Resumen" },
-  { href: "/dashboard/estadisticas", icon: TrendingUp, label: "Estadísticas" },
+  { href: "", icon: Home, label: "Inicio" },
+  { href: "/resumen", icon: BarChart3, label: "Resumen" },
+  { href: "/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi" },
 ];
 
 const managementItems = [
-  { href: "/dashboard/citas", icon: Calendar, label: "Citas" },
-  { href: "/dashboard/clientes", icon: Users, label: "Clientes" },
-  { href: "/dashboard/horarios", icon: Clock, label: "Horarios" },
-  { href: "/dashboard/servicios", icon: Scissors, label: "Servicios" },
-  { href: "/dashboard/resenas", icon: MessageSquare, label: "Reseñas" },
+  { href: "/citas", icon: Calendar, label: "Citas" },
+  { href: "/clientes", icon: Users, label: "Clientes" },
+  { href: "/horarios", icon: Clock, label: "Horarios" },
+  { href: "/servicios", icon: Scissors, label: "Servicios" },
+  { href: "/resenas", icon: MessageSquare, label: "Reseñas" },
 ];
 
 const adminItems = [
-  { href: "/dashboard/usuarios", icon: UserPlus, label: "Usuarios" },
-  { href: "/dashboard/productos", icon: Package, label: "Productos" },
-  { href: "/dashboard/pedidos", icon: Package, label: "Pedidos" },
+  { href: "/usuarios", icon: UserPlus, label: "Equipo" },
+  { href: "/barberia", icon: Store, label: "Mi Barbería" },
+  { href: "/suscripcion", icon: CreditCard, label: "Suscripción" },
+  { href: "/productos", icon: Package, label: "Productos", modulo: "ecommerce" },
+  { href: "/pedidos", icon: Package, label: "Pedidos", modulo: "ecommerce" },
 ];
 
-export function DashboardSidebar({ barber }: DashboardSidebarProps) {
+// modulo: solo se muestra si la suscripción incluye ese módulo
+type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string; modulo?: string };
+
+// Barra inferior en móvil: accesos principales con Inicio al centro; el resto, en el menú
+const bottomItems: NavItem[] = [
+  { href: "/resumen", icon: BarChart3, label: "Resumen" },
+  { href: "/citas", icon: Calendar, label: "Citas" },
+  { href: "", icon: Home, label: "Inicio" },
+  { href: "/clientes", icon: Users, label: "Clientes" },
+];
+
+export function DashboardSidebar({ barber, rol, barberiaNombre, citasHoy }: DashboardSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const href = useBarberiaHref();
+  const dashboardHref = (path: string) => href(`/dashboard${path}`);
+  const modulos = useModulos();
+  const visible = (item: NavItem) => !item.modulo || modulos.includes(item.modulo);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+  const isAdmin = isAdminRol(rol);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    async function checkRole() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("usuario")
-        .select("rol")
-        .eq("id", barber.id)
-        .single();
-
-      if (data) {
-        setRole(data.rol);
-        setIsAdmin(data.rol === "admin" || data.rol === "owner");
-      }
-    }
-    checkRole();
-  }, [barber.id]);
 
   // Close profile menu on outside click
   useEffect(() => {
@@ -91,15 +95,15 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push(href());
     router.refresh();
   };
 
-  const NavLink = ({ item }: { item: any }) => {
-    const isActive = pathname === item.href;
+  const NavLink = ({ item }: { item: NavItem }) => {
+    const isActive = pathname === dashboardHref(item.href);
     return (
       <Link
-        href={item.href}
+        href={dashboardHref(item.href)}
         onClick={() => setMobileMenuOpen(false)}
         className={cn(
           "relative flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-200 text-sm",
@@ -113,32 +117,21 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
         )}
         <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive && "text-sidebar-primary")} />
         <span>{item.label}</span>
+        {item.href === "/citas" && citasHoy > 0 && (
+          <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-primary-foreground">
+            {citasHoy}
+          </span>
+        )}
       </Link>
     );
   };
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <div className="fixed top-4 right-4 z-50 md:hidden">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="bg-white dark:bg-zinc-700 border-2 dark:border-zinc-500"
-        >
-          {mobileMenuOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
-          )}
-        </Button>
-      </div>
-
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 transform bg-sidebar border-r border-sidebar-border transition-transform duration-300 ease-in-out md:translate-x-0 md:static flex flex-col",
+          "fixed inset-y-0 left-0 z-40 w-64 pb-16 md:pb-0 transform bg-sidebar border-r border-sidebar-border transition-transform duration-300 ease-in-out md:translate-x-0 md:static flex flex-col",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -165,8 +158,8 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
                 <h2 className="text-sm font-bold text-sidebar-foreground truncate">
                   {barber.nombre || "Barbero"}
                 </h2>
-                <p className="text-xs text-sidebar-foreground/60 truncate capitalize">
-                  {role === "owner" ? "Dueño" : role || "Barbero"}
+                <p className="text-xs text-sidebar-foreground/60 truncate">
+                  {ROL_LABEL[rol]} · {barberiaNombre}
                 </p>
               </div>
               <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", profileMenuOpen && "rotate-180")} />
@@ -177,15 +170,23 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
           {profileMenuOpen && (
             <div className="absolute left-0 top-full mt-1 w-full bg-popover text-popover-foreground border rounded-md shadow-md p-1 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
               <Link
-                href="/dashboard/configuracion"
+                href={dashboardHref("/configuracion")}
                 onClick={() => { setProfileMenuOpen(false); setMobileMenuOpen(false); }}
                 className={cn(
                   "flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors",
-                  pathname === "/dashboard/configuracion" && "font-medium"
+                  pathname === dashboardHref("/configuracion") && "font-medium"
                 )}
               >
                 <Settings className="h-4 w-4" />
                 Configuración
+              </Link>
+
+              <Link
+                href={href()}
+                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Ver página pública
               </Link>
 
               <div className="bg-border -mx-1 my-1 h-px" />
@@ -215,7 +216,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
             <div className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">
               Principal
             </div>
-            {principalItems.map((item) => (
+            {principalItems.filter(visible).map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
           </div>
@@ -246,7 +247,7 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="pt-1 pb-0 space-y-1">
-                  {adminItems.map((item) => (
+                  {adminItems.filter(visible).map((item) => (
                     <NavLink key={item.href} item={item} />
                   ))}
                 </AccordionContent>
@@ -256,6 +257,69 @@ export function DashboardSidebar({ barber }: DashboardSidebarProps) {
         </div>
 
       </aside>
+
+      {/* Mobile Bottom Navigation */}
+      <nav
+        aria-label="Navegación principal"
+        className="fixed bottom-0 inset-x-0 z-50 md:hidden border-t border-sidebar-border bg-sidebar/95 backdrop-blur supports-[backdrop-filter]:bg-sidebar/80 pb-[env(safe-area-inset-bottom)]"
+      >
+        <div className="grid grid-cols-5 h-16">
+          {bottomItems.map((item) => {
+            const isActive = !mobileMenuOpen && pathname === dashboardHref(item.href);
+            const isHome = item.href === "";
+            return (
+              <Link
+                key={item.label}
+                href={dashboardHref(item.href)}
+                onClick={() => setMobileMenuOpen(false)}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+                  isActive ? "text-sidebar-primary" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                )}
+              >
+                {isHome ? (
+                  <span
+                    className={cn(
+                      "-mt-7 h-14 w-14 rounded-full flex items-center justify-center shadow-lg ring-4 ring-background transition-transform active:scale-95",
+                      "bg-primary text-primary-foreground",
+                      isActive && "scale-105"
+                    )}
+                  >
+                    <item.icon className="h-6 w-6" />
+                  </span>
+                ) : (
+                  <span className="relative">
+                    <item.icon className="h-5 w-5" />
+                    {item.href === "/citas" && citasHoy > 0 && (
+                      <span
+                        className="absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white"
+                        aria-label={`${citasHoy} citas por atender hoy`}
+                      >
+                        {citasHoy > 9 ? "9+" : citasHoy}
+                      </span>
+                    )}
+                  </span>
+                )}
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-expanded={mobileMenuOpen}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+              mobileMenuOpen ? "text-sidebar-primary" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            )}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span>Menú</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Overlay for mobile */}
       {mobileMenuOpen && (

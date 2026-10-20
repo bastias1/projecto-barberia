@@ -37,10 +37,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Package, Truck, ShoppingBag, Search, ChevronLeft, ChevronRight, MoreHorizontal, Check, X, Clock, Loader2 } from "lucide-react";
+import { Eye, Package, Truck, ShoppingBag, Search, ChevronLeft, ChevronRight, MoreHorizontal, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { updateOrderStatus } from "@/app/dashboard/actions";
+import { updateOrderStatus } from "@/app/[slug]/dashboard/actions";
 import { toast } from "sonner";
+import { ESTADO_PAGO, ESTADO_PEDIDO, estadosDisponibles, parseDireccion } from "@/lib/pedido-estados";
+import type { EstadoPagoPedido, EstadoPedido } from "@/lib/database.types";
+import { one } from "@/lib/utils";
 
 interface Producto {
     nombre: string;
@@ -48,30 +51,30 @@ interface Producto {
     imagen_url: string | null;
 }
 
-interface DetalleVenta {
+interface DetallePedido {
     id: number;
     cantidad: number;
+    precio_unitario: number;
     subtotal: number;
-    producto: Producto;
+    producto: Producto | null;
 }
 
-interface Usuario {
+interface Cliente {
     nombre: string;
-    apellido: string;
-    correo: string;
+    apellido: string | null;
+    email: string;
 }
 
-interface Venta {
+interface Pedido {
     id: number;
-    fecha: string;
-    hora: string;
-    total: number;
-    estado: string;
-    estado_pago: string;
+    created_at: string;
+    monto_total: number;
+    estado: EstadoPedido;
+    estado_pago: EstadoPagoPedido;
     tipo_entrega: string;
     direccion_envio: string | null;
-    usuario: Usuario;
-    detalle_venta: DetalleVenta[];
+    cliente: Cliente | null;
+    detalle_pedido: DetallePedido[];
 }
 
 interface PedidosClientProps {
@@ -82,24 +85,36 @@ interface PedidosClientProps {
     totalSales: number;
 }
 
+type PedidoRow = Omit<Pedido, "cliente" | "detalle_pedido"> & {
+    cliente: unknown;
+    detalle_pedido: Array<Omit<DetallePedido, "producto"> & { producto: unknown }> | null;
+};
+
+// PostgREST puede entregar las relaciones como objeto o arreglo
+function normalizar(order: PedidoRow): Pedido {
+    return {
+        ...order,
+        cliente: one<Cliente>(order.cliente),
+        detalle_pedido: (order.detalle_pedido ?? []).map((d) => ({ ...d, producto: one<Producto>(d.producto) })),
+    };
+}
+
 export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrders, totalSales }: PedidosClientProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
     // State for filters
-    const [orders, setOrders] = useState<Venta[]>(initialOrders);
-    const [selectedOrder, setSelectedOrder] = useState<Venta | null>(null);
+    const [orders, setOrders] = useState<Pedido[]>(() => initialOrders.map(normalizar));
     const [isUpdating, setIsUpdating] = useState<number | null>(null);
 
     // Update orders when initialOrders changes (server re-render)
-    // Use JSON.stringify to do a deep comparison and avoid unnecessary updates during status changes
     useEffect(() => {
         const initialIds = initialOrders.map(o => o.id).join(',');
         const currentIds = orders.map(o => o.id).join(',');
         // Only update if the orders list itself changed (pagination, filters), not just status updates
         if (initialIds !== currentIds) {
-            setOrders(initialOrders);
+            setOrders(initialOrders.map(normalizar));
         }
     }, [initialOrders]);
 
@@ -143,15 +158,18 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
         }
     };
 
-    const handleOrderStatusChange = async (orderId: number, newStatus: string) => {
+    const handleOrderStatusChange = async (orderId: number, newStatus: EstadoPedido) => {
         setIsUpdating(orderId);
         try {
             await updateOrderStatus(orderId, newStatus);
             // Update local state
-            setOrders(prev => prev.map(order => 
+            setOrders(prev => prev.map(order =>
                 order.id === orderId ? { ...order, estado: newStatus } : order
             ));
-            toast.success(`Pedido #${orderId} actualizado a ${newStatus === 'completed' ? 'Completado' : newStatus === 'cancelled' ? 'Cancelado' : 'Pendiente'}`);
+            toast.success(`Pedido #${orderId} actualizado a ${ESTADO_PEDIDO[newStatus].label}`);
+            if (newStatus === "cancelado") {
+                router.refresh(); // el trigger puede cambiar el estado del pago
+            }
         } catch (error) {
             toast.error("Error al actualizar el estado del pedido");
             console.error("Error updating order status:", error);
@@ -160,45 +178,30 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case "completed":
-            case "approved":
-                return <Badge className="bg-green-500">Completado</Badge>;
-            case "pending":
-                return <Badge variant="outline" className="text-yellow-600 border-yellow-600">Pendiente</Badge>;
-            case "cancelled":
-            case "rejected":
-                return <Badge variant="destructive">Cancelado</Badge>;
-            default:
-                return <Badge variant="secondary">{status}</Badge>;
-        }
+    const getStatusBadge = (status: EstadoPedido) => {
+        const estado = ESTADO_PEDIDO[status];
+        return estado
+            ? <Badge className={estado.className}>{estado.label}</Badge>
+            : <Badge variant="secondary">{status}</Badge>;
     };
 
     const getDeliveryBadge = (type: string) => {
         return type === "despacho" ? (
             <Badge variant="secondary" className="gap-1">
-                <Truck className="h-3 w-3" /> Delivery
+                <Truck className="h-3 w-3" /> Despacho
             </Badge>
         ) : (
             <Badge variant="secondary" className="gap-1">
-                <ShoppingBag className="h-3 w-3" /> Pickup
+                <ShoppingBag className="h-3 w-3" /> Retiro
             </Badge>
         );
     };
 
-    const getPaymentStatusBadge = (status: string) => {
-        switch (status) {
-            case "approved":
-                return <Badge className="bg-green-500">Pagado</Badge>;
-            case "pending":
-                return <Badge variant="outline" className="text-yellow-600 border-yellow-600">Pago Pendiente</Badge>;
-            case "rejected":
-            case "cancelled":
-                return <Badge variant="destructive">Pago Rechazado</Badge>;
-            default:
-                return <Badge variant="secondary">{status}</Badge>;
-        }
+    const getPaymentStatusBadge = (status: EstadoPagoPedido) => {
+        const estado = ESTADO_PAGO[status];
+        return estado
+            ? <Badge className={estado.className}>{estado.label}</Badge>
+            : <Badge variant="secondary">{status}</Badge>;
     };
 
     return (
@@ -219,8 +222,9 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold">
-                            ${totalSales.toLocaleString()}
+                            ${totalSales.toLocaleString("es-CL")}
                         </div>
+                        <p className="text-xs text-muted-foreground mt-1">Pedidos pagados</p>
                     </CardContent>
                 </Card>
             </div>
@@ -245,9 +249,9 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todos los estados</SelectItem>
-                        <SelectItem value="pending">Pendiente</SelectItem>
-                        <SelectItem value="completed">Completado</SelectItem>
-                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                        {(Object.keys(ESTADO_PEDIDO) as EstadoPedido[]).map((estado) => (
+                            <SelectItem key={estado} value={estado}>{ESTADO_PEDIDO[estado].label}</SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
                 <Select
@@ -259,8 +263,8 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todos los tipos</SelectItem>
-                        <SelectItem value="despacho">Delivery</SelectItem>
-                        <SelectItem value="retiro">Pickup</SelectItem>
+                        <SelectItem value="despacho">Despacho</SelectItem>
+                        <SelectItem value="retiro">Retiro</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -289,40 +293,38 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                orders.map((order) => (
+                                orders.map((order) => {
+                                    const direccion = parseDireccion(order.direccion_envio);
+                                    return (
                                     <TableRow key={order.id}>
                                         <TableCell className="font-medium">#{order.id}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
                                                 <span className="font-medium">
-                                                    {order.usuario?.nombre} {order.usuario?.apellido}
+                                                    {order.cliente?.nombre} {order.cliente?.apellido}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground">
-                                                    {order.usuario?.correo}
+                                                    {order.cliente?.email}
                                                 </span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
-                                                <span>{format(new Date(order.fecha), "dd MMM yyyy", { locale: es })}</span>
-                                                <span className="text-xs text-muted-foreground">{order.hora}</span>
+                                                <span>{format(new Date(order.created_at), "dd MMM yyyy", { locale: es })}</span>
+                                                <span className="text-xs text-muted-foreground">{format(new Date(order.created_at), "HH:mm")}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell>{getDeliveryBadge(order.tipo_entrega)}</TableCell>
                                         <TableCell>{getPaymentStatusBadge(order.estado_pago)}</TableCell>
                                         <TableCell>{getStatusBadge(order.estado)}</TableCell>
                                         <TableCell className="font-bold">
-                                            ${order.total.toLocaleString()}
+                                            ${Number(order.monto_total).toLocaleString("es-CL")}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Dialog>
                                                     <DialogTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => setSelectedOrder(order)}
-                                                        >
+                                                        <Button variant="ghost" size="icon">
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
                                                     </DialogTrigger>
@@ -335,47 +337,20 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                                         <div className="space-y-4">
                                                             <div>
                                                                 <h3 className="font-semibold mb-2">Información del Cliente</h3>
-                                                                <p className="text-sm">{order.usuario?.nombre} {order.usuario?.apellido}</p>
-                                                                <p className="text-sm text-muted-foreground">{order.usuario?.correo}</p>
+                                                                <p className="text-sm">{order.cliente?.nombre} {order.cliente?.apellido}</p>
+                                                                <p className="text-sm text-muted-foreground">{order.cliente?.email}</p>
                                                             </div>
                                                             <div>
                                                                 <h3 className="font-semibold mb-2">Información de Entrega</h3>
                                                                 <div className="flex items-center gap-2 mb-2">
                                                                     {getDeliveryBadge(order.tipo_entrega)}
                                                                 </div>
-                                                                {order.direccion_envio && (
+                                                                {direccion && (
                                                                     <div className="text-sm bg-muted p-3 rounded-md">
-                                                                        {/* Parse JSON if it's a string, or display as is */}
-                                                                        {typeof order.direccion_envio === 'string'
-                                                                            ? (() => {
-                                                                                try {
-                                                                                    const address = JSON.parse(order.direccion_envio);
-                                                                                    // Check if it has the expected structure (calle, ciudad, etc.)
-                                                                                    if (address.calle || address.ciudad) {
-                                                                                        return (
-                                                                                            <>
-                                                                                                <p className="font-medium">{address.nombre_etiqueta}</p>
-                                                                                                <p>{address.calle} {address.depto ? `- Depto ${address.depto}` : ''}</p>
-                                                                                                <p>{address.comuna}, {address.ciudad}</p>
-                                                                                                <p>{address.region}</p>
-                                                                                                {address.telefono && <p className="mt-1 text-xs text-muted-foreground">Tel: {address.telefono}</p>}
-                                                                                            </>
-                                                                                        );
-                                                                                    }
-                                                                                    // Fallback for other structures or if properties are missing
-                                                                                    return (
-                                                                                        <>
-                                                                                            <p>{address.street_name || address.calle} {address.street_number}</p>
-                                                                                            <p>{address.city_name || address.ciudad}, {address.state_name || address.region}</p>
-                                                                                            <p>{address.zip_code}</p>
-                                                                                        </>
-                                                                                    );
-                                                                                } catch (e) {
-                                                                                    return order.direccion_envio;
-                                                                                }
-                                                                            })()
-                                                                            : "Dirección no disponible"
-                                                                        }
+                                                                        {direccion.lineas.map((linea, i) => (
+                                                                            <p key={i} className={i === 0 && direccion.lineas.length > 1 ? "font-medium" : undefined}>{linea}</p>
+                                                                        ))}
+                                                                        {direccion.telefono && <p className="mt-1 text-xs text-muted-foreground">Tel: {direccion.telefono}</p>}
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -384,8 +359,8 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                                         <div>
                                                             <h3 className="font-semibold mb-4">Productos</h3>
                                                             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                                                                {order.detalle_venta?.map((detalle, index) => (
-                                                                    <div key={index} className="flex items-start gap-3 border-b pb-3 last:border-0">
+                                                                {order.detalle_pedido?.map((detalle) => (
+                                                                    <div key={detalle.id} className="flex items-start gap-3 border-b pb-3 last:border-0">
                                                                         <div className="relative h-12 w-12 bg-muted rounded-md overflow-hidden flex-shrink-0">
                                                                             {detalle.producto?.imagen_url ? (
                                                                                 <Image
@@ -404,10 +379,10 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                                                             <p className="text-sm font-medium">{detalle.producto?.nombre || "Producto eliminado"}</p>
                                                                             <div className="flex justify-between items-center mt-1">
                                                                                 <span className="text-xs text-muted-foreground">
-                                                                                    Cant: {detalle.cantidad}
+                                                                                    Cant: {detalle.cantidad} × ${Number(detalle.precio_unitario).toLocaleString("es-CL")}
                                                                                 </span>
                                                                                 <span className="text-sm font-medium">
-                                                                                    ${detalle.subtotal.toLocaleString()}
+                                                                                    ${Number(detalle.subtotal).toLocaleString("es-CL")}
                                                                                 </span>
                                                                             </div>
                                                                         </div>
@@ -416,17 +391,17 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                                             </div>
                                                             <div className="mt-4 pt-4 border-t flex justify-between items-center">
                                                                 <span className="font-bold">Total</span>
-                                                                <span className="text-xl font-bold">${order.total.toLocaleString()}</span>
+                                                                <span className="text-xl font-bold">${Number(order.monto_total).toLocaleString("es-CL")}</span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </DialogContent>
                                             </Dialog>
-                                                
+
                                                 {/* Status Change Dropdown */}
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" disabled={isUpdating === order.id}>
+                                                        <Button variant="ghost" size="icon" disabled={isUpdating === order.id || order.estado === "cancelado"}>
                                                             {isUpdating === order.id ? (
                                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                                             ) : (
@@ -435,36 +410,23 @@ export function PedidosClient({ initialOrders, totalPages, currentPage, totalOrd
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleOrderStatusChange(order.id, 'completed')}
-                                                            disabled={order.estado === 'completed'}
-                                                            className="text-green-600"
-                                                        >
-                                                            <Check className="h-4 w-4 mr-2" />
-                                                            Marcar Completado
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleOrderStatusChange(order.id, 'pending')}
-                                                            disabled={order.estado === 'pending'}
-                                                            className="text-yellow-600"
-                                                        >
-                                                            <Clock className="h-4 w-4 mr-2" />
-                                                            Marcar Pendiente
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleOrderStatusChange(order.id, 'cancelled')}
-                                                            disabled={order.estado === 'cancelled'}
-                                                            className="text-red-600"
-                                                        >
-                                                            <X className="h-4 w-4 mr-2" />
-                                                            Marcar Cancelado
-                                                        </DropdownMenuItem>
+                                                        {estadosDisponibles(order.tipo_entrega).map((estado) => (
+                                                            <DropdownMenuItem
+                                                                key={estado}
+                                                                onClick={() => handleOrderStatusChange(order.id, estado)}
+                                                                disabled={order.estado === estado}
+                                                                className={estado === "cancelado" ? "text-red-600" : undefined}
+                                                            >
+                                                                Marcar {ESTADO_PEDIDO[estado].label}
+                                                            </DropdownMenuItem>
+                                                        ))}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>

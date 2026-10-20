@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { WelcomeHeader } from "@/components/dashboard/welcome-header";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { AppointmentsListLoading } from "@/components/dashboard/loading-skeletons";
-import { createClient } from "@/utils/supabase/server";
 import { getTodayAppointments } from "@/lib/services/dashboard-service";
+import { requireStaff, type StaffContext } from "@/lib/staff-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User } from "lucide-react";
@@ -11,13 +11,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AppointmentCard } from "@/components/dashboard/appointment-card";
 
-async function TodayAppointments() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  const todayAppointments = await getTodayAppointments(user.id);
+async function TodayAppointments({ ctx }: { ctx: StaffContext }) {
+  const todayAppointments = await getTodayAppointments(ctx.barberia.id_barberia, ctx.userId);
 
   return (
     <Card>
@@ -45,20 +40,22 @@ async function TodayAppointments() {
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
+  const ctx = await requireStaff((await params).slug);
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <WelcomeHeader />
+      <WelcomeHeader ctx={ctx} />
 
       {/* Today's Appointments */}
       <Suspense fallback={<AppointmentsListLoading />}>
-        <TodayAppointments />
+        <TodayAppointments ctx={ctx} />
       </Suspense>
 
       {/* Upcoming Appointments */}
       <Suspense fallback={<AppointmentsListLoading />}>
-        <RecentActivity />
+        <RecentActivity ctx={ctx} />
       </Suspense>
     </div>
   );

@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { CartButton } from "@/components/cart-button";
 import { SearchInput } from "@/components/shop/search-input";
@@ -27,14 +26,18 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { getRolApp, isStaffRol, type RolApp } from "@/lib/roles";
+import { useBarberia } from "@/components/barberia-provider";
+import type { Barberia } from "@/lib/barberia";
 
 interface UserProfile {
     nombre: string | null;
     apellido: string | null;
     profile_image: string | null;
-    rol: string | null;
+    rol: RolApp | null;
 }
 
+// Rutas relativas a /<slug>
 const categories = [
     { name: "Todos", href: "/tienda?categoria=Todos" },
     { name: "Barba", href: "/tienda?categoria=Barba" },
@@ -43,7 +46,32 @@ const categories = [
     { name: "Packs", href: "/tienda?categoria=Pack" },
 ];
 
+/** Logo de la barbería (claro/oscuro) o su nombre si no tiene logo. */
+function BarberiaLogo({ barberia, className }: { barberia: Barberia; className: string }) {
+    if (!barberia.logo_url) {
+        return <span className="font-bold text-lg truncate max-w-48">{barberia.nombre}</span>;
+    }
+    return (
+        <div className={className}>
+            <img
+                src={barberia.logo_url}
+                alt={`Logo ${barberia.nombre}`}
+                className={`h-full w-full object-contain object-left ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`}
+            />
+            {barberia.logo_oscuro_url && (
+                <img
+                    src={barberia.logo_oscuro_url}
+                    alt={`Logo ${barberia.nombre}`}
+                    className="h-full w-full object-contain object-left hidden dark:block"
+                />
+            )}
+        </div>
+    );
+}
+
 export function StoreHeader() {
+    const barberia = useBarberia();
+    const slug = barberia.slug;
     const [user, setUser] = useState<any>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -56,17 +84,20 @@ export function StoreHeader() {
             setUser(user);
 
             if (user) {
-                const { data } = await supabase
-                    .from('usuario')
-                    .select('nombre, apellido, profile_image, rol')
-                    .eq('id', user.id)
-                    .single();
-                setProfile(data);
+                const [{ data }, rol] = await Promise.all([
+                    supabase
+                        .from('usuario')
+                        .select('nombre, apellido, profile_image')
+                        .eq('id_usuario', user.id)
+                        .maybeSingle(),
+                    getRolApp(supabase, user.id, barberia.id_barberia),
+                ]);
+                setProfile(data ? { ...data, rol } : { nombre: null, apellido: null, profile_image: null, rol });
             }
             setLoading(false);
         }
         getUser();
-    }, []);
+    }, [barberia.id_barberia]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -102,16 +133,16 @@ export function StoreHeader() {
                         </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {(profile?.rol === 'admin' || profile?.rol === 'owner' || profile?.rol === 'barbero') && (
+                    {isStaffRol(profile?.rol) && (
                         <>
                             <DropdownMenuItem asChild>
-                                <Link href="/dashboard">
+                                <Link href={`/${slug}/dashboard`}>
                                     <User className="mr-2 h-4 w-4" />
                                     <span>Dashboard</span>
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <Link href="/dashboard/configuracion">
+                                <Link href={`/${slug}/dashboard/configuracion`}>
                                     <User className="mr-2 h-4 w-4" />
                                     <span>Mi Cuenta</span>
                                 </Link>
@@ -120,7 +151,7 @@ export function StoreHeader() {
                     )}
                     {profile?.rol === 'cliente' && (
                         <DropdownMenuItem asChild>
-                            <Link href="/profile">
+                            <Link href={`/${slug}/profile`}>
                                 <User className="mr-2 h-4 w-4" />
                                 <span className="mr-2">Mi Perfil</span>
                             </Link>
@@ -135,7 +166,7 @@ export function StoreHeader() {
             </DropdownMenu>
         ) : (
             <div className="flex items-center gap-2">
-                <Link href="/login">
+                <Link href={`/login?barberia=${slug}&next=/${slug}/tienda`}>
                     <Button variant="default" size="sm" className="bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200">
                         Iniciar Sesión
                     </Button>
@@ -146,41 +177,26 @@ export function StoreHeader() {
 
     return (
         <div className="mb-8">
-            <StoreHeaderDesktop UserMenu={UserMenu} />
-            <StoreHeaderMobile UserMenu={UserMenu} />
+            <StoreHeaderDesktop UserMenu={UserMenu} barberia={barberia} />
+            <StoreHeaderMobile UserMenu={UserMenu} barberia={barberia} />
         </div>
     );
 }
 
-function StoreHeaderDesktop({ UserMenu }: { UserMenu: React.FC }) {
+function StoreHeaderDesktop({ UserMenu, barberia }: { UserMenu: React.FC; barberia: Barberia }) {
     return (
         <header className="hidden lg:flex items-center justify-between gap-8 py-4">
             {/* Left: Logo & Back Link */}
             <div className="flex items-center gap-8 shrink-0">
                 <Link
-                    href="/"
+                    href={`/${barberia.slug}`}
                     className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
                 >
                     <ArrowLeft className="h-4 w-4" />
                     <span className="hidden xl:inline">Inicio</span>
                 </Link>
 
-                <div className="relative h-10 w-32">
-                    <Image
-                        src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/BLACK.png"
-                        alt="Barbería BENJVMIN Logo"
-                        fill
-                        className="object-contain object-left dark:hidden"
-                        priority
-                    />
-                    <Image
-                        src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/WHITE.png"
-                        alt="Barbería BENJVMIN Logo"
-                        fill
-                        className="object-contain object-left hidden dark:block"
-                        priority
-                    />
-                </div>
+                <BarberiaLogo barberia={barberia} className="relative h-10 w-32" />
             </div>
 
             {/* Center: Search & Categories */}
@@ -206,7 +222,7 @@ function StoreHeaderDesktop({ UserMenu }: { UserMenu: React.FC }) {
                             {categories.map((category) => (
                                 <Link
                                     key={category.name}
-                                    href={category.href}
+                                    href={`/${barberia.slug}${category.href}`}
                                     className="block px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                                 >
                                     {category.name}
@@ -227,7 +243,7 @@ function StoreHeaderDesktop({ UserMenu }: { UserMenu: React.FC }) {
     );
 }
 
-function StoreHeaderMobile({ UserMenu }: { UserMenu: React.FC }) {
+function StoreHeaderMobile({ UserMenu, barberia }: { UserMenu: React.FC; barberia: Barberia }) {
     return (
         <header className="lg:hidden flex flex-col gap-4 py-4">
             {/* Top Row */}
@@ -252,7 +268,7 @@ function StoreHeaderMobile({ UserMenu }: { UserMenu: React.FC }) {
                                 {categories.map((category) => (
                                     <Link
                                         key={category.name}
-                                        href={category.href}
+                                        href={`/${barberia.slug}${category.href}`}
                                         className="flex items-center justify-between p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group"
                                     >
                                         <span className="text-base font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white">
@@ -265,7 +281,7 @@ function StoreHeaderMobile({ UserMenu }: { UserMenu: React.FC }) {
                                 <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-4" />
 
                                 <Link
-                                    href="/"
+                                    href={`/${barberia.slug}`}
                                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
                                 >
                                     <ArrowLeft className="h-5 w-5" />
@@ -283,20 +299,7 @@ function StoreHeaderMobile({ UserMenu }: { UserMenu: React.FC }) {
                     </Sheet>
 
                     {/* Logo */}
-                    <div className="relative h-8 w-32">
-                        <Image
-                            src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/BLACK.png"
-                            alt="Logo"
-                            fill
-                            className="object-contain object-left dark:hidden"
-                        />
-                        <Image
-                            src="https://iuhmjpqwkueueakybgaz.supabase.co/storage/v1/object/public/imgs/logo/WHITE.png"
-                            alt="Logo"
-                            fill
-                            className="object-contain object-left hidden dark:block"
-                        />
-                    </div>
+                    <BarberiaLogo barberia={barberia} className="relative h-8 w-32" />
                 </div>
 
                 {/* Right Actions */}

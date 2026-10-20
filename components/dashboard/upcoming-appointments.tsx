@@ -1,24 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-
-interface Appointment {
-  id: number;
-  fecha: string;
-  hora: string;
-  estado: string;
-  servicio: {
-    nombre: string;
-    precio: number;
-  } | null;
-  guest_usuario: {
-    nombre: string;
-    apellido: string;
-    telefono: string;
-  } | null;
-}
+import type { Appointment } from "@/lib/services/dashboard-service";
+import { formatFecha } from "@/lib/datetime";
 
 interface UpcomingAppointmentsProps {
   appointments: Appointment[];
@@ -50,31 +34,31 @@ export function UpcomingAppointments({ appointments }: UpcomingAppointmentsProps
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-zinc-500" />
                     <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {appointment.guest_usuario?.nombre} {appointment.guest_usuario?.apellido}
+                      {appointment.cliente?.nombre} {appointment.cliente?.apellido}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-end">
                     <Badge variant="secondary">
                       {appointment.servicio?.nombre}
                     </Badge>
-                    <Badge className={appointment.estado === "confirmada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : appointment.estado === "cancelada" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"}>
-                      {appointment.estado === "confirmada" ? "✓ Confirmada" : appointment.estado === "cancelada" ? "✗ Cancelada" : "⏳ Pendiente"}
+                    <Badge className={appointment.estado === "confirmada" || appointment.estado === "completada" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : appointment.estado === "cancelada" || appointment.estado === "no_asistio" ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"}>
+                      {appointment.estado === "confirmada" ? "✓ Confirmada" : appointment.estado === "completada" ? "✓ Completada" : appointment.estado === "cancelada" ? "✗ Cancelada" : appointment.estado === "no_asistio" ? "✗ Ausente" : "⏳ Pendiente"}
                     </Badge>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {format(new Date(appointment.fecha), "dd MMM yyyy", { locale: es })}
+                    {formatFecha(appointment.fecha)}
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {appointment.hora}
                   </div>
                 </div>
-                {appointment.guest_usuario?.telefono && (
+                {appointment.cliente?.telefono && (
                   <div className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                    📱 {appointment.guest_usuario.telefono}
+                    📱 {appointment.cliente.telefono}
                   </div>
                 )}
               </div>

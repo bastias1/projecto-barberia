@@ -51,7 +51,7 @@ export function AvatarUpload({ userId, currentImage, userName }: AvatarUploadPro
       const { error: updateError } = await supabase
         .from('usuario')
         .update({ profile_image: publicUrl })
-        .eq('id', userId);
+        .eq('id_usuario', userId);
 
       if (updateError) {
         throw updateError;

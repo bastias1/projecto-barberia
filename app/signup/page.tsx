@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,34 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Scissors, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { getBarberiaBySlug } from "@/lib/barberia";
+import { safeNext } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+/**
+ * Registro de clientes. Con ?barberia=<slug> la cuenta queda como cliente de
+ * esa barbería; sin él (p. ej. quien va a registrar su barbería) solo se crea
+ * el usuario.
+ */
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const slug = searchParams.get("barberia");
+  const next = safeNext(searchParams.get("next"));
+  // Tras crear la cuenta: la ruta pedida, la barbería de origen o el inicio
+  const destino = next ?? (slug ? `/${slug}` : "/");
+  const loginHref = `/login?${new URLSearchParams({ ...(slug ? { barberia: slug } : {}), ...(next ? { next } : {}) })}`;
   const [formData, setFormData] = useState({
-    email: "",
+    // Desde una invitación llega el correo invitado
+    email: searchParams.get("email") ?? "",
     password: "",
     confirmPassword: "",
     nombre: "",
@@ -50,7 +72,7 @@ export default function SignupPage() {
         email: formData.email.trim(),
         password: formData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?${new URLSearchParams({ next: destino, ...(slug ? { barberia: slug } : {}) })}`,
           data: {
             nombre: formData.nombre,
             apellido: formData.apellido,
@@ -81,23 +103,21 @@ export default function SignupPage() {
       if (!authData.session) {
         // Email confirmation is required - profiles will be created via callback
         toast.success("¡Cuenta creada exitosamente! Por favor revisa tu correo electrónico y haz clic en el enlace de confirmación para activar tu cuenta.");
-        router.push('/login');
+        router.push(loginHref);
         return;
       }
 
       // If we have a session (no email confirmation required), create the profile now
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Create usuario record as cliente
+      // Create usuario record (rol global 'usuario') and the cliente membership
       const { error: usuarioError } = await supabase
         .from('usuario')
         .insert({
-          id: authData.user.id,
+          id_usuario: authData.user.id,
           nombre: formData.nombre,
-          apellido: formData.apellido || '',
-          correo: formData.email.trim(),
-          telefono: '',
-          rol: 'cliente'
+          apellido: formData.apellido || null,
+          email: formData.email.trim().toLowerCase(),
         });
 
       if (usuarioError) {
@@ -107,11 +127,24 @@ export default function SignupPage() {
         return;
       }
 
-      console.log("Cliente created successfully");
+      const barberia = slug ? await getBarberiaBySlug(supabase, slug) : null;
+      if (barberia) {
+        const { error: membresiaError } = await supabase
+          .from('usuario_barberia')
+          .insert({
+            id_usuario: authData.user.id,
+            id_barberia: barberia.id_barberia,
+            rol: 'cliente',
+          });
 
-      // Success - redirect to home
-      toast.success("Cuenta creada exitosamente! Ya puedes iniciar sesión para agendar citas.");
-      router.push('/');
+        if (membresiaError) {
+          console.error("Membership creation error:", membresiaError);
+        }
+      }
+
+      toast.success("¡Cuenta creada exitosamente!");
+      router.push(destino);
+      router.refresh();
     } catch (error) {
       console.error("Signup error:", error);
       setError("Error inesperado al crear la cuenta");
@@ -129,7 +162,7 @@ export default function SignupPage() {
 
       {/* Back Button */}
       <div className="fixed top-4 left-4 z-50">
-        <Link href="/login">
+        <Link href={loginHref}>
           <Button variant="ghost" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Volver al Login</span>
@@ -194,7 +227,7 @@ export default function SignupPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="barbero@ejemplo.com"
+                  placeholder="tu@correo.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -248,7 +281,7 @@ export default function SignupPage() {
 
               <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 pt-2">
                 <p>¿Ya tienes una cuenta?</p>
-                <Link href="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
+                <Link href={loginHref} className="text-blue-600 dark:text-blue-400 hover:underline">
                   Inicia sesión aquí
                 </Link>
               </div>

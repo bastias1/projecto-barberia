@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { Filter } from "lucide-react";
 import { Product } from "@/lib/services/product-service";
+import { useBarberiaHref } from "@/components/barberia-provider";
 
 interface StoreClientProps {
     products: Product[];
 }
 
 export function StoreClient({ products }: StoreClientProps) {
+    const href = useBarberiaHref();
     const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
     // Extract unique categories
@@ -93,9 +95,9 @@ export function StoreClient({ products }: StoreClientProps) {
                                     )}
 
                                     {/* Image */}
-                                    <Link href={`/tienda/${product.id}`} className="block relative aspect-square bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                                    <Link href={href(`/tienda/${product.id}`)} className="block relative aspect-square bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
                                         <Image
-                                            src={product.imagen_url || "/placeholder.png"}
+                                            src={product.imagen_url || "/placeholder.svg"}
                                             alt={product.nombre}
                                             fill
                                             className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -107,7 +109,7 @@ export function StoreClient({ products }: StoreClientProps) {
                                             <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
                                                 {product.categoria}
                                             </p>
-                                            <Link href={`/tienda/${product.id}`}>
+                                            <Link href={href(`/tienda/${product.id}`)}>
                                                 <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100 line-clamp-1 hover:text-blue-600 transition-colors">
                                                     {product.nombre}
                                                 </h3>
@@ -125,7 +127,7 @@ export function StoreClient({ products }: StoreClientProps) {
                                                     price={product.precio}
                                                     priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
                                                     stock={product.stock}
-                                                    image={product.imagen_url || "/placeholder.png"}
+                                                    image={product.imagen_url || "/placeholder.svg"}
                                                     size="sm"
                                                 />
                                             </div>

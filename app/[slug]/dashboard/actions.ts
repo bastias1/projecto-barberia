@@ -2,24 +2,44 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { notificarResenaPedido, notificarResenaReserva } from "@/lib/notifications";
+
+const ESTADOS_RESERVA = ["pendiente", "confirmada", "completada", "cancelada", "no_asistio"];
+const ESTADOS_PEDIDO = ["pendiente", "confirmado", "preparando", "listo_retiro", "enviado", "entregado", "cancelado"];
 
 export async function updateBookingStatus(id: number, status: string) {
+    if (!ESTADOS_RESERVA.includes(status)) {
+        throw new Error("Estado de reserva inválido");
+    }
+
     const supabase = await createClient();
 
-    const { error } = await supabase
+    // RLS: solo el personal de la barbería puede cambiar el estado
+    const { data, error } = await supabase
         .from("reserva")
         .update({ estado: status })
-        .eq("id", id);
+        .eq("id_reserva", id)
+        .select("id_reserva")
+        .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
         console.error("Error updating booking status:", error);
         throw new Error("Failed to update booking status");
     }
 
-    revalidatePath("/dashboard");
+    // Al completar la cita se invita al cliente a dejar su reseña
+    if (status === "completada") {
+        await notificarResenaReserva(id);
+    }
+
+    revalidatePath("/[slug]/dashboard", "layout");
 }
 
 export async function updateOrderStatus(id: number, status: string) {
+    if (!ESTADOS_PEDIDO.includes(status)) {
+        throw new Error("Estado de pedido inválido");
+    }
+
     const supabase = await createClient();
 
     // Verify user is authenticated
@@ -28,26 +48,29 @@ export async function updateOrderStatus(id: number, status: string) {
         throw new Error("Unauthorized");
     }
 
-    // The RLS policy will verify if user is admin/owner
-    // If not, the update will fail
+    // The RLS policy will verify if user is staff of the barbershop
     const { data, error } = await supabase
-        .from("venta")
+        .from("pedido")
         .update({ estado: status })
-        .eq("id", id)
-        .select()
-        .single();
+        .eq("id_pedido", id)
+        .select("id_pedido, estado")
+        .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
         console.error("Error updating order status:", error);
-        if (error.code === 'PGRST116') {
+        if (!data && !error) {
             throw new Error("No tienes permisos para actualizar pedidos");
         }
-        throw new Error("Failed to update order status");
+        // Mensajes de los triggers (p. ej. un pedido cancelado no se reactiva)
+        throw new Error(error?.code === '23514' ? error.message : "Failed to update order status");
     }
 
-    console.log(`Order ${id} updated to ${status}:`, data);
+    // Al entregar el pedido se invita al cliente a calificar los productos
+    if (status === "entregado") {
+        await notificarResenaPedido(id);
+    }
 
-    revalidatePath("/dashboard/pedidos");
-    
+    revalidatePath("/[slug]/dashboard/pedidos", "page");
+
     return { success: true, data };
 }

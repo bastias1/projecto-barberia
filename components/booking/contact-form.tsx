@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Check } from "lucide-react";
 
 interface ContactFormProps {
@@ -12,6 +13,7 @@ interface ContactFormProps {
     lastName: string;
     email: string;
     phone: string;
+    aceptaPrivacidad: boolean;
   };
   onFormChange: (data: any) => void;
   onBack: () => void;
@@ -79,12 +81,24 @@ export function ContactForm({ formData, onFormChange, onBack, onSubmit }: Contac
               />
             </div>
 
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="aceptaPrivacidad"
+                checked={formData.aceptaPrivacidad}
+                onCheckedChange={(checked) => onFormChange({ ...formData, aceptaPrivacidad: checked === true })}
+                className="mt-0.5"
+              />
+              <Label htmlFor="aceptaPrivacidad" className="text-sm font-normal leading-snug text-zinc-600 dark:text-zinc-400">
+                Acepto que la barbería use mis datos de contacto para gestionar esta reserva y enviarme avisos sobre ella.
+              </Label>
+            </div>
+
             <div className="flex gap-2 md:gap-3 pt-4">
               <Button type="button" variant="outline" onClick={onBack} className="flex-1">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Atrás
               </Button>
-              <Button type="submit" className="flex-1">
+              <Button type="submit" className="flex-1" disabled={!formData.aceptaPrivacidad}>
                 <span className="hidden sm:inline">Confirmar Reserva</span>
                 <span className="sm:hidden">Confirmar</span>
                 <Check className="h-4 w-4 ml-2" />

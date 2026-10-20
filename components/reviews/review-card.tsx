@@ -2,30 +2,28 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StarRating } from "./star-rating";
 
-interface Review {
+export interface PublicReview {
     id: number;
-    comentario: string;
+    comentario: string | null;
     calificacion: number;
-    guest_name?: string;
-    usuario?: {
-        nombre: string;
-        apellido: string;
-    };
-    barbero?: {
-        nombre: string;
-        apellido: string;
-    };
+    created_at: string;
+    autor: string;
+    profesional: string | null;
+    servicio: string | null;
+    producto: string | null;
 }
 
 interface ReviewCardProps {
-    review: Review;
+    review: PublicReview;
 }
 
 export function ReviewCard({ review }: ReviewCardProps) {
-    const nombre = review.guest_name || review.usuario?.nombre || "Anónimo";
-    const apellido = review.usuario?.apellido || "";
-    const initials = `${nombre[0] || "?"}${apellido[0] || ""}`;
-    const fullName = review.guest_name || `${nombre} ${apellido}`;
+    const initials = review.autor
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "?";
 
     return (
         <Card className="h-full border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm">
@@ -39,7 +37,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
                         </Avatar>
                         <div>
                             <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">
-                                {fullName}
+                                {review.autor}
                             </p>
                         </div>
                     </div>
@@ -48,14 +46,18 @@ export function ReviewCard({ review }: ReviewCardProps) {
 
                 <div className="flex-1">
                     <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed italic">
-                        "{review.comentario}"
+                        &quot;{review.comentario}&quot;
                     </p>
                 </div>
 
-                {review.barbero && (
+                {(review.profesional || review.producto) && (
                     <div className="pt-4 mt-auto border-t border-zinc-100 dark:border-zinc-800/50">
                         <p className="text-xs text-muted-foreground">
-                            Atendido por <span className="font-medium text-primary">{review.barbero.nombre} {review.barbero.apellido}</span>
+                            {review.producto ? (
+                                <>Sobre <span className="font-medium text-primary">{review.producto}</span></>
+                            ) : (
+                                <>Atendido por <span className="font-medium text-primary">{review.profesional}</span></>
+                            )}
                         </p>
                     </div>
                 )}

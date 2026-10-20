@@ -2,7 +2,7 @@
 
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCartStore } from "@/lib/cart-store";
+import { useBarberiaCart } from "@/lib/cart-store";
 import { toast } from "sonner";
 
 type Props = {
@@ -26,12 +26,11 @@ export function AddToCartButton({
   fullWidth = true,
   size = "default",
 }: Props) {
-  const addItem = useCartStore((state) => state.addItem);
+  const { addItem } = useBarberiaCart();
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation if inside a Link
     addItem({ id, name, price, priceLabel, stock, image });
-    console.log("✅ Agregado al carrito:", { id, name, price, priceLabel, stock });
     toast.success("Producto agregado al carrito");
   };
 

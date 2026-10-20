@@ -1,37 +1,25 @@
-import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
 import { ServicesManager } from "@/components/dashboard/services/services-manager";
+import { requireStaff } from "@/lib/staff-context";
 
-export default async function ServicesPage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    // Get barber ID (same as user ID for now, but good to verify they are a barber)
-    const { data: barber } = await supabase
-        .from("barbero")
-        .select("id")
-        .eq("id", user.id)
-        .single();
-
-    if (!barber) {
-        // If not a barber, they shouldn't be here (layout handles creation, but safety check)
-        redirect("/dashboard");
-    }
+export default async function ServicesPage({ params }: { params: Promise<{ slug: string }> }) {
+    const ctx = await requireStaff((await params).slug);
 
     return (
         <div className="space-y-6">
             <div>
                 <h2 className="text-3xl font-bold tracking-tight">Servicios</h2>
                 <p className="text-muted-foreground">
-                    Gestiona los servicios disponibles y selecciona los que ofreces.
+                    {ctx.isAdmin
+                        ? "Gestiona los servicios disponibles y selecciona los que ofreces."
+                        : "Selecciona los servicios que ofreces."}
                 </p>
             </div>
 
-            <ServicesManager barberId={barber.id} />
+            <ServicesManager
+                barberId={ctx.userId}
+                canManageCatalog={ctx.isAdmin}
+                isProfesional={ctx.isProfesional}
+            />
         </div>
     );
 }

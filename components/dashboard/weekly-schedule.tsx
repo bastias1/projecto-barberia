@@ -10,15 +10,29 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Clock } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Clock, MapPin } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import type { DaySchedule } from "@/lib/services/schedule-service";
+import type { DaySchedule, HorarioBarbero } from "@/lib/services/schedule-service";
+import type { Sucursal } from "@/lib/barberia";
 import { toast } from "sonner";
 
 interface WeeklyScheduleProps {
   barberId: string;
+  barberiaId: string;
+  sucursales: Sucursal[];
   initialSchedules: DaySchedule[];
+}
+
+const HORARIO_COLUMNS = 'id:id_horario, id_sucursal, dia_semana, hora_inicio, hora_fin, activo';
+
+function scheduleErrorMessage(error: { code?: string; message?: string }, fallback: string) {
+  // horario_atencion_sin_solape: un barbero no puede tener tramos superpuestos el mismo día
+  if (error?.code === '23P01') return 'Se superpone con otro horario activo de ese día';
+  // a_horario_sucursal_asignada: solo en sucursales asignadas por el administrador
+  if (error?.code === '23514' && error.message) return error.message;
+  return fallback;
 }
 
 const DAYS = [
@@ -44,9 +58,11 @@ const PRESET_RANGES = [
   { label: "Noche", start: "18:00", end: "22:00", icon: "🌙" },
 ];
 
-export function WeeklySchedule({ barberId, initialSchedules }: WeeklyScheduleProps) {
+export function WeeklySchedule({ barberId, barberiaId, sucursales, initialSchedules }: WeeklyScheduleProps) {
   const [schedules, setSchedules] = useState<DaySchedule[]>(initialSchedules);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [sucursalId, setSucursalId] = useState<number | null>(sucursales[0]?.id_sucursal ?? null);
+  const sucursalNombre = (id: number) => sucursales.find(s => s.id_sucursal === id)?.nombre ?? '';
   const [newSchedule, setNewSchedule] = useState({
     hora_inicio: "09:00",
     hora_fin: "18:00",
@@ -65,21 +81,27 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const handleAddSchedule = async () => {
+  const handleAddSchedule = async (range: { hora_inicio: string; hora_fin: string } = newSchedule) => {
     if (selectedDay === null) return;
+    if (sucursalId === null) {
+      toast.error('No hay sucursales activas para asignar el horario');
+      return;
+    }
 
     try {
       const { data, error } = await supabase
-        .from('horario_barbero')
+        .from('horario_atencion')
         .insert({
-          barbero: barberId,
+          id_barberia: barberiaId,
+          id_profesional: barberId,
+          id_sucursal: sucursalId,
           dia_semana: selectedDay,
-          hora_inicio: newSchedule.hora_inicio,
-          hora_fin: newSchedule.hora_fin,
+          hora_inicio: range.hora_inicio,
+          hora_fin: range.hora_fin,
           activo: true,
         })
-        .select()
-        .single();
+        .select(HORARIO_COLUMNS)
+        .single<HorarioBarbero>();
 
       if (error) throw error;
 
@@ -109,16 +131,16 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
       router.refresh();
     } catch (error) {
       console.error('Error adding schedule:', error);
-      toast.error('Error al agregar horario');
+      toast.error(scheduleErrorMessage(error as { code?: string }, 'Error al agregar horario'));
     }
   };
 
   const handleToggleSchedule = async (scheduleId: number, currentActive: boolean) => {
     try {
       const { error } = await supabase
-        .from('horario_barbero')
+        .from('horario_atencion')
         .update({ activo: !currentActive })
-        .eq('id', scheduleId);
+        .eq('id_horario', scheduleId);
 
       if (error) throw error;
 
@@ -137,7 +159,7 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
       router.refresh();
     } catch (error) {
       console.error('Error toggling schedule:', error);
-      toast.error('Error al actualizar horario');
+      toast.error(scheduleErrorMessage(error as { code?: string }, 'Error al actualizar horario'));
       // Revert on error
       router.refresh();
     }
@@ -148,9 +170,9 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
 
     try {
       const { error } = await supabase
-        .from('horario_barbero')
+        .from('horario_atencion')
         .delete()
-        .eq('id', scheduleToDelete);
+        .eq('id_horario', scheduleToDelete);
 
       if (error) throw error;
 
@@ -182,9 +204,27 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
   return (
     <Card className="md:shadow-md border-0 md:border">
       <CardHeader className="pb-3 md:pb-6">
-        <CardDescription className="text-xs md:text-sm">
-          Configura los días y horarios en los que estás disponible para atender
-        </CardDescription>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <CardDescription className="text-xs md:text-sm">
+            Configura los días y horarios en los que estás disponible para atender
+          </CardDescription>
+          {sucursales.length > 1 && (
+            <div className="flex items-center gap-2 shrink-0">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs text-muted-foreground whitespace-nowrap">Nuevos horarios en</Label>
+              <Select value={sucursalId?.toString()} onValueChange={(v) => setSucursalId(Number(v))}>
+                <SelectTrigger className="h-8 w-[160px]">
+                  <SelectValue placeholder="Sucursal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sucursales.map((s) => (
+                    <SelectItem key={s.id_sucursal} value={s.id_sucursal.toString()}>{s.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -351,8 +391,8 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
                           </TabsContent>
                         </Tabs>
                         <DrawerFooter className="border-t bg-zinc-50 dark:bg-zinc-900/50">
-                          <Button 
-                            onClick={handleAddSchedule} 
+                          <Button
+                            onClick={() => handleAddSchedule()}
                             className="w-full h-12 text-base font-semibold"
                             disabled={newSchedule.hora_inicio >= newSchedule.hora_fin}
                           >
@@ -401,8 +441,9 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
                                   variant="outline"
                                   className="h-auto py-4 flex flex-col items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-950 hover:border-blue-500"
                                   onClick={() => {
-                                    setNewSchedule({ hora_inicio: preset.start, hora_fin: preset.end });
-                                    handleAddSchedule();
+                                    const range = { hora_inicio: preset.start, hora_fin: preset.end };
+                                    setNewSchedule(range);
+                                    handleAddSchedule(range);
                                   }}
                                 >
                                   <span className="text-3xl">{preset.icon}</span>
@@ -489,8 +530,8 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
                               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                                 Cancelar
                               </Button>
-                              <Button 
-                                onClick={handleAddSchedule}
+                              <Button
+                                onClick={() => handleAddSchedule()}
                                 disabled={newSchedule.hora_inicio >= newSchedule.hora_fin}
                               >
                                 Agregar Horario
@@ -526,6 +567,11 @@ export function WeeklySchedule({ barberId, initialSchedules }: WeeklySchedulePro
                           <span className={!schedule.activo ? "line-through" : ""}>
                             {schedule.hora_inicio.slice(0, 5)} - {schedule.hora_fin.slice(0, 5)}
                           </span>
+                          {sucursales.length > 1 && (
+                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                              {sucursalNombre(schedule.id_sucursal)}
+                            </span>
+                          )}
                         </div>
                         <Button
                           variant="ghost"

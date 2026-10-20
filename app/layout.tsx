@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { PLATAFORMA } from "@/lib/plataforma";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,15 +15,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Contenido bajo la zona segura del iPhone (barra inferior del dashboard)
+export const viewport: Viewport = {
+  viewportFit: "cover",
+};
+
+// Cada barbería redefine título y descripción en app/[slug]/layout.tsx
 export const metadata: Metadata = {
-  title: "Barbería BENJVMIN - Reservas Online",
+  title: `${PLATAFORMA.nombre} - ${PLATAFORMA.descripcion}`,
   description:
-    "Sistema de reservas online para Barbería BENJVMIN. Agenda tu cita, elige tu barbero y servicio. Profesionalismo y estilo en Valdivia.",
-  keywords: ["barbería", "peluquería", "cortes", "Valdivia", "reservas", "BENJVMIN", "barbero"],
-  authors: [{ name: "Barbería BENJVMIN" }],
+    "Agenda online, tienda y gestión para barberías. Tus clientes reservan desde su celular y tú administras equipo, horarios y ventas.",
+  keywords: ["barbería", "software barbería", "agenda online", "reservas", "peluquería", "barbero"],
+  authors: [{ name: PLATAFORMA.nombre }],
   openGraph: {
-    title: "Barbería BENJVMIN - Reservas Online",
-    description: "Agenda tu cita con los mejores barberos de Valdivia. Tu estilo, nuestra pasión.",
+    title: PLATAFORMA.nombre,
+    description: PLATAFORMA.descripcion,
     type: "website",
     locale: "es_CL",
   },

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { createClient } from "@/utils/supabase/server";
 import { RecentBookings } from "@/components/dashboard/recent-bookings";
 import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments";
 import { QuickStats } from "@/components/dashboard/quick-stats";
@@ -7,17 +6,18 @@ import {
   getUpcomingAppointments,
   getRecentBookings,
 } from "@/lib/services/dashboard-service";
-import { QuickStatsLoading, AppointmentsListLoading } from "@/components/dashboard/loading-skeletons";
+import { QuickStatsLoading } from "@/components/dashboard/loading-skeletons";
+import { requireStaff } from "@/lib/staff-context";
 
-export default async function ResumenPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return null;
+export default async function ResumenPage({ params }: { params: Promise<{ slug: string }> }) {
+  const ctx = await requireStaff((await params).slug);
+  const idBarberia = ctx.barberia.id_barberia;
 
   // Fetch dashboard data
-  const upcomingAppointments = await getUpcomingAppointments(user.id);
-  const recentBookings = await getRecentBookings(user.id);
+  const [upcomingAppointments, recentBookings] = await Promise.all([
+    getUpcomingAppointments(idBarberia, ctx.userId),
+    getRecentBookings(idBarberia, ctx.userId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -32,7 +32,7 @@ export default async function ResumenPage() {
 
       {/* Quick Stats */}
       <Suspense fallback={<QuickStatsLoading />}>
-        <QuickStats />
+        <QuickStats ctx={ctx} />
       </Suspense>
 
       {/* Two Column Layout */}

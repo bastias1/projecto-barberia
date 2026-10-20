@@ -16,6 +16,9 @@ import {
 import { Loader2, Package, Eye, Truck, ShoppingBag, CheckCircle2, Clock, XCircle } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
+import { ESTADO_PAGO, ESTADO_PEDIDO, parseDireccion } from "@/lib/pedido-estados";
+import type { EstadoPagoPedido, EstadoPedido } from "@/lib/database.types";
+import { one } from "@/lib/utils";
 
 interface Producto {
     nombre: string;
@@ -23,27 +26,26 @@ interface Producto {
     imagen_url: string | null;
 }
 
-interface DetalleVenta {
+interface DetallePedido {
     id: number;
     cantidad: number;
     subtotal: number;
-    producto: Producto;
+    producto: Producto | null;
 }
 
-interface Venta {
+interface Pedido {
     id: number;
-    fecha: string;
-    hora: string;
-    total: number;
-    estado: string;
-    estado_pago: string;
+    created_at: string;
+    monto_total: number;
+    estado: EstadoPedido;
+    estado_pago: EstadoPagoPedido;
     tipo_entrega: string;
     direccion_envio: string | null;
-    detalle_venta: DetalleVenta[];
+    detalle_pedido: DetallePedido[];
 }
 
-export function OrderHistory() {
-    const [orders, setOrders] = useState<Venta[]>([]);
+export function OrderHistory({ idBarberia }: { idBarberia: string }) {
+    const [orders, setOrders] = useState<Pedido[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const supabase = createClient();
 
@@ -57,27 +59,34 @@ export function OrderHistory() {
             if (!user) return;
 
             const { data, error } = await supabase
-                .from("venta")
+                .from("pedido")
                 .select(`
-                    *,
-                    detalle_venta (
-                        *,
-                        producto:productos (
+                    id:id_pedido, created_at, monto_total, estado, estado_pago, tipo_entrega, direccion_envio,
+                    detalle_pedido!detalle_pedido_pedido_fkey (
+                        id:id_detalle, cantidad, subtotal,
+                        producto:producto!detalle_pedido_producto_fkey (
                             nombre,
                             precio,
                             imagen_url
                         )
                     )
                 `)
-                .eq("usuario", user.id)
-                .order("id", { ascending: false });
+                .eq("id_cliente", user.id)
+                .eq("id_barberia", idBarberia)
+                .order("id_pedido", { ascending: false });
 
             if (error) {
                 console.error("Error fetching orders:", error);
                 return;
             }
 
-            setOrders(data || []);
+            type PedidoRow = Omit<Pedido, "detalle_pedido"> & {
+                detalle_pedido: Array<Omit<DetallePedido, "producto"> & { producto: unknown }> | null;
+            };
+            setOrders(((data || []) as unknown as PedidoRow[]).map((o) => ({
+                ...o,
+                detalle_pedido: (o.detalle_pedido ?? []).map((d) => ({ ...d, producto: one<Producto>(d.producto) })),
+            })));
         } catch (error) {
             console.error("Error:", error);
         } finally {
@@ -85,43 +94,23 @@ export function OrderHistory() {
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case "completed":
-                return (
-                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Completado
-                    </Badge>
-                );
-            case "pending":
-                return (
-                    <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pendiente
-                    </Badge>
-                );
-            case "cancelled":
-                return (
-                    <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Cancelado
-                    </Badge>
-                );
-            default:
-                return <Badge variant="secondary">{status}</Badge>;
-        }
+    const getStatusBadge = (status: EstadoPedido) => {
+        const estado = ESTADO_PEDIDO[status];
+        if (!estado) return <Badge variant="secondary">{status}</Badge>;
+        const Icon = status === "entregado" ? CheckCircle2 : status === "cancelado" ? XCircle : Clock;
+        return (
+            <Badge className={estado.className}>
+                <Icon className="h-3 w-3 mr-1" />
+                {estado.label}
+            </Badge>
+        );
     };
 
-    const getPaymentBadge = (status: string) => {
-        switch (status) {
-            case "approved":
-                return <Badge className="bg-green-500 text-white">Pagado</Badge>;
-            case "pending":
-                return <Badge variant="outline" className="text-yellow-600 border-yellow-600">Pago Pendiente</Badge>;
-            default:
-                return <Badge variant="destructive">Pago {status}</Badge>;
-        }
+    const getPaymentBadge = (status: EstadoPagoPedido) => {
+        const estado = ESTADO_PAGO[status];
+        return estado
+            ? <Badge className={estado.className}>{estado.label}</Badge>
+            : <Badge variant="secondary">{status}</Badge>;
     };
 
     const getDeliveryIcon = (type: string) => {
@@ -177,7 +166,7 @@ export function OrderHistory() {
                                         </div>
                                         <div className="flex items-center gap-2 mt-1">
                                             <span className="text-sm text-muted-foreground">
-                                                {format(new Date(order.fecha), "dd MMM yyyy", { locale: es })}
+                                                {format(new Date(order.created_at), "dd MMM yyyy", { locale: es })}
                                             </span>
                                             <span className="text-muted-foreground">•</span>
                                             {getDeliveryIcon(order.tipo_entrega)}
@@ -189,7 +178,7 @@ export function OrderHistory() {
 
                                 <div className="flex items-center gap-4">
                                     <span className="font-bold text-lg">
-                                        ${order.total.toLocaleString()}
+                                        ${Number(order.monto_total).toLocaleString("es-CL")}
                                     </span>
                                     <Dialog>
                                         <DialogTrigger asChild>
@@ -214,7 +203,7 @@ export function OrderHistory() {
                                                 <div>
                                                     <h4 className="font-semibold mb-3">Productos</h4>
                                                     <div className="space-y-3 max-h-[200px] overflow-y-auto">
-                                                        {order.detalle_venta?.map((detalle, index) => (
+                                                        {order.detalle_pedido?.map((detalle, index) => (
                                                             <div key={index} className="flex items-center gap-3">
                                                                 <div className="relative h-12 w-12 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden flex-shrink-0">
                                                                     {detalle.producto?.imagen_url ? (
@@ -239,7 +228,7 @@ export function OrderHistory() {
                                                                     </p>
                                                                 </div>
                                                                 <span className="text-sm font-medium">
-                                                                    ${detalle.subtotal.toLocaleString()}
+                                                                    ${Number(detalle.subtotal).toLocaleString("es-CL")}
                                                                 </span>
                                                             </div>
                                                         ))}
@@ -251,22 +240,9 @@ export function OrderHistory() {
                                                     <div>
                                                         <h4 className="font-semibold mb-2">Dirección de envío</h4>
                                                         <div className="text-sm bg-zinc-50 dark:bg-zinc-900 p-3 rounded-md">
-                                                            {typeof order.direccion_envio === 'string'
-                                                                ? (() => {
-                                                                    try {
-                                                                        const address = JSON.parse(order.direccion_envio);
-                                                                        return (
-                                                                            <>
-                                                                                <p>{address.calle}</p>
-                                                                                <p>{address.comuna}, {address.ciudad}</p>
-                                                                            </>
-                                                                        );
-                                                                    } catch (e) {
-                                                                        return order.direccion_envio;
-                                                                    }
-                                                                })()
-                                                                : "Dirección no disponible"
-                                                            }
+                                                            {parseDireccion(order.direccion_envio)?.lineas.map((linea, i) => (
+                                                                <p key={i}>{linea}</p>
+                                                            ))}
                                                         </div>
                                                     </div>
                                                 )}
@@ -276,7 +252,7 @@ export function OrderHistory() {
                                                     <div className="flex justify-between items-center">
                                                         <span className="font-bold">Total</span>
                                                         <span className="text-xl font-bold">
-                                                            ${order.total.toLocaleString()}
+                                                            ${Number(order.monto_total).toLocaleString("es-CL")}
                                                         </span>
                                                     </div>
                                                 </div>

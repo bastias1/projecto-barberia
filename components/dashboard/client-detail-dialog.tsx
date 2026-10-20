@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { ClientStat } from "@/lib/services/dashboard-service";
-import { fetchClientBookings, toggleClientBlock, ClientBookingDetail } from "@/app/dashboard/clientes/actions";
+import type { ClientStat, ClientBookingDetail } from "@/lib/services/dashboard-service";
+import { fetchClientBookings, toggleClientBlock } from "@/app/[slug]/dashboard/clientes/actions";
+import { useBarberia } from "@/components/barberia-provider";
 import {
   Dialog,
   DialogContent,
@@ -66,7 +67,7 @@ function BookingStatusBadge({ estado }: { estado: string }) {
       </Badge>
     );
   }
-  if (estado === "ausente") {
+  if (estado === "no_asistio") {
     return (
       <Badge className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 text-xs">
         No asistió
@@ -119,6 +120,7 @@ export function ClientDetailDialog({
   onOpenChange,
   onToggleBlock,
 }: ClientDetailDialogProps) {
+  const { id_barberia: idBarberia } = useBarberia();
   const [bookings, setBookings] = useState<ClientBookingDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [blocking, setBlocking] = useState(false);
@@ -128,7 +130,7 @@ export function ClientDetailDialog({
   useEffect(() => {
     if (open && client) {
       setLoading(true);
-      fetchClientBookings(barberId, client.correo)
+      fetchClientBookings(idBarberia, barberId, client.correo)
         .then(setBookings)
         .finally(() => setLoading(false));
     } else {
@@ -136,12 +138,12 @@ export function ClientDetailDialog({
       setShowBlockForm(false);
       setRazon("");
     }
-  }, [open, client, barberId]);
+  }, [open, client, barberId, idBarberia]);
 
   async function handleBlock() {
     if (!client) return;
     setBlocking(true);
-    const result = await toggleClientBlock(client.correo, true, razon || undefined, barberId, client.telefono);
+    const result = await toggleClientBlock(idBarberia, client.correo, true, razon || undefined, client.telefono);
     setBlocking(false);
     if (result.success) {
       toast.success(`${client.nombre} ha sido bloqueado/a`);
@@ -156,7 +158,7 @@ export function ClientDetailDialog({
   async function handleUnblock() {
     if (!client) return;
     setBlocking(true);
-    const result = await toggleClientBlock(client.correo, false);
+    const result = await toggleClientBlock(idBarberia, client.correo, false);
     setBlocking(false);
     if (result.success) {
       toast.success(`${client.nombre} ha sido desbloqueado/a`);

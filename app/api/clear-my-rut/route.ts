@@ -13,7 +13,7 @@ export async function GET() {
         const { error } = await supabase
             .from("usuario")
             .update({ rut: null })
-            .eq("id", user.id);
+            .eq("id_usuario", user.id);
 
         if (error) {
             return NextResponse.json({ error: error.message }, { status: 500 });

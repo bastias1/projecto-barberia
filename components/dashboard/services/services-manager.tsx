@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Loader2, Search, Scissors, Archive, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useBarberia } from "@/components/barberia-provider";
 import {
     Dialog,
     DialogContent,
@@ -34,9 +35,14 @@ import { DashboardTableSkeleton } from "@/components/dashboard/loading-skeletons
 
 interface ServicesManagerProps {
     barberId: string;
+    /** Crear, archivar y eliminar servicios del catálogo (solo admin, por RLS) */
+    canManageCatalog: boolean;
+    /** Tiene agenda propia: puede marcar los servicios que ofrece */
+    isProfesional: boolean;
 }
 
-export function ServicesManager({ barberId }: ServicesManagerProps) {
+export function ServicesManager({ barberId, canManageCatalog, isProfesional }: ServicesManagerProps) {
+    const { id_barberia: idBarberia } = useBarberia();
     const [services, setServices] = useState<Service[]>([]);
     const [barberServiceIds, setBarberServiceIds] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,8 +71,8 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
         try {
             setLoading(true);
             const [allServices, barberServices] = await Promise.all([
-                getServices(),
-                getServicesByBarber(barberId)
+                getServices(idBarberia),
+                getServicesByBarber(idBarberia, barberId)
             ]);
 
             setServices(allServices);
@@ -89,7 +95,7 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
         }
 
         try {
-            await toggleBarberService(barberId, serviceId, checked);
+            await toggleBarberService(idBarberia, barberId, serviceId, checked);
             toast.success(checked ? "Servicio añadido a tu perfil" : "Servicio removido de tu perfil");
         } catch (error) {
             console.error("Error toggling service:", error);
@@ -162,7 +168,7 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
 
         try {
             setIsAdding(true);
-            const created = await createService({
+            const created = await createService(idBarberia, {
                 nombre: newService.nombre,
                 precio: Number(newService.precio),
                 duracion: Number(newService.duracion)
@@ -244,6 +250,7 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
                     />
                 </div>
 
+                {canManageCatalog && (
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
                         <Button className="w-full sm:w-auto">
@@ -299,6 +306,7 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
                         </form>
                     </DialogContent>
                 </Dialog>
+                )}
             </div>
 
             {/* Services List */}
@@ -327,7 +335,7 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
                                             <Checkbox
                                                 checked={barberServiceIds.includes(service.id)}
                                                 onCheckedChange={(checked) => handleToggleService(service.id, checked as boolean)}
-                                                disabled={service.activo === false}
+                                                disabled={service.activo === false || !isProfesional}
                                             />
                                         </div>
                                         <div className="col-span-6 sm:col-span-5 font-medium flex items-center gap-2">
@@ -339,13 +347,14 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
                                             )}
                                         </div>
                                         <div className="col-span-2 sm:col-span-2 text-sm text-muted-foreground">
-                                            ${service.precio.toLocaleString()}
+                                            ${service.precio.toLocaleString("es-CL")}
                                         </div>
                                         <div className="col-span-2 sm:col-span-2 text-sm text-muted-foreground">
                                             <Badge variant="secondary" className="font-normal">
                                                 {service.duracion} min
                                             </Badge>
                                         </div>
+                                        {canManageCatalog && (
                                         <div className="col-span-12 sm:col-span-2 flex justify-end gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                             {service.activo === false ? (
                                                 <Button
@@ -400,6 +409,7 @@ export function ServicesManager({ barberId }: ServicesManagerProps) {
                                                 </AlertDialogContent>
                                             </AlertDialog>
                                         </div>
+                                        )}
                                     </div>
                                 ))
                             )}

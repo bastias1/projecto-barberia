@@ -1,107 +1,36 @@
 import { createClient } from "@/utils/supabase/client";
-import { Database } from "../database.types";
+import { getProfesionalesDeSucursal } from "@/lib/barberia";
 
-export type Barbero = Database["public"]["Tables"]["barbero"]["Row"] & {
-  correo?: string | null;
-  telefono?: string | null;
-};
-
-export interface BarberoWithServices extends Barbero {
-  servicios?: number[];
+export interface Barbero {
+  id: string;
+  nombre: string;
+  especialidad: string | null;
+  profile_image: string | null;
 }
 
-// Fetch all barbers
-export async function getBarberos(): Promise<Barbero[]> {
-  try {
-    const supabase = createClient();
-
-    // Get all barbers - use explicit foreign key hint to avoid ambiguity
-    // barbero.id references usuario.id, so we use !inner with the FK name
-    const { data, error } = await supabase
-      .from("barbero")
-      .select(`
-        *,
-        usuario!barbero_id_fkey (
-          id,
-          profile_image,
-          rol,
-          deleted_at,
-          correo,
-          telefono
-        )
-      `)
-      .order("nombre", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching barbers:", error.message);
-      throw new Error(`Failed to fetch barbers: ${error.message}`);
-    }
-
-    if (!data || data.length === 0) {
-      return [];
-    }
-
-    // Filter to only include actual barbers (rol = 'barbero') who aren't deleted
-    // and expose correo/telefono from the joined usuario record
-    const validBarbers = data
-      .filter(barber => {
-        const usuario = barber.usuario as any;
-        return usuario &&
-               usuario.rol === 'barbero' &&
-               usuario.deleted_at === null;
-      })
-      .map(barber => {
-        const usuario = barber.usuario as any;
-        return {
-          ...barber,
-          correo: usuario?.correo ?? null,
-          telefono: usuario?.telefono ?? null,
-        };
-      });
-
-    return validBarbers;
-  } catch (error) {
-    console.error("Exception in getBarberos:", error);
-    throw error;
-  }
-}
-
-// Fetch services for a specific barber
-export async function getBarberServices(barberoId: string): Promise<number[]> {
-  try {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from("barbero_servicio")
-      .select("servicio")
-      .eq("barbero", barberoId);
-
-    if (error) {
-      console.error("Error fetching barber services:", error);
-      throw error;
-    }
-
-    return data?.map(item => item.servicio) || [];
-  } catch (error) {
-    console.error("Exception in getBarberServices:", error);
-    throw error;
-  }
-}
-
-// Fetch barber by ID
-export async function getBarberoById(id: string): Promise<Barbero | null> {
+// Fetch active barbers (public: uses the profesionales_publicos RPC, which
+// exposes only the visible name, photo and specialty). With idSucursal, only
+// the barbers assigned to that sucursal.
+export async function getBarberos(idBarberia: string, idSucursal?: number): Promise<Barbero[]> {
   const supabase = createClient();
 
-  const { data, error } = await supabase
-    .from("barbero")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const [{ data, error }, asignados] = await Promise.all([
+    supabase.rpc("profesionales_publicos", { p_barberia: idBarberia }),
+    idSucursal ? getProfesionalesDeSucursal(supabase, idBarberia, idSucursal) : Promise.resolve(null),
+  ]);
 
   if (error) {
-    console.error("Error fetching barber:", error);
-    return null;
+    console.error("Error fetching barbers:", error.message);
+    throw new Error(`Failed to fetch barbers: ${error.message}`);
   }
 
-  return data;
+  type Row = { id_profesional: string; nombre_visible: string; profile_image: string | null; especialidad: string | null };
+  return ((data || []) as Row[])
+    .filter((p) => !asignados || asignados.includes(p.id_profesional))
+    .map((p) => ({
+      id: p.id_profesional,
+      nombre: p.nombre_visible,
+      especialidad: p.especialidad,
+      profile_image: p.profile_image,
+    }));
 }

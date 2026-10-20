@@ -3,8 +3,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Appointment } from "@/lib/services/dashboard-service";
-import { Calendar, Check, Clock, User, X } from "lucide-react";
-import { updateBookingStatus } from "@/app/dashboard/actions";
+import { Check, Clock, User, X } from "lucide-react";
+import { updateBookingStatus } from "@/app/[slug]/dashboard/actions";
+import { formatCLP } from "@/lib/datetime";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -27,7 +28,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
         }
     };
 
-    const isPending = !['completada', 'ausente', 'cancelada'].includes(appointment.estado || '');
+    const isPending = !['completada', 'no_asistio', 'cancelada'].includes(appointment.estado || '');
 
     return (
         <div
@@ -40,7 +41,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
             </div>
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold">
-                    {appointment.guest_usuario?.nombre} {appointment.guest_usuario?.apellido}
+                    {appointment.cliente?.nombre} {appointment.cliente?.apellido}
                 </p>
                 <p className="text-xs text-muted-foreground">
                     {appointment.servicio?.nombre || "Sin servicio"}
@@ -53,21 +54,21 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                     <Badge className={
                         appointment.estado === "confirmada" || appointment.estado === "completada"
                             ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 text-xs"
-                            : appointment.estado === "cancelada" || appointment.estado === "ausente"
+                            : appointment.estado === "cancelada" || appointment.estado === "no_asistio"
                                 ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 text-xs"
                                 : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 text-xs"
                     }>
                         {appointment.estado === "confirmada" ? "✓ Confirmada"
                             : appointment.estado === "completada" ? "✓ Completada"
                                 : appointment.estado === "cancelada" ? "✗ Cancelada"
-                                    : appointment.estado === "ausente" ? "✗ Ausente"
+                                    : appointment.estado === "no_asistio" ? "✗ Ausente"
                                         : "⏳ Pendiente"}
                     </Badge>
                 </div>
             </div>
             <div className="flex flex-col items-end gap-2">
                 <p className="text-sm font-semibold text-green-600 dark:text-green-400">
-                    ${appointment.servicio?.precio.toFixed(2) || "0.00"}
+                    {formatCLP(appointment.servicio?.precio)}
                 </p>
                 {isPending && (
                     <div className="flex gap-1">
@@ -85,7 +86,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                             size="icon"
                             variant="outline"
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            onClick={() => handleStatusUpdate('ausente')}
+                            onClick={() => handleStatusUpdate('no_asistio')}
                             disabled={isLoading}
                             title="Marcar como ausente"
                         >
