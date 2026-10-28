@@ -16,7 +16,6 @@ export function ProfileForm() {
         apellido: "",
         email: "", // Read-only
         telefono: "",
-        rut: "",
     });
 
     useEffect(() => {
@@ -33,7 +32,6 @@ export function ProfileForm() {
                     apellido: data.apellido || "",
                     email: data.correo || "",
                     telefono: data.telefono || "",
-                    rut: data.rut || "",
                 });
             }
         } catch (error) {
@@ -55,7 +53,6 @@ export function ProfileForm() {
                     nombre: formData.nombre,
                     apellido: formData.apellido,
                     telefono: formData.telefono,
-                    rut: formData.rut,
                 }),
             });
 
@@ -112,38 +109,6 @@ export function ProfileForm() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="rut">RUT</Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    id="rut"
-                                    value={formData.rut}
-                                    onChange={(e) => setFormData({ ...formData, rut: e.target.value })}
-                                    placeholder="12.345.678-9"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={async () => {
-                                        try {
-                                            const res = await fetch("/api/clear-my-rut");
-                                            if (res.ok) {
-                                                setFormData({ ...formData, rut: "" });
-                                                toast.success("RUT limpiado");
-                                            } else {
-                                                toast.error("Error al limpiar RUT");
-                                            }
-                                        } catch (e) {
-                                            toast.error("Error al limpiar RUT");
-                                        }
-                                    }}
-                                    title="Limpiar RUT corrupto"
-                                >
-                                    <span className="text-xs">🗑️</span>
-                                </Button>
-                            </div>
-                        </div>
                         <div className="space-y-2">
                             <Label htmlFor="telefono">Teléfono</Label>
                             <Input

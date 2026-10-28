@@ -1,10 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
-import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, MapPin, Store, Truck } from "lucide-react";
+import { ArrowLeft, CreditCard, MapPin, Store, Truck } from "lucide-react";
 import { useBarberiaCart } from "@/lib/cart-store";
 import { useBarberia } from "@/components/barberia-provider";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { FormularioTarjeta, type DatosTarjeta } from "@/components/pagos/formulario-tarjeta";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
 
@@ -24,6 +24,8 @@ type Address = {
   nombre_etiqueta?: string;
 };
 
+const sinSuscripcion = () => () => {};
+
 export default function CheckoutPage() {
   const { slug } = useBarberia();
   const { items: cart } = useBarberiaCart();
@@ -34,14 +36,16 @@ export default function CheckoutPage() {
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // State
-  const [step, setStep] = useState<'delivery' | 'payment'>('delivery');
   const [deliveryMethod, setDeliveryMethod] = useState<'retiro' | 'despacho'>('retiro');
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [preferenceId, setPreferenceId] = useState<string | null>(null);
-  const [isWalletReady, setIsWalletReady] = useState(false);
+  // Pedido creado al pagar; se reutiliza en un reintento si la entrega no cambió
+  const [pedido, setPedido] = useState<{ id: number; monto: number; entrega: string } | null>(null);
+  const entrega = deliveryMethod === 'despacho' ? `despacho:${selectedAddressId}` : 'retiro';
+  // Tras crear el pedido manda su total (precios vigentes), no el guardado en el carrito
+  const monto = pedido?.monto ?? total;
 
   // New Address Form
   const [newAddress, setNewAddress] = useState({
@@ -50,13 +54,6 @@ export default function CheckoutPage() {
     comuna: '',
     telefono: ''
   });
-
-  // Initialize MP
-  useEffect(() => {
-    initMercadoPago("APP_USR-b3031121-06fe-4e47-a4bf-6df94bcdddbb", {
-      locale: "es-CL",
-    });
-  }, []);
 
   // Fetch Addresses
   useEffect(() => {
@@ -102,16 +99,23 @@ export default function CheckoutPage() {
     setIsLoading(false);
   };
 
-  const handleCreatePreference = async () => {
-    setIsLoading(true);
-    try {
-      const selectedAddress = addresses.find(a => a.id === selectedAddressId);
+  // Crea el pedido (reserva stock) solo al pagar y luego cobra la tarjeta
+  const pagar = async (datos: DatosTarjeta): Promise<string | null> => {
+    if (deliveryMethod === 'despacho' && !selectedAddressId) return 'Elige una dirección de despacho.';
 
+    let actual = pedido;
+    if (actual && actual.entrega !== entrega) {
+      // Cancelar devuelve el stock del pedido anterior
+      const { error } = await supabase.from('pedido').update({ estado: 'cancelado' }).eq('id_pedido', actual.id);
+      if (error) return 'No se pudo actualizar el pedido. Recarga la página e intenta nuevamente.';
+      setPedido(null);
+      actual = null;
+    }
+
+    if (!actual) {
       const response = await fetch("/api/checkout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           barberia: slug,
           items: cart.map((item) => ({
@@ -121,44 +125,59 @@ export default function CheckoutPage() {
             unit_price: item.price,
           })),
           delivery_method: deliveryMethod,
-          shipping_address: deliveryMethod === 'despacho' ? selectedAddress : null
+          shipping_address: deliveryMethod === 'despacho' ? addresses.find(a => a.id === selectedAddressId) : null
         }),
       });
-
       if (response.status === 401) {
         router.push(loginUrl);
-        return;
+        return null;
       }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return data.error || 'No se pudo crear el pedido';
 
-      const data = await response.json();
-      if (!response.ok) {
-        toast.error(data.error || 'No se pudo iniciar el pago');
-        return;
-      }
-      if (data.id) {
-        setPreferenceId(data.id);
-        setStep('payment');
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setIsLoading(false);
+      actual = { id: data.pedido, monto: data.monto, entrega };
+      setPedido(actual);
+      if (actual.monto !== total) return 'El precio de algún producto cambió. Revisa el nuevo total y vuelve a pagar.';
     }
+
+    const res = await fetch("/api/checkout/pagar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ barberia: slug, pedido: actual.id, ...datos }),
+    });
+    if (res.status === 401) {
+      router.push(loginUrl);
+      return null;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (data.estado === "aprobado") {
+      router.push(`/${slug}/checkout/success`);
+      return null;
+    }
+    if (data.estado === "pendiente") {
+      router.push(`/${slug}/checkout/pending`);
+      return null;
+    }
+    // Un pago rechazado deja el pedido pendiente para reintentar con otra tarjeta
+    return data.error || "No se pudo procesar el pago. Intenta nuevamente.";
   };
+
+  // Al hidratar, el carrito sale vacío (snapshot del servidor) hasta el render siguiente
+  const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
 
   // Redirect to cart if empty
   useEffect(() => {
-    if (cart.length === 0) {
+    if (montado && cart.length === 0) {
       router.push(`/${slug}/cart`);
     }
-  }, [cart.length, router, slug]);
+  }, [montado, cart.length, router, slug]);
 
   if (cart.length === 0) {
     return null;
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl">
+    <main id="contenido" className="mx-auto w-full max-w-4xl">
       <Link
         href={`/${slug}/cart`}
         className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors mb-6"
@@ -174,7 +193,7 @@ export default function CheckoutPage() {
       <div className="grid gap-8 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">
           {/* Step 1: Delivery Method */}
-          <Card className={step === 'payment' ? 'opacity-50 pointer-events-none' : ''}>
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Truck className="h-5 w-5" />
@@ -209,7 +228,7 @@ export default function CheckoutPage() {
 
           {/* Step 2: Address (Only for Despacho) */}
           {deliveryMethod === 'despacho' && (
-            <Card className={step === 'payment' ? 'opacity-50 pointer-events-none' : ''}>
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
@@ -239,22 +258,22 @@ export default function CheckoutPage() {
                   <div className="space-y-4 border p-4 rounded-lg bg-zinc-50 dark:bg-zinc-900">
                     <div className="grid gap-4">
                       <div className="grid gap-2">
-                        <Label>Calle y Número</Label>
-                        <Input value={newAddress.calle} onChange={e => setNewAddress({ ...newAddress, calle: e.target.value })} placeholder="Av. Siempre Viva 123" />
+                        <Label htmlFor="direccion-calle">Calle y Número</Label>
+                        <Input id="direccion-calle" value={newAddress.calle} onChange={e => setNewAddress({ ...newAddress, calle: e.target.value })} placeholder="Av. Siempre Viva 123" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                          <Label>Comuna</Label>
-                          <Input value={newAddress.comuna} onChange={e => setNewAddress({ ...newAddress, comuna: e.target.value })} placeholder="Providencia" />
+                          <Label htmlFor="direccion-comuna">Comuna</Label>
+                          <Input id="direccion-comuna" value={newAddress.comuna} onChange={e => setNewAddress({ ...newAddress, comuna: e.target.value })} placeholder="Providencia" />
                         </div>
                         <div className="grid gap-2">
-                          <Label>Ciudad</Label>
-                          <Input value={newAddress.ciudad} onChange={e => setNewAddress({ ...newAddress, ciudad: e.target.value })} placeholder="Santiago" />
+                          <Label htmlFor="direccion-ciudad">Ciudad</Label>
+                          <Input id="direccion-ciudad" value={newAddress.ciudad} onChange={e => setNewAddress({ ...newAddress, ciudad: e.target.value })} placeholder="Santiago" />
                         </div>
                       </div>
                       <div className="grid gap-2">
-                        <Label>Teléfono</Label>
-                        <Input value={newAddress.telefono} onChange={e => setNewAddress({ ...newAddress, telefono: e.target.value })} placeholder="+569..." />
+                        <Label htmlFor="direccion-telefono">Teléfono</Label>
+                        <Input id="direccion-telefono" value={newAddress.telefono} onChange={e => setNewAddress({ ...newAddress, telefono: e.target.value })} placeholder="+569..." />
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -268,26 +287,23 @@ export default function CheckoutPage() {
           )}
 
           {/* Step 3: Payment */}
-          {step === 'payment' && (
-            <Card className="animate-in fade-in slide-in-from-bottom-4">
-              <CardHeader>
-                <CardTitle>Pago</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!isWalletReady && (
-                  <div className="w-full h-12 bg-zinc-100 dark:bg-zinc-800 animate-pulse rounded-md" />
-                )}
-                <div className={!isWalletReady ? 'hidden' : 'block'}>
-                  {preferenceId && (
-                    <Wallet
-                      initialization={{ preferenceId: preferenceId }}
-                      onReady={() => setIsWalletReady(true)}
-                    />
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Tarjeta de crédito o débito
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormularioTarjeta
+                monto={monto}
+                textoBoton={`Pagar $${monto.toLocaleString("es-CL")}`}
+                nota="Pago procesado de forma segura por Mercado Pago. 1 cuota."
+                datosBoton={{ "data-mp-checkout-cta": "checkout-api" }}
+                onPagar={pagar}
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Summary Sidebar */}
@@ -322,32 +338,21 @@ export default function CheckoutPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>${Math.round(total / 1.19).toLocaleString()}</span>
+                  <span>${Math.round(monto / 1.19).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">IVA (19%)</span>
-                  <span>${Math.round(total - (total / 1.19)).toLocaleString()}</span>
+                  <span>${Math.round(monto - (monto / 1.19)).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-bold text-base pt-2 border-t">
                   <span>Total</span>
-                  <span>${total.toLocaleString()}</span>
+                  <span>${monto.toLocaleString()}</span>
                 </div>
                 <p className="text-xs text-muted-foreground text-right pt-1">
                   * Precios incluyen IVA
                 </p>
               </div>
 
-              {step === 'delivery' && (
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleCreatePreference}
-                  disabled={isLoading || (deliveryMethod === 'despacho' && !selectedAddressId)}
-                >
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Continuar al Pago
-                </Button>
-              )}
             </CardContent>
           </Card>
         </div>

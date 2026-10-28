@@ -69,7 +69,7 @@ export default async function SucursalPage({ params }: { params: Params }) {
         </div>
       </nav>
 
-      <main className="relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+      <main id="contenido" className="relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         {/* Hero */}
         <section className="flex flex-col items-center text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
           {barberia.logo_url && (

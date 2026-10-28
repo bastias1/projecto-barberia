@@ -172,8 +172,8 @@ export async function notificarResenaPedido(idPedido: number): Promise<void> {
   if (!enviado) console.info(`[notificaciones] Link reseña pedido ${idPedido}: ${link}`);
 }
 
-/** Correo de invitación al equipo de una barbería (link a /invitacion/<token>). */
-export async function notificarInvitacion(idInvitacion: number): Promise<void> {
+/** Correo de invitación al equipo de una barbería (link a /invitacion/<token>). Devuelve si se envió. */
+export async function notificarInvitacion(idInvitacion: number): Promise<boolean> {
   const supabase = createServiceRoleClient();
   const { data: inv, error } = await supabase
     .from("invitacion")
@@ -183,7 +183,7 @@ export async function notificarInvitacion(idInvitacion: number): Promise<void> {
 
   if (error || !inv || inv.estado !== "pendiente") {
     console.error(`[notificaciones] No se pudo cargar la invitación ${idInvitacion}:`, error);
-    return;
+    return false;
   }
 
   const [barberia, { data: quien }] = await Promise.all([
@@ -192,7 +192,7 @@ export async function notificarInvitacion(idInvitacion: number): Promise<void> {
       ? supabase.from("usuario").select("nombre, apellido").eq("id_usuario", inv.invitado_por).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
-  if (!barberia) return;
+  if (!barberia) return false;
 
   const link = `${getSiteUrl()}/invitacion/${inv.token}`;
   const rol = inv.rol === "admin" ? "administrador" : "barbero";
@@ -218,4 +218,5 @@ export async function notificarInvitacion(idInvitacion: number): Promise<void> {
     replyTo: barberia.email_contacto,
   });
   if (!enviado) console.info(`[notificaciones] Link invitación ${idInvitacion} (${inv.correo}): ${link}`);
+  return enviado;
 }

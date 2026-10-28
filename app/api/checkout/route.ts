@@ -1,12 +1,5 @@
-// SDK de Mercado Pago
-import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { createClient } from "@/utils/supabase/server";
 import { getBarberiaBySlug, getSucursales } from "@/lib/barberia";
-import { getSiteUrl } from "@/lib/signed-links";
-import { one } from "@/lib/utils";
-
-// Agrega credenciales
-const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN ?? '' });
 
 interface CheckoutItem {
     id: number;
@@ -90,45 +83,17 @@ export async function POST(request: Request) {
             );
         }
 
-        // 4. Items for Mercado Pago from the stored (server-side) prices
-        const { data: detalles } = await supabase
-            .from('detalle_pedido')
-            .select('cantidad, precio_unitario, producto:producto!detalle_pedido_producto_fkey (nombre)')
-            .eq('id_pedido', pedido.id_pedido);
+        // El trigger fijó el total con los precios vigentes: el checkout lo compara con el del carrito
+        const { data: total } = await supabase
+            .from('pedido')
+            .select('monto_total')
+            .eq('id_pedido', pedido.id_pedido)
+            .single();
 
-        // Mercado Pago rechaza URLs de retorno en localhost: en desarrollo se usa el dominio público
-        const siteUrl = getSiteUrl().startsWith("http://localhost") ? "https://sunwalk.app" : getSiteUrl();
-        try {
-            const preference = new Preference(client);
-            const result = await preference.create({
-                body: {
-                    items: (detalles ?? []).map((d) => ({
-                        id: String(pedido.id_pedido),
-                        title: one<{ nombre: string }>(d.producto)?.nombre ?? 'Producto',
-                        quantity: d.cantidad,
-                        unit_price: Number(d.precio_unitario),
-                        currency_id: 'CLP'
-                    })),
-                    external_reference: pedido.id_pedido.toString(),
-                    notification_url: `${siteUrl}/api/webhooks/mercadopago`,
-                    back_urls: {
-                        success: `${siteUrl}/${barberia.slug}/checkout/success`,
-                        failure: `${siteUrl}/${barberia.slug}/checkout/failure`,
-                        pending: `${siteUrl}/${barberia.slug}/checkout/pending`,
-                    },
-                    auto_return: "approved",
-                }
-            });
-
-            return Response.json({ url: result.init_point, id: result.id });
-        } catch (mpError) {
-            console.error('Checkout API - Mercado Pago preference error:', mpError);
-            // Sin preferencia no hay forma de pagar: se cancela para liberar el stock
-            await supabase.from('pedido').update({ estado: 'cancelado' }).eq('id_pedido', pedido.id_pedido);
-            return Response.json({ error: 'No se pudo iniciar el pago. Intenta nuevamente.' }, { status: 502 });
-        }
+        // El pago se hace en /<slug>/checkout con Checkout API (/api/checkout/pagar)
+        return Response.json({ pedido: pedido.id_pedido, monto: Number(total?.monto_total ?? 0) });
     } catch (error) {
         console.error(error);
-        return Response.json({ error: 'Error creating preference' }, { status: 500 });
+        return Response.json({ error: 'Error al crear el pedido' }, { status: 500 });
     }
 }

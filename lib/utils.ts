@@ -12,6 +12,22 @@ export function one<T>(value: unknown): T | null {
   return (value ?? null) as T | null
 }
 
+const PAGINA = 1000
+
+// PostgREST corta en 1000 filas sin avisar (max_rows de Supabase): se pide por páginas.
+// La consulta debe venir ordenada por una columna única para que las páginas no se crucen.
+export async function todasLasFilas<T>(
+  consulta: () => { range(desde: number, hasta: number): PromiseLike<{ data: T[] | null; error: unknown }> }
+): Promise<{ data: T[]; error: unknown }> {
+  const filas: T[] = []
+  for (let desde = 0; ; desde += PAGINA) {
+    const { data, error } = await consulta().range(desde, desde + PAGINA - 1)
+    if (error) return { data: filas, error }
+    filas.push(...(data ?? []))
+    if ((data?.length ?? 0) < PAGINA) return { data: filas, error: null }
+  }
+}
+
 // Solo rutas internas ("/algo", no "//dominio" ni URLs): evita redirecciones abiertas
 export function safeNext(value: string | null | undefined): string | null {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null

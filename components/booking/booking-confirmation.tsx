@@ -97,10 +97,12 @@ export function BookingConfirmation({
               <span className="text-zinc-600 dark:text-zinc-400">Email:</span>
               <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right break-all">{formData.email}</span>
             </div>
-            <div className="flex justify-between text-sm md:text-base">
-              <span className="text-zinc-600 dark:text-zinc-400">Teléfono:</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formData.phone}</span>
-            </div>
+            {formData.phone && (
+              <div className="flex justify-between text-sm md:text-base">
+                <span className="text-zinc-600 dark:text-zinc-400">Teléfono:</span>
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formData.phone}</span>
+              </div>
+            )}
             <div className="pt-3 border-t border-zinc-300 dark:border-zinc-700 flex justify-between text-base md:text-lg">
               <span className="font-bold text-zinc-900 dark:text-zinc-100">Total:</span>
               <span className="font-bold text-blue-600 dark:text-blue-400">

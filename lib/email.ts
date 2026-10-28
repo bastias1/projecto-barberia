@@ -2,6 +2,11 @@ import { Resend } from "resend";
 
 const FROM = process.env.EMAIL_FROM || "Navaja <notificaciones@sunwalk.app>";
 
+// El dominio de prueba de Resend solo entrega al dueño de la cuenta
+if (/@resend\.dev>?$/.test(FROM)) {
+  console.warn(`[email] EMAIL_FROM usa ${FROM}: Resend solo entregará al correo dueño de la cuenta. Usa una dirección de sunwalk.app.`);
+}
+
 /** Remitente con el nombre de la barbería y la dirección configurada en EMAIL_FROM. */
 function remitente(nombre?: string): string {
   if (!nombre) return FROM;

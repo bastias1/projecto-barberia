@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { opcionesCookie, RECORDAR_COOKIE, sesionPersistente } from '@/lib/sesion'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -19,8 +20,10 @@ export async function updateSession(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           })
+          // Respeta "Mantener sesión iniciada": el refresco del token no vuelve a fijar 400 días
+          const persistente = sesionPersistente(request.cookies.get(RECORDAR_COOKIE)?.value)
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, opcionesCookie(options, persistente))
           )
         },
       },

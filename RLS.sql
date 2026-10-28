@@ -349,8 +349,7 @@ CREATE FUNCTION public.registrar_barberia(
   p_sucursal        text,
   p_direccion       text,
   p_comuna          text,
-  p_zona_horaria    text    DEFAULT 'America/Santiago',
-  p_dias_prueba     integer DEFAULT 14)
+  p_zona_horaria    text    DEFAULT 'America/Santiago')
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_usuario  uuid := auth.uid();
@@ -369,7 +368,7 @@ BEGIN
   RETURNING id_barberia INTO v_barberia;
 
   INSERT INTO public.suscripcion (id_barberia, id_plan, precio_pactado, estado, fecha_termino)
-  VALUES (v_barberia, p_id_plan, v_precio, 'prueba', current_date + p_dias_prueba);
+  VALUES (v_barberia, p_id_plan, v_precio, 'prueba', current_date + 14);  -- fijo: la RPC es pública
 
   INSERT INTO public.usuario_barberia (id_usuario, id_barberia, rol)
   VALUES (v_usuario, v_barberia, 'admin');
@@ -458,13 +457,15 @@ $$;
 
 -- 5.5 Derecho de supresión (Ley 21.719): anonimiza al usuario y conserva
 --     reservas, pedidos y pagos sin datos personales (obligaciones contables).
---     La fila de auth.users se elimina desde el backend con la API de administración.
+--     auth.users se anonimiza y bloquea desde eliminarDatosPersona (app/admin/actions.ts).
 CREATE FUNCTION public.anonimizar_usuario(p_usuario uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_email text;
 BEGIN
   IF p_usuario IS DISTINCT FROM auth.uid() AND NOT private.es_superadmin() THEN
     RAISE EXCEPTION 'Solo el titular o un superadmin puede eliminar la cuenta' USING ERRCODE = 'insufficient_privilege';
   END IF;
+  SELECT email INTO v_email FROM public.usuario WHERE id_usuario = p_usuario;
 
   UPDATE public.usuario
   SET nombre = 'Usuario eliminado', apellido = NULL,
@@ -479,10 +480,16 @@ BEGIN
   -- Cancela sus reservas futuras y borra direcciones de despacho guardadas
   UPDATE public.reserva SET estado = 'cancelada'
   WHERE id_cliente = p_usuario AND estado IN ('pendiente','confirmada') AND fecha_hora_inicio > now();
+  UPDATE public.reserva SET notas = NULL WHERE id_cliente = p_usuario AND notas IS NOT NULL;
   UPDATE public.pedido
   SET direccion_envio = CASE WHEN tipo_entrega = 'despacho' THEN '[dirección eliminada]' END
   WHERE id_cliente = p_usuario AND estado IN ('entregado','cancelado');
   UPDATE public.resena SET comentario = NULL WHERE id_cliente = p_usuario;
+
+  UPDATE public.invitacion
+  SET correo = 'eliminado-' || id_invitacion || '@anon.invalid',
+      estado = CASE WHEN estado = 'pendiente' THEN 'cancelada' ELSE estado END
+  WHERE lower(correo) = lower(v_email);
 END $$;
 
 CREATE FUNCTION public.anonimizar_guest(p_guest uuid)
@@ -498,6 +505,9 @@ BEGIN
   SET nombre = 'Invitado eliminado', apellido = '-',
       correo = 'eliminado-' || id_guest || '@anon.invalid', telefono = NULL
   WHERE id_guest = p_guest;
+  UPDATE public.reserva SET estado = 'cancelada'
+  WHERE id_guest = p_guest AND estado IN ('pendiente','confirmada') AND fecha_hora_inicio > now();
+  UPDATE public.reserva SET notas = NULL WHERE id_guest = p_guest AND notas IS NOT NULL;
   UPDATE public.resena SET comentario = NULL WHERE id_guest = p_guest;
 END $$;
 
@@ -516,8 +526,8 @@ REVOKE EXECUTE ON FUNCTION public.asegurar_membresia_cliente(uuid, uuid) FROM PU
 REVOKE EXECUTE ON FUNCTION public.recalcular_total_pedido(uuid, bigint)  FROM PUBLIC, anon, authenticated;
 
 -- RPC públicas
-REVOKE EXECUTE ON FUNCTION public.registrar_barberia(text, text, bigint, text, text, text, text, integer) FROM PUBLIC, anon;
-GRANT  EXECUTE ON FUNCTION public.registrar_barberia(text, text, bigint, text, text, text, text, integer) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.registrar_barberia(text, text, bigint, text, text, text, text) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.registrar_barberia(text, text, bigint, text, text, text, text) TO authenticated;
 
 GRANT  EXECUTE ON FUNCTION public.reservar_como_invitado(uuid, bigint, uuid, bigint, timestamptz, text, text, text, text, boolean, text) TO anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.horarios_ocupados(uuid, uuid, timestamptz, timestamptz) TO anon, authenticated;
@@ -580,3 +590,11 @@ REVOKE EXECUTE ON FUNCTION public.responder_invitacion(uuid, boolean) FROM PUBLI
 GRANT  EXECUTE ON FUNCTION public.responder_invitacion(uuid, boolean) TO authenticated;
 REVOKE EXECUTE ON FUNCTION public.modulos_barberia(uuid) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION public.modulos_barberia(uuid) TO anon, authenticated, service_role;
+
+-- auditoria_admin: solo el superadmin lee y agrega filas (a su nombre). Sin UPDATE/DELETE.
+ALTER TABLE public.auditoria_admin ENABLE ROW LEVEL SECURITY;
+CREATE POLICY auditoria_admin_select ON public.auditoria_admin FOR SELECT TO authenticated
+  USING ((SELECT private.es_superadmin()));
+CREATE POLICY auditoria_admin_insert ON public.auditoria_admin FOR INSERT TO authenticated
+  WITH CHECK ((SELECT private.es_superadmin()) AND id_usuario = (SELECT auth.uid()));
+REVOKE UPDATE, DELETE, TRUNCATE ON public.auditoria_admin FROM anon, authenticated;

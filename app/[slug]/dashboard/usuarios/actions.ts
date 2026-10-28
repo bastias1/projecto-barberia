@@ -5,7 +5,8 @@ import { createClient } from "@/utils/supabase/server";
 import { getStaffContext } from "@/lib/staff-context";
 import { notificarInvitacion } from "@/lib/notifications";
 
-type Resultado = { success: true } | { success: false; error: string };
+// correoEnviado: si falló, el admin puede copiar el link desde Equipo
+type Resultado = { success: true; correoEnviado?: boolean } | { success: false; error: string };
 
 const VIGENCIA_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -41,9 +42,9 @@ export async function invitarMiembro(input: { slug: string; correo: string; rol:
     return { success: false, error: "No se pudo crear la invitación" };
   }
 
-  await notificarInvitacion(data.id_invitacion);
+  const correoEnviado = await notificarInvitacion(data.id_invitacion);
   revalidatePath("/[slug]/dashboard/usuarios", "page");
-  return { success: true };
+  return { success: true, correoEnviado };
 }
 
 /** Vuelve a enviar el correo y extiende la vigencia 14 días. */
@@ -63,9 +64,9 @@ export async function reenviarInvitacion(input: { slug: string; idInvitacion: nu
 
   if (error || !data) return { success: false, error: "La invitación ya no está pendiente" };
 
-  await notificarInvitacion(data.id_invitacion);
+  const correoEnviado = await notificarInvitacion(data.id_invitacion);
   revalidatePath("/[slug]/dashboard/usuarios", "page");
-  return { success: true };
+  return { success: true, correoEnviado };
 }
 
 export async function cancelarInvitacion(input: { slug: string; idInvitacion: number }): Promise<Resultado> {

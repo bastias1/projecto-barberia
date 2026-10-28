@@ -4,9 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getBarberiaBySlug, getSucursales, DEFAULT_TZ } from "@/lib/barberia";
 import { fromZoned } from "@/lib/datetime";
 import { notificarReservaCreada } from "@/lib/notifications";
-
-// Versión de la política de privacidad que acepta el cliente al reservar
-const VERSION_POLITICA = "v1.0";
+import { VERSION_POLITICA } from "@/lib/plataforma";
 
 export interface CrearReservaInput {
   slug: string; // barbería de la URL

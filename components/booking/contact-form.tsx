@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Check } from "lucide-react";
+import Link from "next/link";
 
 interface ContactFormProps {
   formData: {
@@ -69,11 +70,10 @@ export function ContactForm({ formData, onFormChange, onBack, onSubmit }: Contac
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm md:text-base">Teléfono *</Label>
+              <Label htmlFor="phone" className="text-sm md:text-base">Teléfono (opcional)</Label>
               <Input
                 id="phone"
                 type="tel"
-                required
                 value={formData.phone}
                 onChange={(e) => onFormChange({ ...formData, phone: e.target.value })}
                 placeholder="+56 9 1234 5678"
@@ -89,7 +89,13 @@ export function ContactForm({ formData, onFormChange, onBack, onSubmit }: Contac
                 className="mt-0.5"
               />
               <Label htmlFor="aceptaPrivacidad" className="text-sm font-normal leading-snug text-zinc-600 dark:text-zinc-400">
-                Acepto que la barbería use mis datos de contacto para gestionar esta reserva y enviarme avisos sobre ella.
+                <span>
+                  Acepto los{" "}
+                  <Link href="/terminos" target="_blank" className="underline underline-offset-4">términos</Link>
+                  {" "}y la{" "}
+                  <Link href="/privacidad" target="_blank" className="underline underline-offset-4">política de privacidad</Link>
+                  , y que la barbería use mis datos de contacto para gestionar esta reserva y enviarme avisos sobre ella.
+                </span>
               </Label>
             </div>
 

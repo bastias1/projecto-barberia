@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, KeyRound, Mail, Scissors, Store } from "lucide-react";
+import { ProfileForm } from "@/components/profile/profile-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { ResponderInvitacion } from "@/components/cuenta/responder-invitacion";
 import { CerrarSesion } from "@/components/cuenta/cerrar-sesion";
 import { createClient } from "@/utils/supabase/server";
-import { getMembresias, ROL_LABEL } from "@/lib/roles";
+import { esSuperadmin, getMembresias, ROL_LABEL } from "@/lib/roles";
 import { one } from "@/lib/utils";
 import { PLATAFORMA } from "@/lib/plataforma";
 
@@ -20,7 +21,7 @@ export default async function CuentaPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/cuenta");
 
-  const [{ data: usuario }, membresias, { data: invitaciones }] = await Promise.all([
+  const [{ data: usuario }, membresias, { data: invitaciones }, superadmin] = await Promise.all([
     supabase.from("usuario").select("nombre").eq("id_usuario", user.id).maybeSingle(),
     getMembresias(supabase, user.id),
     // RLS: solo las invitaciones dirigidas a su correo
@@ -30,6 +31,7 @@ export default async function CuentaPage() {
       .eq("estado", "pendiente")
       .gte("expira_at", new Date().toISOString())
       .order("created_at", { ascending: false }),
+    esSuperadmin(supabase, user.id),
   ]);
 
   const trabajo = membresias.filter((m) => m.rol !== "cliente");
@@ -52,6 +54,17 @@ export default async function CuentaPage() {
           <h1 className="text-3xl font-bold">Hola, {usuario?.nombre ?? user.email?.split("@")[0]}</h1>
           <p className="text-muted-foreground">{user.email}</p>
         </div>
+
+        {superadmin && (
+          <Link href="/admin" className="block">
+            <Card className="border-2 border-primary hover:shadow-md transition-shadow">
+              <CardContent className="p-4 flex items-center justify-between">
+                <span className="font-semibold">Panel de la plataforma</span>
+                <Button size="sm">Abrir</Button>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
 
         {/* Invitaciones */}
         <Card className={invitaciones?.length ? "border-2 border-primary" : ""}>
@@ -110,6 +123,9 @@ export default async function CuentaPage() {
             ))}
           </CardContent>
         </Card>
+
+        {/* Perfil: nombre y teléfono que ven las barberías donde trabaja o reserva */}
+        <ProfileForm />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Link href="/registro">

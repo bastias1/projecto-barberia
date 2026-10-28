@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_TZ, isSlugValido } from "@/lib/barberia";
+import { VERSION_POLITICA } from "@/lib/plataforma";
 
 export interface RegistrarBarberiaInput {
   nombre: string;
@@ -10,6 +11,7 @@ export interface RegistrarBarberiaInput {
   sucursal: string;
   direccion: string;
   comuna: string;
+  aceptaTerminos: boolean;
 }
 
 export type RegistrarBarberiaResult =
@@ -25,6 +27,10 @@ export async function registrarBarberia(input: RegistrarBarberiaInput): Promise<
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return { success: false, error: "Debes iniciar sesión para registrar tu barbería" };
+  }
+
+  if (input.aceptaTerminos !== true) {
+    return { success: false, error: "Debes aceptar los términos de servicio y la política de privacidad" };
   }
 
   const nombre = input.nombre.trim();
@@ -52,6 +58,9 @@ export async function registrarBarberia(input: RegistrarBarberiaInput): Promise<
 
   if (error) {
     console.error("Error registering barbería:", error);
+    if (error.code === "23503") {
+      return { success: false, error: "Tu cuenta no está lista. Cierra sesión y vuelve a entrar." };
+    }
     if (error.code === "23505") {
       return { success: false, error: "Esa dirección web ya está en uso. Prueba con otra." };
     }
@@ -63,6 +72,15 @@ export async function registrarBarberia(input: RegistrarBarberiaInput): Promise<
     }
     return { success: false, error: "No se pudo registrar la barbería" };
   }
+
+  // Prueba de que aceptó los términos al contratar (la política RLS solo deja insertar los propios)
+  const { error: errorConsentimiento } = await supabase.from("consentimiento").insert({
+    id_usuario: user.id,
+    tipo: "terminos",
+    version_politica: VERSION_POLITICA,
+    aceptado: true,
+  });
+  if (errorConsentimiento) console.error("Error saving consentimiento:", errorConsentimiento);
 
   return { success: true, slug };
 }

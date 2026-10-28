@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { opcionesCookie, RECORDAR_COOKIE, sesionPersistente } from "@/lib/sesion";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -15,9 +16,11 @@ export async function createClient() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
+          // Respeta "Mantener sesión iniciada" (lib/sesion.ts)
+          const persistente = sesionPersistente(cookieStore.get(RECORDAR_COOKIE)?.value);
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, opcionesCookie(options, persistente))
             );
           } catch {
             // The `setAll` method was called from a Server Component.

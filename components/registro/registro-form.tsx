@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { registrarBarberia } from "@/app/registro/actions";
 import { caracteristicasPlan, type Plan } from "@/lib/planes";
@@ -22,6 +24,7 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
   const [sucursal, setSucursal] = useState("");
   const [direccion, setDireccion] = useState("");
   const [comuna, setComuna] = useState("");
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [host, setHost] = useState("");
@@ -48,6 +51,7 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
         sucursal,
         direccion,
         comuna,
+        aceptaTerminos,
       });
 
       if (!result.success) {
@@ -189,7 +193,26 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
         </div>
       </div>
 
-      <Button type="submit" className="w-full h-11 text-base" disabled={enviando || !idPlan}>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="aceptaTerminos"
+          checked={aceptaTerminos}
+          onCheckedChange={(checked) => setAceptaTerminos(checked === true)}
+          disabled={enviando}
+          className="mt-0.5"
+        />
+        <Label htmlFor="aceptaTerminos" className="text-sm font-normal leading-snug">
+          <span>
+            Acepto los{" "}
+            <Link href="/terminos" target="_blank" className="underline underline-offset-4">términos de servicio</Link>
+            {" "}y la{" "}
+            <Link href="/privacidad" target="_blank" className="underline underline-offset-4">política de privacidad</Link>
+            , incluido el tratamiento de los datos de mis clientes como encargado.
+          </span>
+        </Label>
+      </div>
+
+      <Button type="submit" className="w-full h-11 text-base" disabled={enviando || !idPlan || !aceptaTerminos}>
         {enviando ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -6,12 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Scissors, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { getBarberiaBySlug } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
+import { VERSION_POLITICA } from "@/lib/plataforma";
 import { toast } from "sonner";
 
 export default function SignupPage() {
@@ -33,7 +35,8 @@ function SignupForm() {
   const slug = searchParams.get("barberia");
   const next = safeNext(searchParams.get("next"));
   // Tras crear la cuenta: la ruta pedida, la barbería de origen o el inicio
-  const destino = next ?? (slug ? `/${slug}` : "/");
+  // Sin barbería de origen: a su cuenta (perfil, invitaciones y crear barbería)
+  const destino = next ?? (slug ? `/${slug}` : "/cuenta");
   const loginHref = `/login?${new URLSearchParams({ ...(slug ? { barberia: slug } : {}), ...(next ? { next } : {}) })}`;
   const [formData, setFormData] = useState({
     // Desde una invitación llega el correo invitado
@@ -43,6 +46,7 @@ function SignupForm() {
     nombre: "",
     apellido: ""
   });
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +59,13 @@ function SignupForm() {
       // Validate passwords match
       if (formData.password !== formData.confirmPassword) {
         setError("Las contraseñas no coinciden");
+        setLoading(false);
+        return;
+      }
+
+      // El trigger crear_perfil_usuario también lo exige (acepta_terminos en los metadatos)
+      if (!aceptaTerminos) {
+        setError("Debes aceptar los términos y la política de privacidad");
         setLoading(false);
         return;
       }
@@ -76,7 +87,8 @@ function SignupForm() {
           data: {
             nombre: formData.nombre,
             apellido: formData.apellido,
-            role: 'cliente'
+            acepta_terminos: true,
+            version_politica: VERSION_POLITICA,
           }
         }
       });
@@ -193,14 +205,13 @@ function SignupForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="apellido">Apellido</Label>
+                <Label htmlFor="apellido">Apellido (opcional)</Label>
                 <Input
                   id="apellido"
                   type="text"
                   placeholder="Pérez"
                   value={formData.apellido}
                   onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
-                  required
                   disabled={loading}
                   className="h-11"
                 />
@@ -248,10 +259,28 @@ function SignupForm() {
                 />
               </div>
 
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="aceptaTerminos"
+                  checked={aceptaTerminos}
+                  onCheckedChange={(checked) => setAceptaTerminos(checked === true)}
+                  disabled={loading}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="aceptaTerminos" className="text-sm font-normal leading-snug">
+                  <span>
+                    Acepto los{" "}
+                    <Link href="/terminos" target="_blank" className="underline underline-offset-4">términos de servicio</Link>
+                    {" "}y la{" "}
+                    <Link href="/privacidad" target="_blank" className="underline underline-offset-4">política de privacidad</Link>
+                  </span>
+                </Label>
+              </div>
+
               <Button
                 type="submit"
                 className="w-full h-11 text-base"
-                disabled={loading}
+                disabled={loading || !aceptaTerminos}
               >
                 {loading ? (
                   <>

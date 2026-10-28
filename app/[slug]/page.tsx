@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle";
+import { LegalLinks } from "@/components/legal-links";
 import { RecentCutsCarousel } from "@/components/recent-cuts-carousel";
 import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
 import Link from "next/link";
@@ -58,7 +59,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
         </div>
       </nav>
 
-      <main className="relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <main id="contenido" className="relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
 
         {/* Hero Section */}
         <div className="flex flex-col items-center text-center mb-16 lg:mb-24 animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -319,6 +320,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
               Reservas con{" "}
               <Link href="/" className="underline-offset-4 hover:underline">{PLATAFORMA.nombre}</Link>
             </p>
+            <LegalLinks className="pt-2 text-xs text-muted-foreground" />
           </div>
         </footer>
 

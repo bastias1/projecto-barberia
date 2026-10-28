@@ -64,7 +64,7 @@ export function StoreClient({ products }: StoreClientProps) {
                 </aside>
 
                 {/* Product Grid */}
-                <main className="flex-1">
+                <main id="contenido" className="flex-1">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-bold">
                             {selectedCategory === "Todos" ? "Todos los Productos" : selectedCategory}

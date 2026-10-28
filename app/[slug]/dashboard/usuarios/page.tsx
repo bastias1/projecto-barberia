@@ -22,7 +22,7 @@ export default async function EquipoPage({ params }: { params: Promise<{ slug: s
       .eq("id_barberia", idBarberia),
     supabase
       .from("invitacion")
-      .select("id_invitacion, correo, rol, expira_at, created_at")
+      .select("id_invitacion, correo, rol, token, expira_at, created_at")
       .eq("id_barberia", idBarberia)
       .eq("estado", "pendiente")
       .order("created_at", { ascending: false }),
