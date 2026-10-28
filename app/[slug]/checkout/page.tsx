@@ -151,7 +151,7 @@ export default function CheckoutPage() {
     }
     const data = await res.json().catch(() => ({}));
     if (data.estado === "aprobado") {
-      router.push(`/${slug}/checkout/success`);
+      router.push(`/${slug}/checkout/success?pedido=${actual.id}`);
       return null;
     }
     if (data.estado === "pendiente") {
