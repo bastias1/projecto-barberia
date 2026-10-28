@@ -176,7 +176,7 @@ export function StoreHeader() {
     );
 
     return (
-        <div className="mb-8">
+        <div className="mb-4 lg:mb-8">
             <StoreHeaderDesktop UserMenu={UserMenu} barberia={barberia} />
             <StoreHeaderMobile UserMenu={UserMenu} barberia={barberia} />
         </div>

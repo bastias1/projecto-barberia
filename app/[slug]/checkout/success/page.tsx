@@ -1,52 +1,229 @@
-"use client";
-
+import Image from "next/image";
 import Link from "next/link";
-import { useBarberia } from "@/components/barberia-provider";
-import { CheckCircle2, ShoppingBag, ArrowRight } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ArrowRight, CheckCircle2, Clock, MapPin, Package, ShoppingBag, Store, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useEffect } from "react";
-import { useBarberiaCart } from "@/lib/cart-store";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/utils/supabase/server";
+import { getBarberiaCached } from "@/lib/barberia-server";
+import { getHorarioResumen, mapaEmbedUrl } from "@/lib/barberia-publica";
+import { parseDireccion } from "@/lib/pedido-estados";
+import { one } from "@/lib/utils";
+import { VaciarCarrito } from "./vaciar-carrito";
 
-export default function PaymentSuccessPage() {
-    const { slug } = useBarberia();
-    const { clearCart } = useBarberiaCart();
+type Producto = { nombre: string; imagen_url: string | null };
+type Detalle = { id: number; cantidad: number; precio_unitario: number; subtotal: number; producto: unknown };
+type Pedido = {
+    id: number;
+    monto_total: number;
+    tipo_entrega: string;
+    direccion_envio: string | null;
+    id_sucursal: number | null;
+    detalle_pedido: Detalle[] | null;
+};
 
-    useEffect(() => {
-        clearCart();
-    }, [clearCart]);
+const clp = (n: number) => `$${Number(n).toLocaleString("es-CL")}`;
 
+export default async function PaymentSuccessPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ slug: string }>;
+    searchParams: Promise<{ pedido?: string }>;
+}) {
+    const { slug } = await params;
+    const { pedido: idPedido } = await searchParams;
+    const barberia = await getBarberiaCached(slug);
+    if (!barberia) notFound();
+    const supabase = await createClient();
+
+    // RLS: el cliente solo ve sus propios pedidos
+    const { data } = /^\d+$/.test(idPedido ?? "")
+        ? await supabase
+            .from("pedido")
+            .select(`
+                id:id_pedido, monto_total, tipo_entrega, direccion_envio, id_sucursal,
+                detalle_pedido!detalle_pedido_pedido_fkey (
+                    id:id_detalle, cantidad, precio_unitario, subtotal,
+                    producto:producto!detalle_pedido_producto_fkey ( nombre, imagen_url )
+                )
+            `)
+            .eq("id_barberia", barberia.id_barberia)
+            .eq("id_pedido", Number(idPedido))
+            .maybeSingle()
+        : { data: null };
+    const pedido = data as Pedido | null;
+
+    const retiro = pedido?.tipo_entrega === "retiro";
+    const [{ data: sucursal }, horario] = retiro && pedido.id_sucursal
+        ? await Promise.all([
+            supabase
+                .from("sucursal")
+                .select("nombre, direccion, comuna, telefono")
+                .eq("id_barberia", barberia.id_barberia)
+                .eq("id_sucursal", pedido.id_sucursal)
+                .maybeSingle(),
+            getHorarioResumen(supabase, barberia.id_barberia, pedido.id_sucursal),
+        ])
+        : [{ data: null }, []];
+    const direccion = pedido?.tipo_entrega === "despacho" ? parseDireccion(pedido.direccion_envio) : null;
+
+    // El fondo, el header y el padding los pone checkout/layout.tsx
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-green-100 to-zinc-100 dark:from-green-950/30 dark:via-zinc-900 dark:to-black p-4">
-            <Card className="w-full max-w-md border-2 border-green-100 dark:border-green-900/50 shadow-xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm">
-                <CardContent className="pt-10 pb-8 px-6 flex flex-col items-center text-center space-y-6">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-green-200 dark:bg-green-900/50 rounded-full blur-xl opacity-50 animate-pulse" />
-                        <div className="relative bg-green-100 dark:bg-green-900/30 p-4 rounded-full">
-                            <CheckCircle2 className="w-16 h-16 text-green-600 dark:text-green-400" />
-                        </div>
-                    </div>
+        <main id="contenido" className="mx-auto w-full max-w-5xl space-y-4 pt-2">
+            <VaciarCarrito />
 
-                    <div className="space-y-2">
-                        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                            ¡Pago Exitoso!
-                        </h1>
-                        <p className="text-zinc-600 dark:text-zinc-400">
-                            Tu compra ha sido procesada correctamente. Hemos enviado los detalles a tu correo.
+            <div className="flex flex-col gap-4 rounded-xl border border-green-200 bg-green-50 p-4 sm:flex-row sm:items-center dark:border-green-900/60 dark:bg-green-950/30">
+                <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-10 w-10 shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />
+                    <div>
+                        <h1 className="text-xl font-bold">¡Pago exitoso!</h1>
+                        <p className="text-sm text-muted-foreground">
+                            {pedido
+                                ? `Tu pedido #${pedido.id} en ${barberia.nombre} está confirmado.`
+                                : "Tu compra ha sido procesada correctamente."}
                         </p>
                     </div>
-
-                    <div className="w-full space-y-3 pt-4">
-                        <Link href={`/${slug}/tienda`} className="w-full block">
-                            <Button className="w-full bg-green-600 hover:bg-green-700 text-white h-12 text-base rounded-xl group">
-                                <ShoppingBag className="mr-2 h-5 w-5" />
-                                Seguir comprando
-                                <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1" />
-                            </Button>
+                </div>
+                {/* En móvil los botones van apilados, con el principal arriba */}
+                <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
+                    {pedido && (
+                        <Button asChild variant="outline">
+                            <Link href={`/${slug}/profile`}>Ver mis pedidos</Link>
+                        </Button>
+                    )}
+                    <Button asChild className="group">
+                        <Link href={`/${slug}/tienda`}>
+                            <ShoppingBag className="h-4 w-4" />
+                            Seguir comprando
+                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                         </Link>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+                    </Button>
+                </div>
+            </div>
+
+            {pedido && (
+                <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+                    <Card className="gap-3 py-4">
+                        <CardHeader className="px-4">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Package className="h-4 w-4" aria-hidden="true" /> Tu compra
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-4">
+                            {/* En computador la lista hace scroll propio para que la página no lo necesite */}
+                            <ul className="divide-y lg:max-h-72 lg:overflow-y-auto">
+                                {(pedido.detalle_pedido ?? []).map((d) => {
+                                    const producto = one<Producto>(d.producto);
+                                    return (
+                                        <li key={d.id} className="flex items-center gap-3 py-2">
+                                            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                                                {producto?.imagen_url ? (
+                                                    <Image src={producto.imagen_url} alt={producto.nombre} fill sizes="48px" className="object-cover" />
+                                                ) : (
+                                                    <ShoppingBag className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate font-medium">{producto?.nombre ?? "Producto"}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {d.cantidad} × {clp(d.precio_unitario)}
+                                                </p>
+                                            </div>
+                                            <p className="font-semibold">{clp(d.subtotal)}</p>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                            <div className="mt-2 flex items-center justify-between border-t pt-3 text-lg font-bold">
+                                <span>Total pagado</span>
+                                <span>{clp(pedido.monto_total)}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {retiro && (
+                        <Card className="gap-3 py-4">
+                            <CardHeader className="px-4">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Store className="h-4 w-4" aria-hidden="true" /> Retiro en tienda
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 px-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Te avisaremos cuando tu pedido esté listo para retirar.
+                                </p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {sucursal && (
+                                        <div className="flex items-start gap-2 text-sm">
+                                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                                            <div>
+                                                <p className="font-medium">{sucursal.nombre}</p>
+                                                <p className="text-muted-foreground">{sucursal.direccion}, {sucursal.comuna}</p>
+                                                {sucursal.telefono && (
+                                                    <a href={`tel:${sucursal.telefono.replace(/\s/g, "")}`} className="text-muted-foreground hover:text-foreground">
+                                                        {sucursal.telefono}
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {horario.length > 0 && (
+                                        <div className="flex items-start gap-2 text-sm">
+                                            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                                            <div>
+                                                <p className="font-medium">Horario de atención</p>
+                                                {horario.map((tramo) => (
+                                                    <p key={tramo.dias} className="text-muted-foreground">
+                                                        {tramo.dias}: <span className="text-foreground">{tramo.horas}</span>
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                {sucursal && (
+                                    <div className="relative h-44 overflow-hidden rounded-lg">
+                                        <iframe
+                                            title={`Ubicación de ${sucursal.nombre} en Google Maps`}
+                                            src={mapaEmbedUrl(`${sucursal.direccion}, ${sucursal.comuna}, Chile`)}
+                                            className="absolute inset-0 h-full w-full border-0"
+                                            loading="lazy"
+                                            referrerPolicy="no-referrer-when-downgrade"
+                                        />
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {pedido.tipo_entrega === "despacho" && (
+                        <Card className="gap-3 py-4">
+                            <CardHeader className="px-4">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Truck className="h-4 w-4" aria-hidden="true" /> Despacho a domicilio
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 px-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Prepararemos tu pedido y te avisaremos cuando sea enviado.
+                                </p>
+                                {direccion && (
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                                        <div>
+                                            {direccion.lineas.map((linea, i) => (
+                                                <p key={i} className={i === 0 ? "font-medium" : "text-muted-foreground"}>{linea}</p>
+                                            ))}
+                                            {direccion.telefono && <p className="text-muted-foreground">Tel: {direccion.telefono}</p>}
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            )}
+        </main>
     );
 }
