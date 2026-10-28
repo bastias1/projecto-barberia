@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_TZ } from "@/lib/barberia";
 import { addDays, dayOfWeek, fromZoned, todayIn, toZoned } from "@/lib/datetime";
-import { one } from "@/lib/utils";
+import { one, todasLasFilas } from "@/lib/utils";
 
 /**
  * Dashboard service functions for fetching barber statistics and appointments.
@@ -154,11 +154,12 @@ export async function getDashboardStats(idBarberia: string, barberId: string): P
     countReservas(idBarberia, barberId, today, addDays(today, 1)),
     countReservas(idBarberia, barberId, weekStart, addDays(weekStart, 7)),
     countReservas(idBarberia, barberId, monthStart, nextMonthStart),
-    supabase
+    todasLasFilas<{ id_cliente: string | null; id_guest: string | null }>(() => supabase
       .from('reserva')
       .select('id_cliente, id_guest')
       .eq('id_barberia', idBarberia)
-      .eq('id_profesional', barberId),
+      .eq('id_profesional', barberId)
+      .order('id_reserva')),
     supabase
       .from('reserva')
       .select('monto')
@@ -180,7 +181,7 @@ export async function getDashboardStats(idBarberia: string, barberId: string): P
       .maybeSingle(),
   ]);
 
-  const clientes = new Set((clientsRes.data ?? []).map((r) => r.id_cliente ?? r.id_guest));
+  const clientes = new Set(clientsRes.data.map((r) => r.id_cliente ?? r.id_guest));
   const monthlyRevenue = (revenueRes.data ?? []).reduce((total, r) => total + Number(r.monto || 0), 0);
 
   return {
@@ -252,8 +253,10 @@ export async function getRecentBookings(idBarberia: string, barberId: string, li
  * Get all appointments for a barber (for full appointments list)
  */
 export async function getAllAppointments(idBarberia: string, barberId: string): Promise<Appointment[]> {
-  const { data, error } = await reservasDelBarbero(await getContext(idBarberia), barberId)
-    .order('fecha_hora_inicio', { ascending: true });
+  const context = await getContext(idBarberia);
+  const { data, error } = await todasLasFilas<ReservaRow>(() => reservasDelBarbero(context, barberId)
+    .order('fecha_hora_inicio', { ascending: true })
+    .order('id_reserva'));
 
   if (error) {
     console.error("Error fetching all appointments:", error);
@@ -287,13 +290,14 @@ export async function getMonthlyAttendanceStats(idBarberia: string, barberId: st
     });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await todasLasFilas<{ fecha_hora_inicio: string; estado: string }>(() => supabase
     .from('reserva')
     .select('fecha_hora_inicio, estado')
     .eq('id_barberia', idBarberia)
     .eq('id_profesional', barberId)
     .in('estado', ['completada', 'no_asistio'])
-    .gte('fecha_hora_inicio', startOf(`${slots[0].key}-01`));
+    .gte('fecha_hora_inicio', startOf(`${slots[0].key}-01`))
+    .order('id_reserva'));
 
   const result: MonthlyAttendanceStat[] = slots.map((s) => ({
     month: s.label,
@@ -301,7 +305,7 @@ export async function getMonthlyAttendanceStats(idBarberia: string, barberId: st
     ausentes: 0,
   }));
 
-  if (error || !data) return result;
+  if (error) return result;
 
   for (const booking of data) {
     const key = toZoned(booking.fecha_hora_inicio, DEFAULT_TZ).fecha.slice(0, 7);
@@ -344,14 +348,16 @@ export async function getClientsWithStats(idBarberia: string, barberId: string):
   const { supabase } = context;
 
   const [{ data, error }, { data: blockedList }] = await Promise.all([
-    reservasDelBarbero(context, barberId).order('fecha_hora_inicio', { ascending: true }),
+    todasLasFilas<ReservaRow>(() => reservasDelBarbero(context, barberId)
+      .order('fecha_hora_inicio', { ascending: true })
+      .order('id_reserva')),
     supabase
       .from('cliente_bloqueado')
       .select('correo, telefono, razon')
       .eq('id_barberia', idBarberia),
   ]);
 
-  if (error || !data) return [];
+  if (error) return [];
 
   const blockedByEmail = new Map((blockedList ?? []).map((b) => [b.correo, b.razon ?? null]));
   const blockedByPhone = new Map(

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -21,6 +21,7 @@ import {
 import { useBarberia } from "@/components/barberia-provider";
 import { formatCLP } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
+import { MONTO_MINIMO_SUSCRIPCION } from "@/lib/planes";
 
 interface PlanOpcion {
   id_plan: number;
@@ -29,7 +30,7 @@ interface PlanOpcion {
   caracteristicas: string[];
 }
 
-/** Elegir plan y pagar con Mercado Pago, o detener la renovación automática. */
+/** Elegir plan e ir a pagarlo con tarjeta, o detener la renovación automática. */
 export function SuscripcionAcciones({
   planes,
   planActual,
@@ -46,25 +47,10 @@ export function SuscripcionAcciones({
 
   const elegido = planes.find((p) => String(p.id_plan) === idPlan);
   const mismoPlanPagado = pagando && elegido?.id_plan === planActual;
+  const bajoMinimo = !!elegido && elegido.precio < MONTO_MINIMO_SUSCRIPCION;
 
-  const pagar = async () => {
-    setEnviando(true);
-    try {
-      const response = await fetch(`/api/suscripcion/checkout?barberia=${slug}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idPlan: Number(idPlan) }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.url) {
-        toast.error(data.error || "No se pudo iniciar el pago");
-        return;
-      }
-      window.location.href = data.url;
-    } finally {
-      setEnviando(false);
-    }
-  };
+  // El pago con tarjeta se hace en su propia pantalla, igual que en la tienda
+  const pagar = () => router.push(`/${slug}/dashboard/suscripcion/pagar?plan=${idPlan}`);
 
   const cancelar = async () => {
     setEnviando(true);
@@ -116,7 +102,9 @@ export function SuscripcionAcciones({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          El cobro es mensual y automático con Mercado Pago. Puedes cancelarlo cuando quieras.
+          {bajoMinimo
+            ? `Mercado Pago no permite cobros menores a ${formatCLP(MONTO_MINIMO_SUSCRIPCION)}.`
+            : "El cobro es mensual y automático a tu tarjeta. Puedes cancelarlo cuando quieras."}
         </p>
         <div className="flex gap-2">
           {pagando && (
@@ -139,9 +127,8 @@ export function SuscripcionAcciones({
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <Button onClick={pagar} disabled={enviando || !elegido || mismoPlanPagado} className="gap-2">
-            {enviando && <Loader2 className="h-4 w-4 animate-spin" />}
-            {mismoPlanPagado ? "Plan actual" : pagando ? `Cambiar a ${elegido?.nombre}` : `Pagar ${elegido ? formatCLP(elegido.precio) : ""} con Mercado Pago`}
+          <Button onClick={pagar} disabled={enviando || !elegido || mismoPlanPagado || bajoMinimo} className="gap-2">
+            {mismoPlanPagado ? "Plan actual" : pagando ? `Cambiar a ${elegido?.nombre}` : `Pagar ${elegido ? formatCLP(elegido.precio) : ""}/mes`}
           </Button>
         </div>
       </div>

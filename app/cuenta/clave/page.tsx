@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
+import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
 
 /** Nueva contraseña: desde "Mi cuenta" o desde el link de recuperación del correo. */
 export default function CambiarClavePage() {
@@ -38,14 +39,17 @@ export default function CambiarClavePage() {
       return;
     }
     setGuardando(true);
-    const { error } = await createClient().auth.updateUser({ password: clave });
-    setGuardando(false);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.updateUser({ password: clave });
     if (error) {
+      setGuardando(false);
       toast.error(error.message.includes("different") ? "La nueva contraseña debe ser distinta a la actual" : "No se pudo cambiar la contraseña");
       return;
     }
     toast.success("Contraseña actualizada");
-    router.push("/cuenta");
+    // Personal -> su dashboard; si no, su cuenta
+    const [membresias, superadmin] = await Promise.all([getMembresias(supabase, data.user.id), esSuperadmin(supabase, data.user.id)]);
+    router.push(destinoTrasLogin(membresias, null, null, superadmin));
   };
 
   return (

@@ -37,7 +37,7 @@ export default async function DashboardLayout({
         {ctx.isProfesional && <ReservasRealtime profesionalId={ctx.userId} />}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-3 pb-24 md:p-6 lg:p-8">
+        <main id="contenido" className="flex-1 overflow-y-auto p-3 pb-24 md:p-6 lg:p-8">
           {!vigente && (
             <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
               <AlertTriangle className="h-5 w-5 flex-shrink-0" />

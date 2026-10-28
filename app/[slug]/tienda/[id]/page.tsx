@@ -45,7 +45,7 @@ export default async function ProductPage({ params }: PageProps) {
   ];
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8">
+    <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="mb-8">
         <Link
           href={`/${slug}/tienda`}

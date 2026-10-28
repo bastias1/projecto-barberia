@@ -67,7 +67,7 @@ function LogoInput({
         {value ? (
           <img src={value} alt={label} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className={`text-xs ${fondo === "claro" ? "text-zinc-400" : "text-zinc-500"}`}>Sin logo</span>
+          <span className={`text-xs ${fondo === "claro" ? "text-zinc-500" : "text-zinc-400"}`}>Sin logo</span>
         )}
       </div>
       <p className="text-xs text-muted-foreground">{descripcion}</p>

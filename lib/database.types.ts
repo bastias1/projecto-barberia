@@ -54,7 +54,7 @@ export interface Database {
         telefono: string | null;
         rol: "superadmin" | "usuario";
         profile_image: string | null;
-        rut: string | null; // cifrado con utils/encryption
+        rut: string | null; // sin uso: el campo se quitó de la app
         created_at: string;
         updated_at: string;
         deleted_at: string | null;
@@ -248,6 +248,15 @@ export interface Database {
         bloqueado_por: string | null;
         created_at: string;
       }, "id_barberia" | "correo">;
+      auditoria_admin: Table<{
+        id: number;
+        id_usuario: string | null; // superadmin que actuó
+        accion: string;
+        entidad: "barberia" | "plan" | "usuario";
+        id_entidad: string;
+        detalle: Record<string, unknown>; // valores antes/después
+        created_at: string;
+      }, "id_usuario" | "accion" | "entidad" | "id_entidad">;
     };
   };
 }

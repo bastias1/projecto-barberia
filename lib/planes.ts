@@ -5,6 +5,7 @@ export interface Plan {
   nombre: string;
   descripcion: string | null;
   precio_mensual: number;
+  activo: boolean;
   modulos: string[];                    // códigos: 'ecommerce', 'bi'
   limites: Record<string, number | null>; // max_sucursales, max_profesionales, max_productos (null = sin límite)
 }
@@ -12,23 +13,27 @@ export interface Plan {
 // Días de prueba que da registrar_barberia por defecto
 export const DIAS_PRUEBA = 14;
 
+/** Mercado Pago no acepta preapprovals menores a este monto en CLP. */
+export const MONTO_MINIMO_SUSCRIPCION = 950;
+
 export const MODULO_LABEL: Record<string, string> = {
   agenda: "Agenda y reservas en línea",
   ecommerce: "Tienda en línea con Mercado Pago",
   bi: "Estadísticas y predicción de demanda",
 };
 
-/** Planes activos con sus módulos y límites (catálogo público). */
-export async function getPlanes(supabase: SupabaseClient): Promise<Plan[]> {
-  const { data, error } = await supabase
+/** Planes con sus módulos y límites. Por defecto solo los activos (catálogo público). */
+export async function getPlanes(supabase: SupabaseClient, { incluirInactivos = false } = {}): Promise<Plan[]> {
+  let query = supabase
     .from("plan_suscripcion")
     .select(`
-      id_plan, nombre, descripcion, precio_mensual,
+      id_plan, nombre, descripcion, precio_mensual, activo,
       plan_modulo (modulo (codigo)),
       plan_limite (valor, tipo_limite (codigo))
     `)
-    .eq("activo", true)
     .order("precio_mensual", { ascending: true });
+  if (!incluirInactivos) query = query.eq("activo", true);
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching planes:", error);
@@ -42,6 +47,7 @@ export async function getPlanes(supabase: SupabaseClient): Promise<Plan[]> {
     nombre: p.nombre,
     descripcion: p.descripcion,
     precio_mensual: Number(p.precio_mensual),
+    activo: p.activo,
     modulos: (p.plan_modulo ?? []).flatMap((pm) => {
       const codigo = first<{ codigo: string }>(pm.modulo)?.codigo;
       return codigo ? [codigo] : [];

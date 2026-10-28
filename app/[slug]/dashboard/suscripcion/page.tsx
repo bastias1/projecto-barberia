@@ -5,6 +5,8 @@ import { SuscripcionAcciones } from "@/components/dashboard/suscripcion-acciones
 import { requireStaff } from "@/lib/staff-context";
 import { getModulosCached } from "@/lib/barberia-server";
 import { createClient } from "@/utils/supabase/server";
+import { createServiceRoleClient } from "@/utils/supabase/service-role";
+import { sincronizarCobros } from "@/lib/suscripcion";
 import { caracteristicasPlan, getPlanes, MODULO_LABEL } from "@/lib/planes";
 import { formatCLP, formatFecha } from "@/lib/datetime";
 
@@ -12,17 +14,21 @@ export const dynamic = "force-dynamic";
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
-export default async function SuscripcionPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<{ pago?: string }>;
-}) {
+export default async function SuscripcionPage({ params }: { params: Promise<{ slug: string }> }) {
   const ctx = await requireStaff((await params).slug, { admin: true });
-  const { pago } = await searchParams;
   const idBarberia = ctx.barberia.id_barberia;
   const supabase = await createClient();
+
+  // Respaldo del webhook: registra los cobros de Mercado Pago que aún no estén en `pago`
+  const { data: conCobro } = await supabase
+    .from("suscripcion")
+    .select("id_suscripcion_externa")
+    .eq("id_barberia", idBarberia)
+    .not("id_suscripcion_externa", "is", null)
+    .order("id_suscripcion", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (conCobro?.id_suscripcion_externa) await sincronizarCobros(createServiceRoleClient(), conCobro.id_suscripcion_externa);
 
   const [{ data: sus }, planes, modulos, { data: pagos }, usos] = await Promise.all([
     supabase
@@ -86,12 +92,6 @@ export default async function SuscripcionPage({
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">Suscripción</h1>
         <p className="text-zinc-600 dark:text-zinc-400 mt-2">Tu plan, sus módulos y el pago mensual.</p>
       </div>
-
-      {pago === "retorno" && (
-        <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
-          Volviste de Mercado Pago. Cuando el cobro quede autorizado, tu suscripción se activará automáticamente (puede tardar unos minutos).
-        </div>
-      )}
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">

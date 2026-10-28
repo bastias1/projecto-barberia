@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Scissors, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Scissors, Loader2, ArrowLeft, Eye, EyeOff, MailCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RECORDAR_COOKIE, RECORDAR_MAX_AGE } from "@/lib/sesion";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { destinoTrasLogin, getMembresias } from "@/lib/roles";
+import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
 import { getBarberiaBySlug, type Barberia } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
 import { PLATAFORMA } from "@/lib/plataforma";
@@ -33,7 +35,10 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const slug = searchParams.get("barberia");
   const next = safeNext(searchParams.get("next"));
+  // Viene del link de confirmación abierto en otro navegador (ver /auth/callback)
+  const confirmado = searchParams.get("confirmado") === "1";
   const [barberia, setBarberia] = useState<Barberia | null>(null);
+  const [recordar, setRecordar] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +48,17 @@ function LoginForm() {
   useEffect(() => {
     if (slug) getBarberiaBySlug(createClient(), slug).then(setBarberia);
   }, [slug]);
+
+  // Con la sesión ya iniciada no tiene sentido el formulario: directo a su destino
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        const [membresias, superadmin] = await Promise.all([getMembresias(supabase, user.id), esSuperadmin(supabase, user.id)]);
+        router.replace(destinoTrasLogin(membresias, slug, next, superadmin));
+      }
+    });
+  }, [router, slug, next]);
 
   // Recuperación: llega un correo con un link que abre /cuenta/clave con sesión
   const handleOlvideClave = async () => {
@@ -67,16 +83,17 @@ function LoginForm() {
     setLoading(true);
     setError(null);
 
-    console.log("Attempting login with email:", email);
-
     try {
+      // "Mantener sesión iniciada": los clientes de Supabase leen esta cookie al guardar la sesión
+      document.cookie = recordar
+        ? `${RECORDAR_COOKIE}=1; path=/; max-age=${RECORDAR_MAX_AGE}; samesite=lax`
+        : `${RECORDAR_COOKIE}=0; path=/; samesite=lax`;
+
       const supabase = createClient();
 
       // Trim whitespace from email and password
       const trimmedEmail = email.trim();
       const trimmedPassword = password.trim();
-
-      console.log("Trimmed email:", trimmedEmail);
 
       if (!trimmedEmail || !trimmedPassword) {
         setError("Por favor ingresa tu correo y contraseña");
@@ -88,8 +105,6 @@ function LoginForm() {
         email: trimmedEmail,
         password: trimmedPassword,
       });
-
-      console.log("Login response:", { data, error });
 
       if (error) {
         console.error("Supabase auth error:", error);
@@ -106,10 +121,9 @@ function LoginForm() {
       }
 
       if (data.user) {
-        console.log("User authenticated:", data.user.id);
-
-        // Destino según sus barberías (personal -> dashboard, cliente -> página de la barbería)
-        router.push(next ?? destinoTrasLogin(await getMembresias(supabase, data.user.id), slug));
+        // Personal -> su dashboard; cliente -> la ruta pedida, su barbería o su cuenta
+        const [membresias, superadmin] = await Promise.all([getMembresias(supabase, data.user.id), esSuperadmin(supabase, data.user.id)]);
+        router.push(destinoTrasLogin(membresias, slug, next, superadmin));
 
         router.refresh();
       }
@@ -150,6 +164,12 @@ function LoginForm() {
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
+                {confirmado && !error && (
+                  <div className="p-3 flex items-start gap-2 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-800 rounded-lg text-sm text-green-800 dark:text-green-300">
+                    <MailCheck className="h-4 w-4 mt-0.5 shrink-0" />
+                    <p>Tu correo fue confirmado. Inicia sesión para continuar.</p>
+                  </div>
+                )}
                 {error && (
                   <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 rounded-lg">
                     <p className="text-sm text-red-700 dark:text-red-400 font-semibold mb-1">Error al iniciar sesión:</p>
@@ -200,6 +220,11 @@ function LoginForm() {
                     </Button>
                   </div>
                 </div>
+
+                <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer select-none">
+                  <Checkbox checked={recordar} onCheckedChange={(v) => setRecordar(v === true)} disabled={loading} />
+                  Mantener sesión iniciada
+                </label>
 
                 <Button
                   type="submit"

@@ -96,7 +96,8 @@ CREATE TABLE public.barberia (
   CONSTRAINT barberia_slug_no_reservado CHECK (slug <> ALL (ARRAY[
     'api','auth','login','signup','registro','resena','error','private','dashboard',
     'admin','superadmin','static','public','www','app','planes','precios','ayuda',
-    'soporte','contacto','terminos','privacidad','cuenta','perfil','profile',
+    'soporte','contacto','terminos','privacidad','cuenta','perfil','profile','invitacion',
+    'eliminar-datos','reembolsos','cookies',
     -- rutas del sitio antiguo, redirigidas a /benjvmin/... (next.config.ts)
     'agendar','tienda','cart','carrito','checkout','booking-confirmed','booking-cancelled'
   ]))
@@ -1130,7 +1131,11 @@ DECLARE
                           WHEN 'pendiente'   THEN 'pendiente'
                           ELSE 'rechazado' END;
 BEGIN
-  IF NEW.concepto = 'pedido' AND (TG_OP = 'INSERT' OR NEW.estado IS DISTINCT FROM OLD.estado) THEN
+  -- Con otro intento ya aprobado, los cambios tardíos de los demás no tocan el pedido
+  IF NEW.concepto = 'pedido' AND (TG_OP = 'INSERT' OR NEW.estado IS DISTINCT FROM OLD.estado)
+     AND NOT EXISTS (SELECT 1 FROM public.pago o
+                     WHERE o.id_barberia = NEW.id_barberia AND o.id_pedido = NEW.id_pedido
+                       AND o.estado = 'aprobado' AND o.id_pago <> NEW.id_pago) THEN
     UPDATE public.pedido p
     SET estado_pago = v_estado_pago,
         estado = CASE WHEN v_estado_pago = 'pagado' AND p.estado = 'pendiente'
@@ -1287,3 +1292,61 @@ CREATE INDEX invitacion_correo_idx ON public.invitacion (correo) WHERE estado = 
 -- responder_invitacion(p_token uuid, p_aceptar boolean) -> slug: solo el dueño del correo
 -- invitado (confirmado); al aceptar crea usuario_barberia, profesional y, si hay una sola
 -- sucursal activa, la asignación profesional_sucursal.
+
+-- =====================================================================
+-- Perfil de usuario creado por la base (migración crear_perfil_usuario)
+-- =====================================================================
+CREATE OR REPLACE FUNCTION private.crear_perfil_usuario()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_version text := coalesce(nullif(trim(NEW.raw_user_meta_data ->> 'version_politica'), ''), 'desconocida');
+BEGIN
+  -- app/signup/page.tsx envía acepta_terminos = true solo con la casilla marcada
+  IF coalesce(NEW.raw_user_meta_data ->> 'acepta_terminos', '') <> 'true' THEN
+    RAISE EXCEPTION 'Debe aceptar los términos y la política de privacidad' USING ERRCODE = 'check_violation';
+  END IF;
+
+  INSERT INTO public.usuario (id_usuario, nombre, apellido, email)
+  VALUES (NEW.id,
+          coalesce(nullif(trim(NEW.raw_user_meta_data ->> 'nombre'), ''), split_part(NEW.email, '@', 1)),
+          nullif(trim(NEW.raw_user_meta_data ->> 'apellido'), ''),
+          lower(NEW.email))
+  ON CONFLICT (id_usuario) DO NOTHING;
+
+  INSERT INTO public.consentimiento (id_usuario, tipo, version_politica, aceptado)
+  VALUES (NEW.id, 'terminos', v_version, true),
+         (NEW.id, 'privacidad', v_version, true);
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER crear_perfil_usuario
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION private.crear_perfil_usuario();
+
+CREATE OR REPLACE FUNCTION private.sincronizar_correo_usuario()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NEW.email IS DISTINCT FROM OLD.email AND NEW.email IS NOT NULL THEN
+    UPDATE public.usuario SET email = lower(NEW.email) WHERE id_usuario = NEW.id;
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER sincronizar_correo_usuario
+  AFTER UPDATE OF email ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION private.sincronizar_correo_usuario();
+
+-- ============================================================================
+-- Bitácora del panel de la plataforma (/admin) — migración auditoria_admin
+-- ============================================================================
+CREATE TABLE public.auditoria_admin (
+  id          bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  id_usuario  uuid        REFERENCES public.usuario (id_usuario) ON DELETE SET NULL, -- superadmin que actuó
+  accion      text        NOT NULL,           -- extender_vigencia, cambiar_plan, suspender_usuario… (ACCION_LABEL en lib/superadmin.ts)
+  entidad     text        NOT NULL CHECK (entidad IN ('barberia', 'plan', 'usuario')),
+  id_entidad  text        NOT NULL,
+  detalle     jsonb       NOT NULL DEFAULT '{}'::jsonb, -- valores antes/después
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX auditoria_admin_fecha_idx ON public.auditoria_admin (created_at DESC);
+CREATE INDEX auditoria_admin_entidad_idx ON public.auditoria_admin (entidad, id_entidad);

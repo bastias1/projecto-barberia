@@ -43,7 +43,7 @@ export function CartClient({ products }: CartClientProps) {
         );
 
     return (
-        <main className="mx-auto w-full max-w-6xl px-4 pb-10">
+        <main id="contenido" className="mx-auto w-full max-w-6xl px-4 pb-10">
             <h1 className="mb-8 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
                 Tu Carrito
             </h1>

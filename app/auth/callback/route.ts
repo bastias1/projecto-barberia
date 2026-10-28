@@ -33,6 +33,11 @@ export async function GET(request: Request) {
     }
   }
 
-  // If no code or error, redirect to login
-  return NextResponse.redirect(new URL("/login", requestUrl.origin));
+  // Sin código o canje fallido (p. ej. el link se abrió en otro navegador): el
+  // correo ya quedó confirmado, así que se pide iniciar sesión y se conserva el destino
+  const login = new URL("/login", requestUrl.origin);
+  login.searchParams.set("confirmado", "1");
+  if (next !== "/") login.searchParams.set("next", next);
+  if (slug) login.searchParams.set("barberia", slug);
+  return NextResponse.redirect(login);
 }

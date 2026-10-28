@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle";
+import { LegalLinks } from "@/components/legal-links";
 import {
   BarChart3, Calendar, Check, Clock, Globe, LogIn, Mail, ShoppingBag, Scissors, Star, Users,
 } from "lucide-react";
@@ -11,6 +12,7 @@ import { createClient } from "@/utils/supabase/server";
 import { caracteristicasPlan, DIAS_PRUEBA, getPlanes } from "@/lib/planes";
 import { formatCLP } from "@/lib/datetime";
 import { PLATAFORMA } from "@/lib/plataforma";
+import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
 
 const funcionalidades = [
   {
@@ -26,7 +28,7 @@ const funcionalidades = [
   {
     icon: Mail,
     titulo: "Confirmaciones por correo",
-    texto: "Cada reserva llega con links para confirmar o cancelar, y menos clientes faltan a su hora.",
+    texto: "Cada reserva llega con links para que el cliente la confirme o la cancele con un clic.",
   },
   {
     icon: Star,
@@ -62,7 +64,12 @@ const pasos = [
 ];
 
 export default async function PlataformaHome() {
-  const planes = await getPlanes(await createClient());
+  const supabase = await createClient();
+  const [planes, { data: { user } }] = await Promise.all([getPlanes(supabase), supabase.auth.getUser()]);
+  // Con sesión: acceso directo a su panel (dashboard o cuenta)
+  const miPanel = user
+    ? destinoTrasLogin(await getMembresias(supabase, user.id), null, null, await esSuperadmin(supabase, user.id))
+    : null;
   // El plan del medio se destaca como recomendado
   const destacado = planes.length >= 3 ? planes[1].id_plan : null;
 
@@ -91,20 +98,20 @@ export default async function PlataformaHome() {
           </div>
           <div className="flex items-center gap-2">
             <ModeToggle />
-            <Link href="/login">
-              <Button variant="ghost" size="sm" className="gap-2">
+            <Button variant="ghost" size="sm" className="gap-2" asChild>
+              <Link href={miPanel ?? "/login"}>
                 <LogIn className="h-4 w-4" />
-                <span className="hidden sm:inline">Iniciar Sesión</span>
-              </Button>
-            </Link>
-            <Link href="/registro" className="hidden sm:block">
-              <Button size="sm">Registra tu barbería</Button>
-            </Link>
+                <span className="hidden sm:inline">{miPanel ? "Mi panel" : "Iniciar Sesión"}</span>
+              </Link>
+            </Button>
+            <Button size="sm" className="hidden sm:inline-flex" asChild>
+              <Link href="/registro">Registra tu barbería</Link>
+            </Button>
           </div>
         </div>
       </nav>
 
-      <main className="relative z-10 pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <main id="contenido" className="relative z-10 pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
 
         {/* Hero Section */}
         <section className="flex flex-col items-center text-center mb-24 animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -119,16 +126,14 @@ export default async function PlataformaHome() {
             vender productos y conocer a tus clientes. Sin instalar nada.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <Link href="/registro">
-              <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base">
+            <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base" asChild>
+              <Link href="/registro">
                 Prueba gratis {DIAS_PRUEBA} días
-              </Button>
-            </Link>
-            <a href="#planes">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base">
-                Ver planes
-              </Button>
-            </a>
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base" asChild>
+              <a href="#planes">Ver planes</a>
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-4">Sin tarjeta de crédito para empezar.</p>
         </section>
@@ -191,9 +196,9 @@ export default async function PlataformaHome() {
                   </p>
                 </div>
               </div>
-              <Link href="/signup?next=/cuenta">
-                <Button size="lg" variant="outline" className="h-12 px-8">Crear mi cuenta de barbero</Button>
-              </Link>
+              <Button size="lg" variant="outline" className="h-12 px-8" asChild>
+                <Link href="/signup?next=/cuenta">Crear mi cuenta de barbero</Link>
+              </Button>
             </CardContent>
           </Card>
         </section>
@@ -203,7 +208,8 @@ export default async function PlataformaHome() {
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold mb-3">Planes simples, sin letra chica</h2>
             <p className="text-muted-foreground">
-              Todos los planes incluyen {DIAS_PRUEBA} días de prueba. Precios mensuales en pesos chilenos.
+              Todos los planes incluyen {DIAS_PRUEBA} días de prueba sin tarjeta. Precios mensuales en pesos chilenos [COMPLETAR: IVA incluido o + IVA].
+              Cancelas cuando quieras desde tu panel.
             </p>
           </div>
           {planes.length === 0 ? (
@@ -218,7 +224,7 @@ export default async function PlataformaHome() {
                     className={`relative flex flex-col ${esDestacado ? "border-2 border-zinc-900 dark:border-white shadow-2xl md:-translate-y-2" : "border-zinc-200 dark:border-zinc-800"}`}
                   >
                     {esDestacado && (
-                      <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 px-4">Más elegido</Badge>
+                      <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 px-4">Recomendado</Badge>
                     )}
                     <CardHeader>
                       <CardTitle className="text-2xl">{plan.nombre}</CardTitle>
@@ -237,11 +243,11 @@ export default async function PlataformaHome() {
                           </li>
                         ))}
                       </ul>
-                      <Link href={`/registro?plan=${plan.id_plan}`}>
-                        <Button className="w-full" variant={esDestacado ? "default" : "outline"}>
+                      <Button className="w-full" variant={esDestacado ? "default" : "outline"} asChild>
+                        <Link href={`/registro?plan=${plan.id_plan}`}>
                           Empezar con {plan.nombre}
-                        </Button>
-                      </Link>
+                        </Link>
+                      </Button>
                     </CardContent>
                   </Card>
                 );
@@ -258,11 +264,11 @@ export default async function PlataformaHome() {
                 <h2 className="text-2xl sm:text-3xl font-bold mb-2">¿Listo para llenar tu agenda?</h2>
                 <p className="opacity-80">Registra tu barbería hoy y recibe tu primera reserva en línea.</p>
               </div>
-              <Link href="/registro">
-                <Button size="lg" variant="secondary" className="h-12 px-8 text-base">
+              <Button size="lg" variant="secondary" className="h-12 px-8 text-base" asChild>
+                <Link href="/registro">
                   Registra tu barbería
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </section>
@@ -271,6 +277,7 @@ export default async function PlataformaHome() {
 
         <footer className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-8 text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} {PLATAFORMA.nombre}. {PLATAFORMA.descripcion}.</p>
+          <LegalLinks />
           <a href={`mailto:${PLATAFORMA.emailContacto}`} className="hover:text-foreground transition-colors">
             {PLATAFORMA.emailContacto}
           </a>

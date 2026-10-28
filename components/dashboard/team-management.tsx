@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Edit, Loader2, Mail, RotateCw, Send, UserMinus, Users, X } from "lucide-react";
+import { Clock, Copy, Edit, Loader2, Mail, RotateCw, Send, UserMinus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ export interface Invitacion {
   id_invitacion: number;
   correo: string;
   rol: "admin" | "profesional";
+  token: string;
   expira_at: string;
   created_at: string;
 }
@@ -89,7 +90,11 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
       toast.error(result.error);
       return;
     }
-    toast.success(`Invitación enviada a ${correo.trim().toLowerCase()}`);
+    if (result.correoEnviado === false) {
+      toast.warning("La invitación se creó, pero el correo no salió. Usa \"Copiar link\" y envíaselo tú.");
+    } else {
+      toast.success(`Invitación enviada a ${correo.trim().toLowerCase()}`);
+    }
     setCorreo("");
     router.refresh();
   };
@@ -103,8 +108,23 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
       toast.error(result.error);
       return;
     }
-    toast.success(accion === "reenviar" ? `Invitación reenviada a ${inv.correo}` : "Invitación cancelada");
+    if (accion === "reenviar" && "correoEnviado" in result && result.correoEnviado === false) {
+      toast.warning("La invitación se renovó, pero el correo no salió. Usa \"Copiar link\".");
+    } else {
+      toast.success(accion === "reenviar" ? `Invitación reenviada a ${inv.correo}` : "Invitación cancelada");
+    }
     router.refresh();
+  };
+
+  // Respaldo por si el correo no llega: el link también se puede enviar por WhatsApp, etc.
+  const copiarLink = async (inv: Invitacion) => {
+    const link = `${window.location.origin}/invitacion/${inv.token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Link de invitación copiado");
+    } catch {
+      toast.info(link);
+    }
   };
 
   const abrirEdicion = (m: Miembro) => {
@@ -234,7 +254,11 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
                       {ROL_LABEL[inv.rol]} · {vencida ? "Vencida" : `Vence el ${fechaCorta(inv.expira_at)}`}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => copiarLink(inv)} className="gap-1">
+                      <Copy className="h-3.5 w-3.5" />
+                      Copiar link
+                    </Button>
                     <Button size="sm" variant="outline" disabled={enCurso} onClick={() => accionInvitacion(inv, "reenviar")} className="gap-1">
                       {enCurso ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
                       Reenviar

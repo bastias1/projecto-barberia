@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MercadoPagoConfig, PreApproval } from "mercadopago";
+import { Invoice, MercadoPagoConfig, PreApproval } from "mercadopago";
 import { getSiteUrl } from "./signed-links";
 
 /*
@@ -155,5 +155,21 @@ export async function aplicarCobroSuscripcion(supabase: SupabaseClient, cobro: C
       .from("suscripcion")
       .update({ estado: "activa", fecha_termino: masTarde(sus.fecha_termino, nuevaFecha) })
       .eq("id_suscripcion", sus.id_suscripcion);
+  }
+}
+
+/**
+ * Registra los cobros de una preapproval consultándolos a Mercado Pago, por si
+ * el webhook subscription_authorized_payment no llegó (en local nunca llega).
+ * Idempotente: aplicarCobroSuscripcion hace upsert por cobro. Usa service role.
+ */
+export async function sincronizarCobros(supabase: SupabaseClient, idPreapproval: string): Promise<void> {
+  try {
+    const { results } = await new Invoice(mercadoPagoClient()).search({ options: { preapproval_id: idPreapproval } });
+    for (const cobro of results ?? []) {
+      await aplicarCobroSuscripcion(supabase, cobro as CobroMP);
+    }
+  } catch (error) {
+    console.error(`[suscripcion] No se pudieron sincronizar los cobros de ${idPreapproval}:`, error);
   }
 }
