@@ -7,6 +7,9 @@ import { createClient } from "@/utils/supabase/server";
 
 export type Granularidad = "day" | "week" | "month";
 
+/** "propio": las métricas del barbero que mira (sin productos); "negocio": las de toda la barbería (solo admin). */
+export type ModoBI = "propio" | "negocio";
+
 /** Filtros opcionales de cada gráfico; sin valor = sin filtrar. */
 export interface FiltrosBI {
   sucursal?: number;

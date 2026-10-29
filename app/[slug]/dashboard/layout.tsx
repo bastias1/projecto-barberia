@@ -34,7 +34,7 @@ export default async function DashboardLayout({
       {/* Main Layout with Sidebar */}
       <div className="flex h-full overflow-hidden">
         {/* Sidebar */}
-        <DashboardSidebar barber={barber} rol={ctx.rol} barberiaNombre={ctx.barberia.nombre} citasHoy={citasHoy} />
+        <DashboardSidebar barber={barber} rol={ctx.rol} barberiaNombre={ctx.barberia.nombre} citasHoy={citasHoy} esProfesional={ctx.isProfesional} />
         {ctx.isProfesional && <ReservasRealtime profesionalId={ctx.userId} />}
 
         {/* Main Content */}

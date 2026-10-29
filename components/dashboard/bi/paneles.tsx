@@ -4,7 +4,7 @@ import { useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cargarGrafico } from "@/app/[slug]/dashboard/estadisticas/actions";
-import type { DatosBI, FiltrosBI, OpcionesFiltro, Rango } from "@/lib/services/bi-service";
+import type { DatosBI, FiltrosBI, ModoBI, OpcionesFiltro, Rango } from "@/lib/services/bi-service";
 import {
   COLOR_PRODUCTOS, COLOR_SERVICIOS, DemandaChart, IngresosChart, OcupacionChart, RankingChart, ResumenMensualTabla,
 } from "./bi-charts";
@@ -19,11 +19,11 @@ interface PanelProps<K extends keyof DatosBI> {
   rango: Rango;
   inicial: DatosBI[K];
   opciones: OpcionesFiltro;
-  /** Un profesional no filtra por profesional ni por tipo: solo ve lo suyo y sin productos. */
-  esAdmin: boolean;
+  /** "propio" no filtra por profesional ni por tipo: solo lo del barbero y sin productos. */
+  modo: ModoBI;
 }
 
-function useGrafico<K extends keyof DatosBI>(grafico: K, { slug, rango, inicial }: PanelProps<K>) {
+function useGrafico<K extends keyof DatosBI>(grafico: K, { slug, rango, inicial, modo }: PanelProps<K>) {
   const [filtros, setFiltros] = useState<FiltrosBI>({});
   const [datos, setDatos] = useState<DatosBI[K]>(inicial);
   const [error, setError] = useState(false);
@@ -34,7 +34,7 @@ function useGrafico<K extends keyof DatosBI>(grafico: K, { slug, rango, inicial 
     setFiltros(nuevo);
     const n = ++ultima.current;
     iniciar(async () => {
-      const r = await cargarGrafico(slug, grafico, rango, nuevo);
+      const r = await cargarGrafico(slug, grafico, rango, nuevo, modo);
       if (n !== ultima.current) return; // llegó tarde: ya hay otra consulta más nueva
       if (r.ok) setDatos(r.datos);
       setError(!r.ok);
@@ -110,7 +110,7 @@ export function IngresosPanel(props: PanelProps<"ingresos">) {
   return (
     <IngresosChart
       datos={g.datos} gran={props.rango.gran} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["tipo", "sucursal", "profesional", "servicio"]} opciones={props.opciones} nota={nota} esAdmin={props.esAdmin} />}
+      filtros={<BarraFiltros g={g} campos={["tipo", "sucursal", "profesional", "servicio"]} opciones={props.opciones} nota={nota} esAdmin={props.modo === "negocio"} />}
     />
   );
 }
@@ -121,7 +121,7 @@ export function ServiciosPanel(props: PanelProps<"servicios">) {
     <RankingChart
       titulo="Servicios más realizados" descripcion="Citas completadas" unidad="Citas" color={COLOR_SERVICIOS}
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} esAdmin={props.modo === "negocio"} />}
     />
   );
 }
@@ -133,7 +133,7 @@ export function ProductosPanel(props: PanelProps<"productos">) {
     <RankingChart
       titulo="Productos más vendidos" descripcion="Unidades en pedidos pagados" unidad="Unidades" color={COLOR_PRODUCTOS}
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal"]} opciones={props.opciones} nota={nota} esAdmin={props.esAdmin} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal"]} opciones={props.opciones} nota={nota} esAdmin={props.modo === "negocio"} />}
     />
   );
 }
@@ -143,7 +143,7 @@ export function DemandaPanel(props: PanelProps<"demanda">) {
   return (
     <DemandaChart
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} esAdmin={props.modo === "negocio"} />}
     />
   );
 }
@@ -153,7 +153,7 @@ export function OcupacionPanel(props: PanelProps<"ocupacion">) {
   return (
     <OcupacionChart
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} esAdmin={props.modo === "negocio"} />}
     />
   );
 }
@@ -163,7 +163,7 @@ export function ResumenPanel(props: PanelProps<"resumen">) {
   return (
     <ResumenMensualTabla
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} esAdmin={props.modo === "negocio"} />}
     />
   );
 }
