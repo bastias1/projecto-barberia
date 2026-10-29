@@ -19,6 +19,11 @@ const TOOLTIP_STYLE = {
 };
 const CURSOR = { fill: "var(--muted)", opacity: 0.5 };
 
+// Eje compacto ($1,2 M, $850 mil) para que el eje Y no se coma el ancho en pantallas angostas
+const COMPACTO = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 1 });
+const ejeCLP = (v: number) => `$${COMPACTO.format(v)}`;
+const recortar = (s: string) => (s.length > 14 ? `${s.slice(0, 13)}…` : s);
+
 export function KpiTiles({ items }: { items: { label: string; valor: string; detalle: string; icon: "ingresos" | "transacciones" | "ticket" | "noshow" }[] }) {
   const iconos: Record<string, LucideIcon> = { ingresos: TrendingUp, transacciones: Receipt, ticket: Gauge, noshow: UserX };
   return (
@@ -28,12 +33,12 @@ export function KpiTiles({ items }: { items: { label: string; valor: string; det
         return (
           <li key={k.label}>
             <Card className="h-full">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-medium">{k.label}</span>
-                  <Icon className="h-4 w-4" aria-hidden="true" />
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                  <span className="truncate text-xs font-medium">{k.label}</span>
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 </div>
-                <p className="mt-2 text-2xl font-bold tabular-nums">{k.valor}</p>
+                <p className="mt-2 break-words text-xl font-bold tabular-nums sm:text-2xl">{k.valor}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{k.detalle}</p>
               </CardContent>
             </Card>
@@ -44,22 +49,31 @@ export function KpiTiles({ items }: { items: { label: string; valor: string; det
   );
 }
 
-function ChartCard({ titulo, descripcion, vacio, children }: {
+/** Slot de filtros del gráfico y estado de recarga (lo pone el panel cliente que los maneja). */
+export interface PanelExtra {
+  filtros?: ReactNode;
+  cargando?: boolean;
+}
+
+function ChartCard({ titulo, descripcion, vacio, children, filtros, cargando }: PanelExtra & {
   titulo: string; descripcion?: string; vacio: boolean; children: ReactNode;
 }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle className="text-base">{titulo}</CardTitle>
         {descripcion && <CardDescription>{descripcion}</CardDescription>}
       </CardHeader>
-      <CardContent>
-        {vacio ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
-            <BarChart3 className="h-8 w-8 opacity-50" aria-hidden="true" />
-            <p className="text-sm">Sin datos suficientes para este período.</p>
-          </div>
-        ) : children}
+      <CardContent className="space-y-4">
+        {filtros}
+        <div aria-busy={cargando} className={cargando ? "opacity-50 transition-opacity" : "transition-opacity"}>
+          {vacio ? (
+            <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+              <BarChart3 className="h-8 w-8 opacity-50" aria-hidden="true" />
+              <p className="text-sm">Sin datos suficientes para este período.</p>
+            </div>
+          ) : children}
+        </div>
       </CardContent>
     </Card>
   );
@@ -71,16 +85,16 @@ function etiquetaPeriodo(fecha: string, gran: Granularidad) {
   return formatFecha(fecha, "dd MMM");
 }
 
-export function IngresosChart({ datos, gran }: { datos: IngresoPeriodo[]; gran: Granularidad }) {
+export function IngresosChart({ datos, gran, ...extra }: PanelExtra & { datos: IngresoPeriodo[]; gran: Granularidad }) {
   const total = datos.reduce((s, d) => s + d.total, 0);
   return (
-    <ChartCard titulo="Ingresos" descripcion={`Total del período: ${formatCLP(total)}`} vacio={datos.length === 0}>
+    <ChartCard titulo="Ingresos" descripcion={`Total del período: ${formatCLP(total)}`} vacio={datos.length === 0} {...extra}>
       <div className="h-64 sm:h-80" role="img" aria-label="Gráfico de ingresos por período, servicios y productos">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={datos.map((d) => ({ ...d, etiqueta: etiquetaPeriodo(d.periodo, gran) }))}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
             <XAxis dataKey="etiqueta" tick={TICK} tickLine={false} axisLine={false} minTickGap={16} />
-            <YAxis tick={TICK} tickLine={false} axisLine={false} tickFormatter={(v) => formatCLP(v)} width={84} />
+            <YAxis tick={TICK} tickLine={false} axisLine={false} tickFormatter={ejeCLP} width={52} />
             <Tooltip formatter={(v) => formatCLP(Number(v))} contentStyle={TOOLTIP_STYLE} cursor={CURSOR} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="servicios" name="Servicios" stackId="a" fill={COLOR_SERVICIOS} />
@@ -92,23 +106,23 @@ export function IngresosChart({ datos, gran }: { datos: IngresoPeriodo[]; gran: 
   );
 }
 
-export function RankingChart({ titulo, descripcion, unidad, datos, color }: {
+export function RankingChart({ titulo, descripcion, unidad, datos, color, ...extra }: PanelExtra & {
   titulo: string; descripcion: string; unidad: string; datos: RankingItem[]; color: string;
 }) {
   const top = datos.slice(0, 10);
   return (
-    <ChartCard titulo={titulo} descripcion={descripcion} vacio={top.length === 0}>
+    <ChartCard titulo={titulo} descripcion={descripcion} vacio={top.length === 0} {...extra}>
       <div className="h-72" role="img" aria-label={titulo}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={top} layout="vertical" margin={{ left: 8, right: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-            <XAxis type="number" tick={TICK} tickLine={false} axisLine={false} allowDecimals={false} />
-            <YAxis type="category" dataKey="nombre" tick={TICK} tickLine={false} axisLine={false} width={110} />
+          <BarChart data={top} margin={{ left: 0, right: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+            <XAxis dataKey="nombre" tick={TICK} tickLine={false} axisLine={false} interval={0} angle={-35} textAnchor="end" height={64} tickFormatter={recortar} />
+            <YAxis tick={TICK} tickLine={false} axisLine={false} allowDecimals={false} width={32} />
             <Tooltip
               contentStyle={TOOLTIP_STYLE} cursor={CURSOR}
               formatter={(v, n, p) => n === unidad ? [`${v} (${formatCLP(p.payload.monto)})`, unidad] : [v, n]}
             />
-            <Bar dataKey="cantidad" name={unidad} fill={color} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="cantidad" name={unidad} fill={color} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -119,7 +133,7 @@ export function RankingChart({ titulo, descripcion, unidad, datos, color }: {
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const ORDEN_DIAS = [1, 2, 3, 4, 5, 6, 0]; // semana de lunes a domingo
 
-export function DemandaChart({ datos }: { datos: DemandaCelda[] }) {
+export function DemandaChart({ datos, ...extra }: PanelExtra & { datos: DemandaCelda[] }) {
   const porDia = ORDEN_DIAS.map((d) => ({
     dow: d, total: datos.filter((c) => c.dow === d).reduce((s, c) => s + c.citas, 0),
   }));
@@ -137,13 +151,14 @@ export function DemandaChart({ datos }: { datos: DemandaCelda[] }) {
       titulo="Demanda por día y hora"
       descripcion={mayor ? `Mayor demanda: ${DIAS[mayor.dow]} (${mayor.total}) · Menor: ${DIAS[menor.dow]} (${menor.total})` : "Citas no canceladas"}
       vacio={datos.length === 0}
+      {...extra}
     >
       <div className="overflow-x-auto">
         <table className="w-full min-w-[34rem] border-separate border-spacing-0.5 text-xs">
           <caption className="sr-only">Citas por día de la semana y hora</caption>
           <thead>
             <tr className="text-muted-foreground">
-              <th scope="col" className="p-1 text-left font-medium">Día</th>
+              <th scope="col" className="sticky left-0 bg-card p-1 text-left font-medium">Día</th>
               {horas.map((h) => <th key={h} scope="col" className="p-1 font-medium">{h}h</th>)}
               <th scope="col" className="p-1 font-medium">Total</th>
             </tr>
@@ -151,7 +166,7 @@ export function DemandaChart({ datos }: { datos: DemandaCelda[] }) {
           <tbody>
             {porDia.map(({ dow, total }) => (
               <tr key={dow}>
-                <th scope="row" className="whitespace-nowrap p-1 text-left font-medium">{DIAS[dow]}</th>
+                <th scope="row" className="sticky left-0 whitespace-nowrap bg-card p-1 text-left font-medium">{DIAS[dow]}</th>
                 {horas.map((h) => {
                   const n = citas(dow, h);
                   return (
@@ -181,20 +196,20 @@ export function DemandaChart({ datos }: { datos: DemandaCelda[] }) {
   );
 }
 
-export function OcupacionChart({ datos }: { datos: Ocupacion[] }) {
+export function OcupacionChart({ datos, ...extra }: PanelExtra & { datos: Ocupacion[] }) {
   const filas = datos.map((o) => ({
     nombre: o.nombre, porcentaje: o.publicados > 0 ? Math.round((o.reservados / o.publicados) * 100) : 0,
   }));
   return (
-    <ChartCard titulo="Ocupación de agenda" descripcion="Minutos reservados sobre minutos de atención publicados" vacio={filas.length === 0}>
+    <ChartCard titulo="Ocupación de agenda" descripcion="Minutos reservados sobre minutos de atención publicados" vacio={filas.length === 0} {...extra}>
       <div className="h-72" role="img" aria-label="Ocupación de agenda por profesional">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={filas} layout="vertical" margin={{ left: 8, right: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-            <XAxis type="number" domain={[0, 100]} tick={TICK} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
-            <YAxis type="category" dataKey="nombre" tick={TICK} tickLine={false} axisLine={false} width={90} />
+          <BarChart data={filas} margin={{ left: 0, right: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+            <XAxis dataKey="nombre" tick={TICK} tickLine={false} axisLine={false} interval={0} angle={-35} textAnchor="end" height={64} tickFormatter={recortar} />
+            <YAxis domain={[0, 100]} tick={TICK} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={44} />
             <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} cursor={CURSOR} />
-            <Bar dataKey="porcentaje" name="Ocupación" fill={COLOR_PRODUCTOS} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="porcentaje" name="Ocupación" fill={COLOR_PRODUCTOS} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -202,14 +217,14 @@ export function OcupacionChart({ datos }: { datos: Ocupacion[] }) {
   );
 }
 
-export function ResumenMensualTabla({ datos }: { datos: ResumenMes[] }) {
+export function ResumenMensualTabla({ datos, ...extra }: PanelExtra & { datos: ResumenMes[] }) {
   return (
-    <ChartCard titulo="Ticket promedio e inasistencia" descripcion="Por mes · inasistencia = no asistidas / (completadas + no asistidas)" vacio={datos.length === 0}>
+    <ChartCard titulo="Ticket promedio e inasistencia" descripcion="Por mes · inasistencia = no asistidas / (completadas + no asistidas)" vacio={datos.length === 0} {...extra}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[28rem] text-sm">
           <thead>
             <tr className="text-left text-muted-foreground">
-              <th scope="col" className="p-2 font-medium">Mes</th>
+              <th scope="col" className="sticky left-0 bg-card p-2 font-medium">Mes</th>
               <th scope="col" className="p-2 text-right font-medium">Ingresos</th>
               <th scope="col" className="p-2 text-right font-medium">Transacciones</th>
               <th scope="col" className="p-2 text-right font-medium">Ticket promedio</th>
@@ -219,7 +234,7 @@ export function ResumenMensualTabla({ datos }: { datos: ResumenMes[] }) {
           <tbody className="tabular-nums">
             {datos.map((m) => (
               <tr key={m.mes} className="border-t">
-                <th scope="row" className="p-2 text-left font-medium capitalize">{formatFecha(m.mes, "MMMM yyyy")}</th>
+                <th scope="row" className="sticky left-0 whitespace-nowrap bg-card p-2 text-left font-medium capitalize">{formatFecha(m.mes, "MMMM yyyy")}</th>
                 <td className="p-2 text-right">{formatCLP(m.ingresos)}</td>
                 <td className="p-2 text-right">{m.transacciones}</td>
                 <td className="p-2 text-right">{m.ticket == null ? "—" : formatCLP(m.ticket)}</td>

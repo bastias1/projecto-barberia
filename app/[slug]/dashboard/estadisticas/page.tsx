@@ -8,13 +8,13 @@ import { getModulosCached } from "@/lib/barberia-server";
 import { ModuloNoDisponible } from "@/components/modulo-no-disponible";
 import { addDays, formatCLP, formatFecha, todayIn } from "@/lib/datetime";
 import {
-  getDemanda, getIngresos, getOcupacion, getRankingProductos, getRankingServicios, getResumenMensual,
-  type Granularidad,
+  getDemanda, getIngresos, getOcupacion, getOpcionesFiltro, getRankingProductos, getRankingServicios, getResumenMensual,
+  type Granularidad, type Rango,
 } from "@/lib/services/bi-service";
+import { KpiTiles } from "@/components/dashboard/bi/bi-charts";
 import {
-  DemandaChart, IngresosChart, KpiTiles, OcupacionChart, RankingChart, ResumenMensualTabla,
-  COLOR_PRODUCTOS, COLOR_SERVICIOS,
-} from "@/components/dashboard/bi/bi-charts";
+  DemandaPanel, IngresosPanel, OcupacionPanel, ProductosPanel, ResumenPanel, ServiciosPanel,
+} from "@/components/dashboard/bi/paneles";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DIAS = 731;
@@ -57,27 +57,30 @@ export default async function EstadisticasPage({ params, searchParams }: {
     { label: "6 meses", desde: addDays(hoy, -182), gran: "month" },
   ].map((p) => ({ ...p, activo: p.desde === desde && hasta === hoy && p.gran === gran }));
 
+  const rango: Rango = { desde, hasta, gran };
   let datos;
   try {
-    datos = await Promise.all([
-      getIngresos(id, desde, hasta, gran),
-      getRankingServicios(id, desde, hasta),
-      getRankingProductos(id, desde, hasta),
-      getDemanda(id, desde, hasta),
-      getOcupacion(id, desde, hasta),
-      getResumenMensual(id, desde, hasta),
+    const [ingresos, servicios, productos, demanda, ocupacion, resumen, opciones] = await Promise.all([
+      getIngresos(id, rango),
+      getRankingServicios(id, rango),
+      getRankingProductos(id, rango),
+      getDemanda(id, rango),
+      getOcupacion(id, rango),
+      getResumenMensual(id, rango),
+      getOpcionesFiltro(id),
     ]);
+    datos = { ingresos, servicios, productos, demanda, ocupacion, resumen, opciones };
   } catch (error) {
     console.error("[estadisticas] no se pudieron cargar los datos:", error);
     datos = null;
   }
 
-  // Resumen del rango completo a partir de lo que ya calculó la BD
+  // Resumen del rango completo (sin filtros de gráfico) a partir de lo que ya calculó la BD
   const kpis = datos && (() => {
-    const ingresos = datos[0].reduce((s, d) => s + d.total, 0);
-    const transacciones = datos[0].reduce((s, d) => s + d.transacciones, 0);
-    const completadas = datos[5].reduce((s, m) => s + m.completadas, 0);
-    const noAsistio = datos[5].reduce((s, m) => s + m.noAsistio, 0);
+    const ingresos = datos.ingresos.reduce((s, d) => s + d.total, 0);
+    const transacciones = datos.ingresos.reduce((s, d) => s + d.transacciones, 0);
+    const completadas = datos.resumen.reduce((s, m) => s + m.completadas, 0);
+    const noAsistio = datos.resumen.reduce((s, m) => s + m.noAsistio, 0);
     const citas = completadas + noAsistio;
     return [
       { label: "Ingresos", valor: formatCLP(ingresos), detalle: "Servicios + productos pagados", icon: "ingresos" as const },
@@ -88,9 +91,9 @@ export default async function EstadisticasPage({ params, searchParams }: {
   })();
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto min-w-0 max-w-7xl space-y-6">
       <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100">Estadísticas</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100">Estadísticas</h1>
         <p className="text-zinc-600 dark:text-zinc-400 mt-1">
           {formatFecha(desde, "dd MMM yyyy")} – {formatFecha(hasta, "dd MMM yyyy")}
         </p>
@@ -100,7 +103,7 @@ export default async function EstadisticasPage({ params, searchParams }: {
         <CardContent className="space-y-4 p-4">
           <nav aria-label="Períodos rápidos" className="flex flex-wrap gap-2">
             {presets.map((p) => (
-              <Button key={p.label} asChild variant={p.activo ? "default" : "outline"} size="sm">
+              <Button key={p.label} asChild variant={p.activo ? "default" : "outline"} size="sm" className="h-11 flex-1 sm:h-8 sm:flex-none">
                 <Link href={`${base}?desde=${p.desde}&hasta=${hoy}&gran=${p.gran}`} aria-current={p.activo ? "true" : undefined}>
                   {p.label}
                 </Link>
@@ -108,22 +111,22 @@ export default async function EstadisticasPage({ params, searchParams }: {
             ))}
           </nav>
           <form method="get" className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label htmlFor="desde">Desde</Label>
-              <Input id="desde" name="desde" type="date" defaultValue={desde} max={hasta} />
+              <Input id="desde" name="desde" type="date" defaultValue={desde} max={hasta} className="h-11 min-w-0 sm:h-9" />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label htmlFor="hasta">Hasta</Label>
-              <Input id="hasta" name="hasta" type="date" defaultValue={hasta} />
+              <Input id="hasta" name="hasta" type="date" defaultValue={hasta} className="h-11 min-w-0 sm:h-9" />
             </div>
             <div className="col-span-2 space-y-1 sm:col-span-1">
               <Label htmlFor="gran">Agrupar por</Label>
               <select id="gran" name="gran" defaultValue={gran}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                className="h-11 w-full rounded-md sm:h-9 border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
                 {GRANULARIDADES.map((g) => <option key={g.valor} value={g.valor} className="bg-background">{g.label}</option>)}
               </select>
             </div>
-            <Button type="submit" className="col-span-2 sm:col-span-1">Aplicar</Button>
+            <Button type="submit" className="col-span-2 h-11 sm:col-span-1 sm:h-9">Aplicar</Button>
           </form>
         </CardContent>
       </Card>
@@ -139,19 +142,18 @@ export default async function EstadisticasPage({ params, searchParams }: {
           No se pudieron cargar las estadísticas. Intenta de nuevo en un momento.
         </p>
       ) : (
-        <div className="space-y-6">
+        // key: al cambiar el rango los paneles se remontan y sus filtros se reinician
+        <div key={`${desde}|${hasta}|${gran}`} className="space-y-6">
           <KpiTiles items={kpis} />
-          <IngresosChart datos={datos[0]} gran={gran} />
+          <IngresosPanel slug={slug} rango={rango} inicial={datos.ingresos} opciones={datos.opciones} />
           <div className="grid gap-6 lg:grid-cols-2">
-            <RankingChart titulo="Servicios más realizados" descripcion="Citas completadas" unidad="Citas"
-              datos={datos[1]} color={COLOR_SERVICIOS} />
-            <RankingChart titulo="Productos más vendidos" descripcion="Unidades en pedidos pagados" unidad="Unidades"
-              datos={datos[2]} color={COLOR_PRODUCTOS} />
+            <ServiciosPanel slug={slug} rango={rango} inicial={datos.servicios} opciones={datos.opciones} />
+            <ProductosPanel slug={slug} rango={rango} inicial={datos.productos} opciones={datos.opciones} />
           </div>
-          <DemandaChart datos={datos[3]} />
+          <DemandaPanel slug={slug} rango={rango} inicial={datos.demanda} opciones={datos.opciones} />
           <div className="grid gap-6 lg:grid-cols-2">
-            <OcupacionChart datos={datos[4]} />
-            <ResumenMensualTabla datos={datos[5]} />
+            <OcupacionPanel slug={slug} rango={rango} inicial={datos.ocupacion} opciones={datos.opciones} />
+            <ResumenPanel slug={slug} rango={rango} inicial={datos.resumen} opciones={datos.opciones} />
           </div>
         </div>
       )}

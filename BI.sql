@@ -1,8 +1,13 @@
 -- =====================================================================
--- MÓDULO BI (HU-13..15 · KPI-01..07)
+-- MÓDULO BI (HU-13..16 · KPI-01..07)
 -- Funciones SECURITY INVOKER: el RLS de las tablas base sigue aplicando.
 -- Solo las ve el admin de una barbería con el módulo 'bi' (CP-29).
--- Se aplica con el MCP de Supabase (apply_migration); este archivo es la referencia.
+-- Se aplica con el MCP de Supabase (apply_migration); este archivo es la referencia
+-- del estado actual (para cambiar una firma hay que DROP + CREATE: CREATE OR REPLACE no basta).
+--
+-- Filtros opcionales (NULL = sin filtrar): sucursal, profesional, servicio y tipo de ingreso.
+-- Los productos no tienen profesional ni servicio: con alguno de esos filtros quedan fuera de
+-- bi_ingresos; pedido.id_sucursal es opcional, así que filtrar por sucursal excluye los pedidos sin ella.
 -- =====================================================================
 
 CREATE FUNCTION private.bi_verificar(p_barberia uuid)
@@ -14,7 +19,9 @@ BEGIN
 END $$;
 
 -- Reservas del rango con la fecha/hora en la zona horaria de su sucursal
-CREATE FUNCTION public.bi_reservas(p_barberia uuid, p_desde date, p_hasta date)
+CREATE FUNCTION public.bi_reservas(
+  p_barberia uuid, p_desde date, p_hasta date,
+  p_sucursal bigint DEFAULT NULL, p_profesional uuid DEFAULT NULL, p_servicio bigint DEFAULT NULL)
 RETURNS TABLE (id_reserva bigint, fecha date, hora integer, dow integer, estado text,
                id_servicio bigint, id_profesional uuid, monto numeric, minutos numeric)
 LANGUAGE plpgsql STABLE SET search_path = '' AS $$
@@ -33,12 +40,16 @@ BEGIN
     -- ventana ancha que usa el índice; el filtro exacto es por fecha local
     WHERE r.id_barberia = p_barberia
       AND r.fecha_hora_inicio >= p_desde - 1 AND r.fecha_hora_inicio < p_hasta + 2
+      AND (p_sucursal IS NULL OR r.id_sucursal = p_sucursal)
+      AND (p_profesional IS NULL OR r.id_profesional = p_profesional)
+      AND (p_servicio IS NULL OR r.id_servicio = p_servicio)
   ) x
   WHERE x.f BETWEEN p_desde AND p_hasta;
 END $$;
 
 -- Pedidos pagados; la fecha es la del primer pago aprobado (la spec no la define)
-CREATE FUNCTION public.bi_pedidos_pagados(p_barberia uuid, p_desde date, p_hasta date)
+CREATE FUNCTION public.bi_pedidos_pagados(
+  p_barberia uuid, p_desde date, p_hasta date, p_sucursal bigint DEFAULT NULL)
 RETURNS TABLE (id_pedido bigint, fecha date, monto numeric)
 LANGUAGE plpgsql STABLE SET search_path = '' AS $$
 DECLARE v_tz text;
@@ -58,24 +69,33 @@ BEGIN
     ) pg ON true
     -- el pago nunca es anterior al pedido: poda los pedidos posteriores al rango
     WHERE p.id_barberia = p_barberia AND p.estado_pago = 'pagado' AND p.created_at < p_hasta + 2
+      AND (p_sucursal IS NULL OR p.id_sucursal = p_sucursal)
   ) x
   WHERE x.f BETWEEN p_desde AND p_hasta;
 END $$;
 
--- KPI-01 · HU-13
-CREATE FUNCTION public.bi_ingresos(p_barberia uuid, p_desde date, p_hasta date, p_gran text DEFAULT 'day')
+-- KPI-01 · HU-13. p_tipo: 'servicios' | 'productos' | NULL (ambos)
+CREATE FUNCTION public.bi_ingresos(
+  p_barberia uuid, p_desde date, p_hasta date, p_gran text DEFAULT 'day', p_tipo text DEFAULT NULL,
+  p_sucursal bigint DEFAULT NULL, p_profesional uuid DEFAULT NULL, p_servicio bigint DEFAULT NULL)
 RETURNS TABLE (periodo date, servicios numeric, productos numeric, total numeric, transacciones bigint)
 LANGUAGE plpgsql STABLE SET search_path = '' AS $$
 BEGIN
   IF p_gran NOT IN ('day', 'week', 'month') THEN
     RAISE EXCEPTION 'Granularidad inválida: %', p_gran USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  IF p_tipo IS NOT NULL AND p_tipo NOT IN ('servicios', 'productos') THEN
+    RAISE EXCEPTION 'Tipo inválido: %', p_tipo USING ERRCODE = 'invalid_parameter_value';
+  END IF;
   RETURN QUERY
   WITH m AS (
-    SELECT r.fecha, 'servicio'::text AS tipo, r.monto FROM public.bi_reservas(p_barberia, p_desde, p_hasta) r
-    WHERE r.estado = 'completada'
+    SELECT r.fecha, 'servicio'::text AS tipo, r.monto
+    FROM public.bi_reservas(p_barberia, p_desde, p_hasta, p_sucursal, p_profesional, p_servicio) r
+    WHERE r.estado = 'completada' AND (p_tipo IS NULL OR p_tipo = 'servicios')
     UNION ALL
-    SELECT pp.fecha, 'producto', pp.monto FROM public.bi_pedidos_pagados(p_barberia, p_desde, p_hasta) pp
+    SELECT pp.fecha, 'producto', pp.monto
+    FROM public.bi_pedidos_pagados(p_barberia, p_desde, p_hasta, p_sucursal) pp
+    WHERE (p_tipo IS NULL OR p_tipo = 'productos') AND p_profesional IS NULL AND p_servicio IS NULL
   )
   SELECT date_trunc(p_gran, m.fecha)::date,
          coalesce(sum(m.monto) FILTER (WHERE m.tipo = 'servicio'), 0),
@@ -85,11 +105,12 @@ BEGIN
 END $$;
 
 -- KPI-02 · HU-14
-CREATE FUNCTION public.bi_servicios(p_barberia uuid, p_desde date, p_hasta date)
+CREATE FUNCTION public.bi_servicios(
+  p_barberia uuid, p_desde date, p_hasta date, p_sucursal bigint DEFAULT NULL, p_profesional uuid DEFAULT NULL)
 RETURNS TABLE (id_servicio bigint, nombre text, cantidad bigint, ingresos numeric)
 LANGUAGE sql STABLE SET search_path = '' AS $$
   SELECT s.id_servicio, s.nombre, count(*), sum(r.monto)
-  FROM public.bi_reservas(p_barberia, p_desde, p_hasta) r
+  FROM public.bi_reservas(p_barberia, p_desde, p_hasta, p_sucursal, p_profesional, NULL) r
   JOIN public.servicio s ON s.id_barberia = p_barberia AND s.id_servicio = r.id_servicio
   WHERE r.estado = 'completada'
   GROUP BY s.id_servicio, s.nombre
@@ -97,47 +118,34 @@ LANGUAGE sql STABLE SET search_path = '' AS $$
 $$;
 
 -- KPI-03 · HU-14
-CREATE FUNCTION public.bi_productos(p_barberia uuid, p_desde date, p_hasta date)
+CREATE FUNCTION public.bi_productos(
+  p_barberia uuid, p_desde date, p_hasta date, p_sucursal bigint DEFAULT NULL)
 RETURNS TABLE (id_producto bigint, nombre text, unidades bigint, monto numeric)
 LANGUAGE sql STABLE SET search_path = '' AS $$
   SELECT pr.id_producto, pr.nombre, sum(d.cantidad), sum(d.subtotal)
-  FROM public.bi_pedidos_pagados(p_barberia, p_desde, p_hasta) pp
+  FROM public.bi_pedidos_pagados(p_barberia, p_desde, p_hasta, p_sucursal) pp
   JOIN public.detalle_pedido d ON d.id_barberia = p_barberia AND d.id_pedido = pp.id_pedido
   JOIN public.producto pr ON pr.id_barberia = p_barberia AND pr.id_producto = d.id_producto
   GROUP BY pr.id_producto, pr.nombre
   ORDER BY sum(d.cantidad) DESC, sum(d.subtotal) DESC;
 $$;
 
-REVOKE EXECUTE ON FUNCTION private.bi_verificar(uuid) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bi_reservas(uuid, date, date) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bi_pedidos_pagados(uuid, date, date) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bi_ingresos(uuid, date, date, text) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bi_servicios(uuid, date, date) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bi_productos(uuid, date, date) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION private.bi_verificar(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bi_reservas(uuid, date, date) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bi_pedidos_pagados(uuid, date, date) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bi_ingresos(uuid, date, date, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bi_servicios(uuid, date, date) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bi_productos(uuid, date, date) TO authenticated;
-
--- =====================================================================
--- HU-15 · KPI-04..07
--- =====================================================================
-
--- KPI-04: reservas no canceladas por día de la semana (0 = domingo) y hora local
-CREATE FUNCTION public.bi_demanda(p_barberia uuid, p_desde date, p_hasta date)
+-- KPI-04 · HU-15: reservas no canceladas por día de la semana (0 = domingo) y hora local
+CREATE FUNCTION public.bi_demanda(
+  p_barberia uuid, p_desde date, p_hasta date,
+  p_sucursal bigint DEFAULT NULL, p_profesional uuid DEFAULT NULL, p_servicio bigint DEFAULT NULL)
 RETURNS TABLE (dow integer, hora integer, citas bigint)
 LANGUAGE sql STABLE SET search_path = '' AS $$
   SELECT r.dow, r.hora, count(*)
-  FROM public.bi_reservas(p_barberia, p_desde, p_hasta) r
+  FROM public.bi_reservas(p_barberia, p_desde, p_hasta, p_sucursal, p_profesional, p_servicio) r
   WHERE r.estado <> 'cancelada'
   GROUP BY r.dow, r.hora
   ORDER BY r.dow, r.hora;
 $$;
 
 -- KPI-05: minutos reservados / minutos de atención publicados (sin días bloqueados), por profesional
-CREATE FUNCTION public.bi_ocupacion(p_barberia uuid, p_desde date, p_hasta date)
+CREATE FUNCTION public.bi_ocupacion(
+  p_barberia uuid, p_desde date, p_hasta date, p_sucursal bigint DEFAULT NULL, p_profesional uuid DEFAULT NULL)
 RETURNS TABLE (id_profesional uuid, nombre text, minutos_publicados numeric, minutos_reservados numeric)
 LANGUAGE plpgsql STABLE SET search_path = '' AS $$
 BEGIN
@@ -149,13 +157,15 @@ BEGIN
     FROM generate_series(p_desde, p_hasta, interval '1 day') g
     JOIN public.horario_atencion ha
       ON ha.id_barberia = p_barberia AND ha.activo AND ha.dia_semana = extract(dow FROM g)::int
+     AND (p_sucursal IS NULL OR ha.id_sucursal = p_sucursal)
+     AND (p_profesional IS NULL OR ha.id_profesional = p_profesional)
     WHERE NOT EXISTS (
       SELECT 1 FROM public.dia_bloqueado b
       WHERE b.id_barberia = p_barberia AND b.id_profesional = ha.id_profesional AND b.fecha = g::date)
     GROUP BY ha.id_profesional
   ), res AS (
     SELECT r.id_profesional AS idp, sum(r.minutos) AS min_res
-    FROM public.bi_reservas(p_barberia, p_desde, p_hasta) r
+    FROM public.bi_reservas(p_barberia, p_desde, p_hasta, p_sucursal, p_profesional, NULL) r
     WHERE r.estado <> 'cancelada'
       AND NOT EXISTS (
         SELECT 1 FROM public.dia_bloqueado b
@@ -171,18 +181,22 @@ BEGIN
   ORDER BY least(coalesce(res.min_res, 0), pub.min_pub) / nullif(pub.min_pub, 0) DESC NULLS LAST;
 END $$;
 
--- KPI-06 y KPI-07 por mes. tasa_no_show es NULL si no hubo completadas ni inasistencias
-CREATE FUNCTION public.bi_resumen_mensual(p_barberia uuid, p_desde date, p_hasta date)
+-- KPI-06 y KPI-07 por mes. tasa_no_show es NULL si no hubo completadas ni inasistencias.
+-- Con profesional o servicio el ticket sale solo de servicios (los productos no tienen ninguno de los dos).
+CREATE FUNCTION public.bi_resumen_mensual(
+  p_barberia uuid, p_desde date, p_hasta date,
+  p_sucursal bigint DEFAULT NULL, p_profesional uuid DEFAULT NULL, p_servicio bigint DEFAULT NULL)
 RETURNS TABLE (mes date, ingresos numeric, transacciones bigint, ticket_promedio numeric,
                completadas bigint, no_asistio bigint, tasa_no_show numeric)
 LANGUAGE sql STABLE SET search_path = '' AS $$
   WITH ing AS (
-    SELECT periodo AS mes, total, transacciones FROM public.bi_ingresos(p_barberia, p_desde, p_hasta, 'month')
+    SELECT periodo AS mes, total, transacciones
+    FROM public.bi_ingresos(p_barberia, p_desde, p_hasta, 'month', NULL, p_sucursal, p_profesional, p_servicio)
   ), asis AS (
     SELECT date_trunc('month', r.fecha)::date AS mes,
            count(*) FILTER (WHERE r.estado = 'completada') AS completadas,
            count(*) FILTER (WHERE r.estado = 'no_asistio') AS no_asistio
-    FROM public.bi_reservas(p_barberia, p_desde, p_hasta) r
+    FROM public.bi_reservas(p_barberia, p_desde, p_hasta, p_sucursal, p_profesional, p_servicio) r
     GROUP BY 1
   )
   SELECT coalesce(i.mes, a.mes), coalesce(i.total, 0), coalesce(i.transacciones, 0),
@@ -193,9 +207,21 @@ LANGUAGE sql STABLE SET search_path = '' AS $$
   ORDER BY 1;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.bi_demanda(uuid, date, date) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bi_ocupacion(uuid, date, date) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bi_resumen_mensual(uuid, date, date) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.bi_demanda(uuid, date, date) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bi_ocupacion(uuid, date, date) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bi_resumen_mensual(uuid, date, date) TO authenticated;
+REVOKE EXECUTE ON FUNCTION private.bi_verificar(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_reservas(uuid, date, date, bigint, uuid, bigint) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_pedidos_pagados(uuid, date, date, bigint) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_ingresos(uuid, date, date, text, text, bigint, uuid, bigint) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_servicios(uuid, date, date, bigint, uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_productos(uuid, date, date, bigint) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_demanda(uuid, date, date, bigint, uuid, bigint) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_ocupacion(uuid, date, date, bigint, uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bi_resumen_mensual(uuid, date, date, bigint, uuid, bigint) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.bi_verificar(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_reservas(uuid, date, date, bigint, uuid, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_pedidos_pagados(uuid, date, date, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_ingresos(uuid, date, date, text, text, bigint, uuid, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_servicios(uuid, date, date, bigint, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_productos(uuid, date, date, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_demanda(uuid, date, date, bigint, uuid, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_ocupacion(uuid, date, date, bigint, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bi_resumen_mensual(uuid, date, date, bigint, uuid, bigint) TO authenticated;

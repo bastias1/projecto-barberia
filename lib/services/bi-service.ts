@@ -7,6 +7,20 @@ import { createClient } from "@/utils/supabase/server";
 
 export type Granularidad = "day" | "week" | "month";
 
+/** Filtros opcionales de cada gráfico; sin valor = sin filtrar. */
+export interface FiltrosBI {
+  sucursal?: number;
+  profesional?: string;
+  servicio?: number;
+  tipo?: "servicios" | "productos";
+}
+
+export interface Rango {
+  desde: string;
+  hasta: string;
+  gran: Granularidad;
+}
+
 export interface IngresoPeriodo {
   periodo: string; // YYYY-MM-DD, inicio del día/semana/mes
   servicios: number;
@@ -20,13 +34,6 @@ export interface RankingItem {
   nombre: string;
   cantidad: number;
   monto: number;
-}
-
-async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc(fn, args);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as T[];
 }
 
 export interface DemandaCelda {
@@ -52,41 +59,108 @@ export interface ResumenMes {
   tasaNoShow: number | null; // porcentaje
 }
 
-export function getDemanda(idBarberia: string, desde: string, hasta: string) {
-  return rpc<DemandaCelda>("bi_demanda", { p_barberia: idBarberia, p_desde: desde, p_hasta: hasta });
+/** Datos de cada gráfico, por clave. */
+export interface DatosBI {
+  ingresos: IngresoPeriodo[];
+  servicios: RankingItem[];
+  productos: RankingItem[];
+  demanda: DemandaCelda[];
+  ocupacion: Ocupacion[];
+  resumen: ResumenMes[];
 }
 
-export async function getOcupacion(idBarberia: string, desde: string, hasta: string): Promise<Ocupacion[]> {
+export interface OpcionesFiltro {
+  sucursales: { id: number; nombre: string }[];
+  profesionales: { id: string; nombre: string }[];
+  servicios: { id: number; nombre: string }[];
+}
+
+async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc(fn, args);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as T[];
+}
+
+// undefined se omite del JSON y la función SQL usa su default (NULL = sin filtrar)
+const base = (idBarberia: string, r: Pick<Rango, "desde" | "hasta">) =>
+  ({ p_barberia: idBarberia, p_desde: r.desde, p_hasta: r.hasta });
+
+export function getIngresos(idBarberia: string, r: Rango, f: FiltrosBI = {}) {
+  return rpc<IngresoPeriodo>("bi_ingresos", {
+    ...base(idBarberia, r), p_gran: r.gran, p_tipo: f.tipo,
+    p_sucursal: f.sucursal, p_profesional: f.profesional, p_servicio: f.servicio,
+  });
+}
+
+export async function getRankingServicios(idBarberia: string, r: Rango, f: FiltrosBI = {}): Promise<RankingItem[]> {
+  const rows = await rpc<{ id_servicio: number; nombre: string; cantidad: number; ingresos: number }>(
+    "bi_servicios", { ...base(idBarberia, r), p_sucursal: f.sucursal, p_profesional: f.profesional });
+  return rows.map((x) => ({ id: x.id_servicio, nombre: x.nombre, cantidad: x.cantidad, monto: x.ingresos }));
+}
+
+export async function getRankingProductos(idBarberia: string, r: Rango, f: FiltrosBI = {}): Promise<RankingItem[]> {
+  const rows = await rpc<{ id_producto: number; nombre: string; unidades: number; monto: number }>(
+    "bi_productos", { ...base(idBarberia, r), p_sucursal: f.sucursal });
+  return rows.map((x) => ({ id: x.id_producto, nombre: x.nombre, cantidad: x.unidades, monto: x.monto }));
+}
+
+export function getDemanda(idBarberia: string, r: Rango, f: FiltrosBI = {}) {
+  return rpc<DemandaCelda>("bi_demanda", {
+    ...base(idBarberia, r), p_sucursal: f.sucursal, p_profesional: f.profesional, p_servicio: f.servicio,
+  });
+}
+
+export async function getOcupacion(idBarberia: string, r: Rango, f: FiltrosBI = {}): Promise<Ocupacion[]> {
   const rows = await rpc<{ id_profesional: string; nombre: string; minutos_publicados: number; minutos_reservados: number }>(
-    "bi_ocupacion", { p_barberia: idBarberia, p_desde: desde, p_hasta: hasta });
-  return rows.map((r) => ({
-    id: r.id_profesional, nombre: r.nombre, publicados: r.minutos_publicados, reservados: r.minutos_reservados,
+    "bi_ocupacion", { ...base(idBarberia, r), p_sucursal: f.sucursal, p_profesional: f.profesional });
+  return rows.map((x) => ({
+    id: x.id_profesional, nombre: x.nombre, publicados: x.minutos_publicados, reservados: x.minutos_reservados,
   }));
 }
 
-export async function getResumenMensual(idBarberia: string, desde: string, hasta: string): Promise<ResumenMes[]> {
+export async function getResumenMensual(idBarberia: string, r: Rango, f: FiltrosBI = {}): Promise<ResumenMes[]> {
   const rows = await rpc<{
     mes: string; ingresos: number; transacciones: number; ticket_promedio: number | null;
     completadas: number; no_asistio: number; tasa_no_show: number | null;
-  }>("bi_resumen_mensual", { p_barberia: idBarberia, p_desde: desde, p_hasta: hasta });
-  return rows.map((r) => ({
-    mes: r.mes, ingresos: r.ingresos, transacciones: r.transacciones, ticket: r.ticket_promedio,
-    completadas: r.completadas, noAsistio: r.no_asistio, tasaNoShow: r.tasa_no_show,
+  }>("bi_resumen_mensual", {
+    ...base(idBarberia, r), p_sucursal: f.sucursal, p_profesional: f.profesional, p_servicio: f.servicio,
+  });
+  return rows.map((x) => ({
+    mes: x.mes, ingresos: x.ingresos, transacciones: x.transacciones, ticket: x.ticket_promedio,
+    completadas: x.completadas, noAsistio: x.no_asistio, tasaNoShow: x.tasa_no_show,
   }));
 }
 
-export function getIngresos(idBarberia: string, desde: string, hasta: string, gran: Granularidad) {
-  return rpc<IngresoPeriodo>("bi_ingresos", { p_barberia: idBarberia, p_desde: desde, p_hasta: hasta, p_gran: gran });
+/** Sucursales, profesionales y servicios de la barbería para armar los selectores (incluye inactivos: hay historial). */
+export async function getOpcionesFiltro(idBarberia: string): Promise<OpcionesFiltro> {
+  const supabase = await createClient();
+  const [suc, pro, ser] = await Promise.all([
+    supabase.from("sucursal").select("id:id_sucursal, nombre").eq("id_barberia", idBarberia).order("id_sucursal"),
+    supabase.rpc("profesionales_publicos", { p_barberia: idBarberia }),
+    supabase.from("servicio").select("id:id_servicio, nombre").eq("id_barberia", idBarberia).order("nombre"),
+  ]);
+  const error = suc.error ?? pro.error ?? ser.error;
+  if (error) throw new Error(error.message);
+  return {
+    sucursales: (suc.data ?? []) as OpcionesFiltro["sucursales"],
+    profesionales: ((pro.data ?? []) as { id_profesional: string; nombre_visible: string }[])
+      .map((p) => ({ id: p.id_profesional, nombre: p.nombre_visible })),
+    servicios: (ser.data ?? []) as OpcionesFiltro["servicios"],
+  };
 }
 
-export async function getRankingServicios(idBarberia: string, desde: string, hasta: string): Promise<RankingItem[]> {
-  const rows = await rpc<{ id_servicio: number; nombre: string; cantidad: number; ingresos: number }>(
-    "bi_servicios", { p_barberia: idBarberia, p_desde: desde, p_hasta: hasta });
-  return rows.map((r) => ({ id: r.id_servicio, nombre: r.nombre, cantidad: r.cantidad, monto: r.ingresos }));
-}
-
-export async function getRankingProductos(idBarberia: string, desde: string, hasta: string): Promise<RankingItem[]> {
-  const rows = await rpc<{ id_producto: number; nombre: string; unidades: number; monto: number }>(
-    "bi_productos", { p_barberia: idBarberia, p_desde: desde, p_hasta: hasta });
-  return rows.map((r) => ({ id: r.id_producto, nombre: r.nombre, cantidad: r.unidades, monto: r.monto }));
+/** Carga los datos de un gráfico con sus filtros. */
+export function cargarDatos<K extends keyof DatosBI>(
+  idBarberia: string, grafico: K, r: Rango, f: FiltrosBI,
+): Promise<DatosBI[K]> {
+  const cargadores: { [P in keyof DatosBI]: () => Promise<DatosBI[P]> } = {
+    ingresos: () => getIngresos(idBarberia, r, f),
+    servicios: () => getRankingServicios(idBarberia, r, f),
+    productos: () => getRankingProductos(idBarberia, r, f),
+    demanda: () => getDemanda(idBarberia, r, f),
+    ocupacion: () => getOcupacion(idBarberia, r, f),
+    resumen: () => getResumenMensual(idBarberia, r, f),
+  };
+  return cargadores[grafico]();
 }
