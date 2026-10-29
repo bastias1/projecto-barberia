@@ -131,6 +131,13 @@ For the software's own administrators: `usuario.rol = 'superadmin'` (grant it fr
 - "+ Nueva cita" (`crearCitaManual` in `app/[slug]/dashboard/citas/actions.ts`) reuses `crearReserva`; staff slots use `getAvailableTimeSlots(..., minAnticipacionMs = 0)`.
 - Realtime: `reserva` is in the `supabase_realtime` publication; `components/dashboard/reservas-realtime.tsx` (mounted in the dashboard layout for barbers) toasts new/cancelled bookings and calls `router.refresh()`.
 
+### BI / Estadísticas (HU-13..16)
+- `/[slug]/dashboard/estadisticas?desde=&hasta=&gran=day|week|month` — solo admin de una barbería con el módulo `bi` (`requireStaff(slug, { admin: true })` + `getModulosCached`; el sidebar también lo oculta a profesionales). Sin sesión de admin o sin `bi` las funciones lanzan `insufficient_privilege`.
+- Los cálculos están en funciones SQL `bi_*` (`BI.sql`, aplicadas por el MCP): `bi_ingresos`, `bi_servicios`, `bi_productos`, `bi_demanda`, `bi_ocupacion`, `bi_resumen_mensual`, sobre las auxiliares `bi_reservas` y `bi_pedidos_pagados`. Son `SECURITY INVOKER` (RLS sigue aplicando) y verifican con `private.bi_verificar`. Son funciones y no vistas porque necesitan rango y granularidad; las fechas van en la zona horaria de la sucursal.
+- Ingresos = reservas `completada` (`reserva.monto`) + pedidos `estado_pago = 'pagado'` (`monto_total`, sin envío). La fecha de un pedido es la de su primer `pago` aprobado.
+- App: `lib/services/bi-service.ts` (RPCs), `components/dashboard/bi/bi-charts.tsx` (Recharts, client), `loading.tsx` con esqueletos. El pronóstico (HU-25, `prediccion_demanda`) aún no tiene pantalla. `database.types.ts` no tipa las funciones RPC: `bi-service.ts` las tipa a mano.
+- El contenedor del dashboard (`layout.tsx`) tiene altura fija (`h-dvh`) y `<main>` es `relative`: un elemento `sr-only` sin contenedor posicionado estira el documento y deja una franja vacía al final.
+
 ### Emails (Resend)
 All email goes through Resend from the verified domain `sunwalk.app` (`EMAIL_FROM="Navaja <notificaciones@sunwalk.app>"`).
 - App emails: `lib/email.ts` (`sendEmail` adds a plain-text version, `fromName` = barbería name, `replyTo` = barbería `email_contacto`) + `lib/notifications.ts`. Sent on: booking created (confirm/cancel links), booking `completada` and order `entregado` (review link → `/resena`), team invitation (`/invitacion/<token>`). Confirm/cancel links open a page with a button that POSTs (mail scanners open every link, so a GET never changes the booking). Links are HMAC-signed with `BOOKING_SECRET` (invitations use their random token). Without `RESEND_API_KEY` emails are skipped and links are logged to the server console.
