@@ -1,7 +1,8 @@
 -- =====================================================================
 -- MÓDULO BI (HU-13..16 · KPI-01..07)
 -- Funciones SECURITY INVOKER: el RLS de las tablas base sigue aplicando.
--- Solo las ve el admin de una barbería con el módulo 'bi' (CP-29).
+-- Las ve el staff de una barbería con el módulo 'bi' (CP-29). El admin ve todo; un profesional
+-- solo sus citas (se fuerza auth.uid() sin importar los parámetros) y nunca los productos.
 -- Se aplica con el MCP de Supabase (apply_migration); este archivo es la referencia
 -- del estado actual (para cambiar una firma hay que DROP + CREATE: CREATE OR REPLACE no basta).
 --
@@ -13,7 +14,7 @@
 CREATE FUNCTION private.bi_verificar(p_barberia uuid)
 RETURNS void LANGUAGE plpgsql STABLE SET search_path = '' AS $$
 BEGIN
-  IF NOT (private.es_admin(p_barberia) AND public.barberia_tiene_modulo(p_barberia, 'bi')) THEN
+  IF NOT (private.es_staff(p_barberia) AND public.barberia_tiene_modulo(p_barberia, 'bi')) THEN
     RAISE EXCEPTION 'Sin acceso al módulo de estadísticas' USING ERRCODE = 'insufficient_privilege';
   END IF;
 END $$;
@@ -25,8 +26,11 @@ CREATE FUNCTION public.bi_reservas(
 RETURNS TABLE (id_reserva bigint, fecha date, hora integer, dow integer, estado text,
                id_servicio bigint, id_profesional uuid, monto numeric, minutos numeric)
 LANGUAGE plpgsql STABLE SET search_path = '' AS $$
+DECLARE v_prof uuid;
 BEGIN
   PERFORM private.bi_verificar(p_barberia);
+  -- un profesional solo ve lo suyo, sin importar el parámetro
+  v_prof := CASE WHEN private.es_admin(p_barberia) THEN p_profesional ELSE auth.uid() END;
   RETURN QUERY
   SELECT x.id_reserva, x.f, extract(hour FROM x.l)::int, extract(dow FROM x.l)::int, x.estado,
          x.id_servicio, x.id_profesional, x.monto, x.minutos
@@ -41,7 +45,7 @@ BEGIN
     WHERE r.id_barberia = p_barberia
       AND r.fecha_hora_inicio >= p_desde - 1 AND r.fecha_hora_inicio < p_hasta + 2
       AND (p_sucursal IS NULL OR r.id_sucursal = p_sucursal)
-      AND (p_profesional IS NULL OR r.id_profesional = p_profesional)
+      AND (v_prof IS NULL OR r.id_profesional = v_prof)
       AND (p_servicio IS NULL OR r.id_servicio = p_servicio)
   ) x
   WHERE x.f BETWEEN p_desde AND p_hasta;
@@ -55,6 +59,8 @@ LANGUAGE plpgsql STABLE SET search_path = '' AS $$
 DECLARE v_tz text;
 BEGIN
   PERFORM private.bi_verificar(p_barberia);
+  -- las ventas de productos son solo del admin: al profesional no le devuelve nada
+  IF NOT private.es_admin(p_barberia) THEN RETURN; END IF;
   SELECT zona_horaria INTO v_tz FROM public.sucursal WHERE id_barberia = p_barberia ORDER BY id_sucursal LIMIT 1;
   RETURN QUERY
   SELECT x.id_pedido, x.f, x.monto
@@ -148,8 +154,10 @@ CREATE FUNCTION public.bi_ocupacion(
   p_barberia uuid, p_desde date, p_hasta date, p_sucursal bigint DEFAULT NULL, p_profesional uuid DEFAULT NULL)
 RETURNS TABLE (id_profesional uuid, nombre text, minutos_publicados numeric, minutos_reservados numeric)
 LANGUAGE plpgsql STABLE SET search_path = '' AS $$
+DECLARE v_prof uuid;
 BEGIN
   PERFORM private.bi_verificar(p_barberia);
+  v_prof := CASE WHEN private.es_admin(p_barberia) THEN p_profesional ELSE auth.uid() END;
   RETURN QUERY
   WITH pub AS (
     SELECT ha.id_profesional AS idp,
@@ -158,14 +166,14 @@ BEGIN
     JOIN public.horario_atencion ha
       ON ha.id_barberia = p_barberia AND ha.activo AND ha.dia_semana = extract(dow FROM g)::int
      AND (p_sucursal IS NULL OR ha.id_sucursal = p_sucursal)
-     AND (p_profesional IS NULL OR ha.id_profesional = p_profesional)
+     AND (v_prof IS NULL OR ha.id_profesional = v_prof)
     WHERE NOT EXISTS (
       SELECT 1 FROM public.dia_bloqueado b
       WHERE b.id_barberia = p_barberia AND b.id_profesional = ha.id_profesional AND b.fecha = g::date)
     GROUP BY ha.id_profesional
   ), res AS (
     SELECT r.id_profesional AS idp, sum(r.minutos) AS min_res
-    FROM public.bi_reservas(p_barberia, p_desde, p_hasta, p_sucursal, p_profesional, NULL) r
+    FROM public.bi_reservas(p_barberia, p_desde, p_hasta, p_sucursal, v_prof, NULL) r
     WHERE r.estado <> 'cancelada'
       AND NOT EXISTS (
         SELECT 1 FROM public.dia_bloqueado b

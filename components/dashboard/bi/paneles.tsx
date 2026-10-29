@@ -19,6 +19,8 @@ interface PanelProps<K extends keyof DatosBI> {
   rango: Rango;
   inicial: DatosBI[K];
   opciones: OpcionesFiltro;
+  /** Un profesional no filtra por profesional ni por tipo: solo ve lo suyo y sin productos. */
+  esAdmin: boolean;
 }
 
 function useGrafico<K extends keyof DatosBI>(grafico: K, { slug, rango, inicial }: PanelProps<K>) {
@@ -44,13 +46,15 @@ function useGrafico<K extends keyof DatosBI>(grafico: K, { slug, rango, inicial 
 
 type Campo = "tipo" | "sucursal" | "profesional" | "servicio";
 
-function BarraFiltros({ g, campos, opciones, nota }: {
+function BarraFiltros({ g, campos: todos, opciones, nota, esAdmin }: {
   g: { filtros: FiltrosBI; error: boolean; cambiar: (f: FiltrosBI) => void };
   campos: Campo[];
   opciones: OpcionesFiltro;
   nota?: string;
+  esAdmin: boolean;
 }) {
   const id = useId();
+  const campos = todos.filter((c) => esAdmin || (c !== "profesional" && c !== "tipo"));
   const lista: Record<Campo, { label: string; todos: string; items: { valor: string; texto: string }[] }> = {
     tipo: { label: "Tipo", todos: "Todos", items: [{ valor: "servicios", texto: "Servicios" }, { valor: "productos", texto: "Productos" }] },
     sucursal: { label: "Sucursal", todos: "Todas", items: opciones.sucursales.map((s) => ({ valor: String(s.id), texto: s.nombre })) },
@@ -106,7 +110,7 @@ export function IngresosPanel(props: PanelProps<"ingresos">) {
   return (
     <IngresosChart
       datos={g.datos} gran={props.rango.gran} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["tipo", "sucursal", "profesional", "servicio"]} opciones={props.opciones} nota={nota} />}
+      filtros={<BarraFiltros g={g} campos={["tipo", "sucursal", "profesional", "servicio"]} opciones={props.opciones} nota={nota} esAdmin={props.esAdmin} />}
     />
   );
 }
@@ -117,7 +121,7 @@ export function ServiciosPanel(props: PanelProps<"servicios">) {
     <RankingChart
       titulo="Servicios más realizados" descripcion="Citas completadas" unidad="Citas" color={COLOR_SERVICIOS}
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
     />
   );
 }
@@ -129,7 +133,7 @@ export function ProductosPanel(props: PanelProps<"productos">) {
     <RankingChart
       titulo="Productos más vendidos" descripcion="Unidades en pedidos pagados" unidad="Unidades" color={COLOR_PRODUCTOS}
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal"]} opciones={props.opciones} nota={nota} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal"]} opciones={props.opciones} nota={nota} esAdmin={props.esAdmin} />}
     />
   );
 }
@@ -139,7 +143,7 @@ export function DemandaPanel(props: PanelProps<"demanda">) {
   return (
     <DemandaChart
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
     />
   );
 }
@@ -149,7 +153,7 @@ export function OcupacionPanel(props: PanelProps<"ocupacion">) {
   return (
     <OcupacionChart
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
     />
   );
 }
@@ -159,7 +163,7 @@ export function ResumenPanel(props: PanelProps<"resumen">) {
   return (
     <ResumenMensualTabla
       datos={g.datos} cargando={g.cargando}
-      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} />}
+      filtros={<BarraFiltros g={g} campos={["sucursal", "profesional", "servicio"]} opciones={props.opciones} esAdmin={props.esAdmin} />}
     />
   );
 }

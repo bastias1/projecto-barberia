@@ -28,7 +28,9 @@ export default async function EstadisticasPage({ params, searchParams }: {
   params: Promise<{ slug: string }>; searchParams: Promise<SearchParams>;
 }) {
   const slug = (await params).slug;
-  const ctx = await requireStaff(slug, { admin: true });
+  // El admin ve todo; un profesional solo sus métricas y sin productos (lo fuerza la BD)
+  const ctx = await requireStaff(slug);
+  const esAdmin = ctx.isAdmin;
   if (!(await getModulosCached(ctx.barberia.id_barberia)).includes("bi")) {
     return (
       <ModuloNoDisponible
@@ -63,13 +65,16 @@ export default async function EstadisticasPage({ params, searchParams }: {
     const [ingresos, servicios, productos, demanda, ocupacion, resumen, opciones] = await Promise.all([
       getIngresos(id, rango),
       getRankingServicios(id, rango),
-      getRankingProductos(id, rango),
+      esAdmin ? getRankingProductos(id, rango) : Promise.resolve([]),
       getDemanda(id, rango),
       getOcupacion(id, rango),
       getResumenMensual(id, rango),
       getOpcionesFiltro(id),
     ]);
-    datos = { ingresos, servicios, productos, demanda, ocupacion, resumen, opciones };
+    datos = {
+      ingresos, servicios, productos, demanda, ocupacion, resumen,
+      opciones: esAdmin ? opciones : { ...opciones, profesionales: [] },
+    };
   } catch (error) {
     console.error("[estadisticas] no se pudieron cargar los datos:", error);
     datos = null;
@@ -83,8 +88,8 @@ export default async function EstadisticasPage({ params, searchParams }: {
     const noAsistio = datos.resumen.reduce((s, m) => s + m.noAsistio, 0);
     const citas = completadas + noAsistio;
     return [
-      { label: "Ingresos", valor: formatCLP(ingresos), detalle: "Servicios + productos pagados", icon: "ingresos" as const },
-      { label: "Transacciones", valor: String(transacciones), detalle: "Citas completadas y pedidos", icon: "transacciones" as const },
+      { label: "Ingresos", valor: formatCLP(ingresos), detalle: esAdmin ? "Servicios + productos pagados" : "Tus servicios completados", icon: "ingresos" as const },
+      { label: "Transacciones", valor: String(transacciones), detalle: esAdmin ? "Citas completadas y pedidos" : "Tus citas completadas", icon: "transacciones" as const },
       { label: "Ticket promedio", valor: transacciones ? formatCLP(ingresos / transacciones) : "—", detalle: "Ingresos por transacción", icon: "ticket" as const },
       { label: "Inasistencia", valor: citas ? `${Math.round((noAsistio / citas) * 1000) / 10}%` : "—", detalle: `${noAsistio} de ${citas} citas`, icon: "noshow" as const },
     ];
@@ -96,6 +101,7 @@ export default async function EstadisticasPage({ params, searchParams }: {
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100">Estadísticas</h1>
         <p className="text-zinc-600 dark:text-zinc-400 mt-1">
           {formatFecha(desde, "dd MMM yyyy")} – {formatFecha(hasta, "dd MMM yyyy")}
+          {!esAdmin && " · Tus métricas"}
         </p>
       </div>
 
@@ -145,15 +151,15 @@ export default async function EstadisticasPage({ params, searchParams }: {
         // key: al cambiar el rango los paneles se remontan y sus filtros se reinician
         <div key={`${desde}|${hasta}|${gran}`} className="space-y-6">
           <KpiTiles items={kpis} />
-          <IngresosPanel slug={slug} rango={rango} inicial={datos.ingresos} opciones={datos.opciones} />
+          <IngresosPanel slug={slug} rango={rango} inicial={datos.ingresos} opciones={datos.opciones} esAdmin={esAdmin} />
           <div className="grid gap-6 lg:grid-cols-2">
-            <ServiciosPanel slug={slug} rango={rango} inicial={datos.servicios} opciones={datos.opciones} />
-            <ProductosPanel slug={slug} rango={rango} inicial={datos.productos} opciones={datos.opciones} />
+            <ServiciosPanel slug={slug} rango={rango} inicial={datos.servicios} opciones={datos.opciones} esAdmin={esAdmin} />
+            {esAdmin && <ProductosPanel slug={slug} rango={rango} inicial={datos.productos} opciones={datos.opciones} esAdmin />}
           </div>
-          <DemandaPanel slug={slug} rango={rango} inicial={datos.demanda} opciones={datos.opciones} />
+          <DemandaPanel slug={slug} rango={rango} inicial={datos.demanda} opciones={datos.opciones} esAdmin={esAdmin} />
           <div className="grid gap-6 lg:grid-cols-2">
-            <OcupacionPanel slug={slug} rango={rango} inicial={datos.ocupacion} opciones={datos.opciones} />
-            <ResumenPanel slug={slug} rango={rango} inicial={datos.resumen} opciones={datos.opciones} />
+            <OcupacionPanel slug={slug} rango={rango} inicial={datos.ocupacion} opciones={datos.opciones} esAdmin={esAdmin} />
+            <ResumenPanel slug={slug} rango={rango} inicial={datos.resumen} opciones={datos.opciones} esAdmin={esAdmin} />
           </div>
         </div>
       )}

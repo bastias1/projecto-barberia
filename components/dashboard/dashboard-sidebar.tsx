@@ -37,7 +37,7 @@ interface DashboardSidebarProps {
 const principalItems = [
   { href: "", icon: Home, label: "Inicio" },
   { href: "/resumen", icon: BarChart3, label: "Resumen" },
-  { href: "/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi", admin: true },
+  { href: "/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi" },
 ];
 
 const managementItems = [

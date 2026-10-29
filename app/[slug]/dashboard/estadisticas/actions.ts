@@ -14,7 +14,9 @@ export async function cargarGrafico<K extends keyof DatosBI>(
   slug: string, grafico: K, rango: Rango, filtros: FiltrosBI,
 ): Promise<{ ok: true; datos: DatosBI[K] } | { ok: false }> {
   const ctx = await getStaffContext(slug);
-  if (!ctx?.isAdmin) return { ok: false };
+  if (!ctx?.isStaff) return { ok: false };
+  // Un profesional no ve productos ni a otros profesionales (la BD también lo fuerza)
+  if (!ctx.isAdmin && grafico === "productos") return { ok: false };
   if (!FECHA.test(rango.desde) || !FECHA.test(rango.hasta) || !GRANULARIDADES.includes(rango.gran)) return { ok: false };
 
   const limpios: FiltrosBI = {
