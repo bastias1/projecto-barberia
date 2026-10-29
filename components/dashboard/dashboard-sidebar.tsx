@@ -37,7 +37,7 @@ interface DashboardSidebarProps {
 const principalItems = [
   { href: "", icon: Home, label: "Inicio" },
   { href: "/resumen", icon: BarChart3, label: "Resumen" },
-  { href: "/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi" },
+  { href: "/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi", admin: true },
 ];
 
 const managementItems = [
@@ -57,7 +57,7 @@ const adminItems = [
 ];
 
 // modulo: solo se muestra si la suscripción incluye ese módulo
-type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string; modulo?: string };
+type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string; modulo?: string; admin?: boolean };
 
 // Barra inferior en móvil: accesos principales con Inicio al centro; el resto, en el menú
 const bottomItems: NavItem[] = [
@@ -73,7 +73,7 @@ export function DashboardSidebar({ barber, rol, barberiaNombre, citasHoy }: Dash
   const href = useBarberiaHref();
   const dashboardHref = (path: string) => href(`/dashboard${path}`);
   const modulos = useModulos();
-  const visible = (item: NavItem) => !item.modulo || modulos.includes(item.modulo);
+  const visible = (item: NavItem) => (!item.modulo || modulos.includes(item.modulo)) && (!item.admin || isAdminRol(rol));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const isAdmin = isAdminRol(rol);

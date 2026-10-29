@@ -56,7 +56,8 @@ BEGIN
       SELECT min(pa.created_at) AS fecha FROM public.pago pa
       WHERE pa.id_barberia = p.id_barberia AND pa.id_pedido = p.id_pedido AND pa.estado = 'aprobado'
     ) pg ON true
-    WHERE p.id_barberia = p_barberia AND p.estado_pago = 'pagado'
+    -- el pago nunca es anterior al pedido: poda los pedidos posteriores al rango
+    WHERE p.id_barberia = p_barberia AND p.estado_pago = 'pagado' AND p.created_at < p_hasta + 2
   ) x
   WHERE x.f BETWEEN p_desde AND p_hasta;
 END $$;
@@ -156,13 +157,18 @@ BEGIN
     SELECT r.id_profesional AS idp, sum(r.minutos) AS min_res
     FROM public.bi_reservas(p_barberia, p_desde, p_hasta) r
     WHERE r.estado <> 'cancelada'
+      AND NOT EXISTS (
+        SELECT 1 FROM public.dia_bloqueado b
+        WHERE b.id_barberia = p_barberia AND b.id_profesional = r.id_profesional AND b.fecha = r.fecha)
     GROUP BY r.id_profesional
   )
-  SELECT pub.idp, coalesce(pr.alias, 'Profesional')::text, pub.min_pub, coalesce(res.min_res, 0)
+  -- shortcut: citas fuera del horario publicado (p. ej. manuales) se topan en 100 %, no se recortan por franja
+  SELECT pub.idp, coalesce(pr.alias, 'Profesional')::text, pub.min_pub,
+         least(coalesce(res.min_res, 0), pub.min_pub)
   FROM pub
   LEFT JOIN res ON res.idp = pub.idp
   LEFT JOIN public.profesional pr ON pr.id_barberia = p_barberia AND pr.id_profesional = pub.idp
-  ORDER BY coalesce(res.min_res, 0) / nullif(pub.min_pub, 0) DESC NULLS LAST;
+  ORDER BY least(coalesce(res.min_res, 0), pub.min_pub) / nullif(pub.min_pub, 0) DESC NULLS LAST;
 END $$;
 
 -- KPI-06 y KPI-07 por mes. tasa_no_show es NULL si no hubo completadas ni inasistencias

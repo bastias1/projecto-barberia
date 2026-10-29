@@ -45,7 +45,8 @@ export default async function EstadisticasPage({ params, searchParams }: {
   let desde = sp.desde && FECHA.test(sp.desde) ? sp.desde : addDays(hoy, -29);
   let hasta = sp.hasta && FECHA.test(sp.hasta) ? sp.hasta : hoy;
   if (desde > hasta) [desde, hasta] = [hasta, desde];
-  if (desde < addDays(hasta, -MAX_DIAS)) desde = addDays(hasta, -MAX_DIAS);
+  const recortado = desde < addDays(hasta, -MAX_DIAS);
+  if (recortado) desde = addDays(hasta, -MAX_DIAS);
   const gran = GRANULARIDADES.find((g) => g.valor === sp.gran)?.valor ?? "day";
 
   const id = ctx.barberia.id_barberia;
@@ -66,7 +67,8 @@ export default async function EstadisticasPage({ params, searchParams }: {
       getOcupacion(id, desde, hasta),
       getResumenMensual(id, desde, hasta),
     ]);
-  } catch {
+  } catch (error) {
+    console.error("[estadisticas] no se pudieron cargar los datos:", error);
     datos = null;
   }
 
@@ -125,6 +127,12 @@ export default async function EstadisticasPage({ params, searchParams }: {
           </form>
         </CardContent>
       </Card>
+
+      {recortado && (
+        <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          El rango máximo es de 2 años: se muestra desde el {formatFecha(desde, "dd MMM yyyy")}.
+        </p>
+      )}
 
       {!datos || !kpis ? (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
