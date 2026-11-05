@@ -1,62 +1,21 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, BarChart3, PieChart, LineChart } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/staff-context";
-import { getModulosCached } from "@/lib/barberia-server";
-import { ModuloNoDisponible } from "@/components/modulo-no-disponible";
+import { EstadisticasVista, type SearchParamsBI } from "@/components/dashboard/bi/estadisticas-vista";
 
-export default async function EstadisticasPage({ params }: { params: Promise<{ slug: string }> }) {
-  const ctx = await requireStaff((await params).slug);
-    if (!(await getModulosCached(ctx.barberia.id_barberia)).includes("bi")) {
-      return (
-          <ModuloNoDisponible
-              titulo="Las estadísticas no están incluidas en tu plan"
-              descripcion="Cambia a un plan que lo incluya para activarlo."
-              volverHref={`/${ctx.barberia.slug}/dashboard/suscripcion`}
-              volverLabel="Ver planes"
-          />
-      );
-  }
+/** "Mis estadísticas": lo del barbero que mira. La de toda la barbería es Administración → Estadísticas. */
+export default async function MisEstadisticasPage({ params, searchParams }: {
+  params: Promise<{ slug: string }>; searchParams: Promise<SearchParamsBI>;
+}) {
+  const slug = (await params).slug;
+  // Sin { admin }: entra el barbero y también el admin que atiende
+  const ctx = await requireStaff(slug);
+  // Sin agenda propia no hay métricas propias: el admin va a las del negocio
+  if (!ctx.isProfesional) redirect(ctx.isAdmin ? `/${slug}/dashboard/administracion/estadisticas` : `/${slug}/dashboard`);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100">
-          Estadísticas
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-          Reportes y análisis detallados
-        </p>
-      </div>
-
-      {/* Coming Soon Card */}
-      <Card className="border-2">
-        <CardHeader className="text-center pb-4">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center mb-4">
-            <TrendingUp className="h-8 w-8 text-white" />
-          </div>
-          <CardTitle className="text-2xl">Análisis y Reportes</CardTitle>
-          <CardDescription>Esta función estará disponible próximamente</CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-zinc-600 dark:text-zinc-400 mb-6">
-            Aquí podrás ver gráficos detallados, tendencias de citas, ingresos mensuales y análisis de rendimiento.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg">
-              <BarChart3 className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
-              <p className="text-sm font-medium">Reportes Mensuales</p>
-            </div>
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg">
-              <PieChart className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
-              <p className="text-sm font-medium">Distribución de Servicios</p>
-            </div>
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg">
-              <LineChart className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
-              <p className="text-sm font-medium">Tendencias</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <EstadisticasVista
+      slug={slug} ctx={ctx} modo="propio" searchParams={await searchParams}
+      basePath={`/${slug}/dashboard/estadisticas`}
+    />
   );
 }

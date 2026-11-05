@@ -29,15 +29,17 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
+    // Altura fija del viewport: solo scrollea <main>; sin esto el documento también scrollea y deja una franja vacía abajo
+    <div className="h-dvh overflow-hidden bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
       {/* Main Layout with Sidebar */}
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-full overflow-hidden">
         {/* Sidebar */}
-        <DashboardSidebar barber={barber} rol={ctx.rol} barberiaNombre={ctx.barberia.nombre} citasHoy={citasHoy} />
+        <DashboardSidebar barber={barber} rol={ctx.rol} barberiaNombre={ctx.barberia.nombre} citasHoy={citasHoy} esProfesional={ctx.isProfesional} />
         {ctx.isProfesional && <ReservasRealtime profesionalId={ctx.userId} />}
 
         {/* Main Content */}
-        <main id="contenido" className="flex-1 overflow-y-auto p-3 pb-24 md:p-6 lg:p-8">
+        {/* relative: los elementos absolute de abajo (p. ej. sr-only) quedan dentro del scroll de <main> y no estiran el documento */}
+        <main id="contenido" className="relative min-w-0 flex-1 overflow-y-auto p-3 pb-24 md:p-6 lg:p-8">
           {!vigente && (
             <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
               <AlertTriangle className="h-5 w-5 flex-shrink-0" />

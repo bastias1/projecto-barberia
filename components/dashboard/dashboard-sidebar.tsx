@@ -31,13 +31,14 @@ interface DashboardSidebarProps {
   rol: RolApp;
   barberiaNombre: string;
   citasHoy: number; // pendientes o confirmadas de hoy
+  esProfesional: boolean; // tiene agenda propia (ficha de profesional)
 }
 
 // Rutas relativas a /<slug>/dashboard
 const principalItems = [
   { href: "", icon: Home, label: "Inicio" },
   { href: "/resumen", icon: BarChart3, label: "Resumen" },
-  { href: "/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi" },
+  { href: "/estadisticas", icon: TrendingUp, label: "Mis estadísticas", modulo: "bi", profesional: true },
 ];
 
 const managementItems = [
@@ -51,13 +52,14 @@ const managementItems = [
 const adminItems = [
   { href: "/usuarios", icon: UserPlus, label: "Equipo" },
   { href: "/barberia", icon: Store, label: "Mi Barbería" },
+  { href: "/administracion/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi" },
   { href: "/suscripcion", icon: CreditCard, label: "Suscripción" },
   { href: "/productos", icon: Package, label: "Productos", modulo: "ecommerce" },
   { href: "/pedidos", icon: Package, label: "Pedidos", modulo: "ecommerce" },
 ];
 
-// modulo: solo se muestra si la suscripción incluye ese módulo
-type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string; modulo?: string };
+// modulo: solo se muestra si la suscripción incluye ese módulo; profesional: solo a quien tiene agenda propia
+type NavItem = { href: string; icon: React.ComponentType<{ className?: string }>; label: string; modulo?: string; profesional?: boolean };
 
 // Barra inferior en móvil: accesos principales con Inicio al centro; el resto, en el menú
 const bottomItems: NavItem[] = [
@@ -67,13 +69,13 @@ const bottomItems: NavItem[] = [
   { href: "/clientes", icon: Users, label: "Clientes" },
 ];
 
-export function DashboardSidebar({ barber, rol, barberiaNombre, citasHoy }: DashboardSidebarProps) {
+export function DashboardSidebar({ barber, rol, barberiaNombre, citasHoy, esProfesional }: DashboardSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const href = useBarberiaHref();
   const dashboardHref = (path: string) => href(`/dashboard${path}`);
   const modulos = useModulos();
-  const visible = (item: NavItem) => !item.modulo || modulos.includes(item.modulo);
+  const visible = (item: NavItem) => (!item.modulo || modulos.includes(item.modulo)) && (!item.profesional || esProfesional);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const isAdmin = isAdminRol(rol);

@@ -459,10 +459,10 @@ Implementar como tests (Vitest/Playwright/SQL). El informe define 53 casos; los 
 | HU-23 | 🟡 | Pago con tarjeta (Orders API), webhook con firma, se guarda el id de transacción, nunca la tarjeta, rechazo deja el pedido pendiente | El stock se descuenta al **crear** el pedido, no al aprobar el pago (ver divergencia en CLAUDE.md) |
 | HU-11 | 🟡 | Reglas en BD (`validar_resena`: cita completada / producto entregado, una vez, invitados solo servicios), carrusel público, rating por producto, link de reseña por correo | Promedio y nº de reseñas **de la barbería** visible; restringir al plan Pro (no existe módulo `resenas`) |
 | HU-12 | 🟡 | Correos de reserva, pedido entregado e invitación (Resend) | Reintento de envíos fallidos y registro de envíos (hoy solo `console.error`) |
-| HU-13 | ❌ | Tarjeta "Ingresos del mes" (solo reservas) en el resumen | Dashboard de ingresos día/semana/mes (servicios + pedidos pagados) en vistas SQL |
-| HU-14 | ❌ | — | Ranking de servicios y productos |
-| HU-15 | ❌ | — | Demanda por día de semana y franja |
-| HU-16 | ❌ | — | Rango de fechas que recalcule todos los indicadores |
+| HU-13 | 🟡 | `/[slug]/dashboard/estadisticas` (solo admin con `bi`): ingresos por día/semana/mes (servicios completados + pedidos pagados) con funciones SQL `bi_*` (`BI.sql`) | Medir <5 s p95 (CP-04); pruebas de CP-29/CP-50 |
+| HU-14 | ✅ | Ranking de servicios (citas completadas) y productos (unidades en pedidos pagados) | — |
+| HU-15 | ✅ | Demanda por día de semana y hora local, con el día de mayor y menor demanda | — |
+| HU-16 | 🟡 | Rango de fechas (más atajos 7 d/30 d/6 m) que recalcula todos los indicadores; cada gráfico muestra "sin datos suficientes" | Estado vacío propio en las tarjetas KPI y la tabla mensual; el rango se recorta a 2 años con aviso |
 | HU-25 | 🟡 | Tabla `prediccion_demanda` (con datos) y trigger que exige `bi` | Pantalla que la muestre con margen de error; filtro MAPE < 20 %; estado "aún no disponible" |
 | HU-17 | ✅ | `/registro` (RPC `registrar_barberia`): quien registra queda admin, primera sucursal con dirección, comuna, región y zona horaria; RLS | — |
 | HU-18 | 🟡 | Planes como datos, módulos restringidos en UI y BD, cobro recurrente (preapproval MP), historial de pagos, BI no se vende suelto | Un cobro fallido no inactiva al tiro: la barbería vence en `fecha_termino` (+5 días de gracia). Los límites cargados no coinciden con §4 (hoy Básico 2 prof., Pro 5 prof./2 suc.) |
@@ -470,8 +470,8 @@ Implementar como tests (Vitest/Playwright/SQL). El informe define 53 casos; los 
 
 Fuera de las HU:
 - §7.6 procesos automáticos: no hay `pg_cron` ni cron de Vercel → no existe el paso automático a "no asistió" ni reintentos.
-- §9 KPIs: no hay vistas SQL de KPI-01..07.
+- §9 KPIs: KPI-01..07 están en funciones SQL con parámetros `bi_*` (no vistas, porque necesitan rango de fechas), solo para admin con `bi`. Parciales: KPI-02 y KPI-05 no traen el desglose por día (KPI-05 va por profesional sobre el rango y se topa en 100 %); la fecha de un pedido pagado es la de su primer pago aprobado (la spec no la define). KPI-08 sigue en `/admin`.
 - Ley 21.719: existen `consentimiento` y las funciones `anonimizar_usuario` / `anonimizar_guest`, pero no hay flujo para que el titular pida la supresión.
 - §11: no hay suite de tests.
 
-Siguiente bloque sugerido (orden WSJF, §6): HU-21 y HU-02 (reservar con cuenta), luego HU-13/14 (BI), luego HU-22, HU-09 y HU-12.
+Siguiente bloque sugerido (orden WSJF, §6): HU-21 y HU-02 (reservar con cuenta), luego HU-22, HU-09 y HU-12. HU-25 (pronóstico) queda para una fase aparte.
