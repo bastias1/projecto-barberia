@@ -25,7 +25,7 @@ export interface CrearReservaInput {
 
 export type CrearReservaResult =
   | { success: true; idReserva: number }
-  | { success: false; error: string };
+  | { success: false; error: string; horarioTomado?: boolean };
 
 export async function crearReserva(input: CrearReservaInput): Promise<CrearReservaResult> {
   const supabase = await createClient();
@@ -69,7 +69,7 @@ export async function crearReserva(input: CrearReservaInput): Promise<CrearReser
       return { success: false, error: "Tu sesión expiró. Inicia sesión de nuevo o reserva con otros datos." };
     }
     if (error.code === "23P01") {
-      return { success: false, error: "Ese horario acaba de ser reservado. Por favor elige otro." };
+      return { success: false, error: "Ese horario acaba de ser reservado. Por favor elige otro.", horarioTomado: true };
     }
     if (error.code === "23514") {
       // Mensajes de validación de los triggers (horario, día bloqueado, etc.)

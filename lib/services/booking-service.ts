@@ -90,3 +90,22 @@ export async function getAvailableTimeSlots(
 
   return Array.from(slots.values()).sort((a, b) => a.hora.localeCompare(b.hora));
 }
+
+/**
+ * HU-02: primer día después de `desde` con algún horario libre (hasta `maxDias`), o null.
+ * shortcut: consulta día por día (unas 4 llamadas por día); pasar a una RPC si se vuelve lento
+ */
+export async function getProximaFechaDisponible(
+  idBarberia: string,
+  desde: Date,
+  barberId: string,
+  duracionMin: number,
+  idSucursal?: number,
+  maxDias = 30,
+): Promise<Date | null> {
+  for (let i = 1; i <= maxDias; i++) {
+    const fecha = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + i);
+    if ((await getAvailableTimeSlots(idBarberia, fecha, barberId, duracionMin, idSucursal)).length > 0) return fecha;
+  }
+  return null;
+}
