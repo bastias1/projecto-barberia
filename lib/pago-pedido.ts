@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Order } from "mercadopago";
+import { notificarStockBajo } from "./notifications";
 
 type OrderResponse = Awaited<ReturnType<Order["get"]>>;
 
@@ -126,5 +127,7 @@ export async function registrarPagoOrder(supabase: SupabaseClient, order: OrderR
     console.error("Error recording order payment:", error);
     return null;
   }
+  // El pago aprobado descontó stock (trigger): avisa si algún producto quedó bajo su mínimo
+  if (estado === "aprobado") await notificarStockBajo(pedido.id_barberia).catch((e) => console.error("Error en alerta de stock:", e));
   return estado;
 }

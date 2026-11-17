@@ -99,6 +99,7 @@ export function BarberiaForm({ barberia }: { barberia: Barberia }) {
     instagram: barberia.instagram ?? "",
     telefono: barberia.telefono ?? "",
     email_contacto: barberia.email_contacto ?? "",
+    plazo_horas: String(barberia.plazo_cancelacion_min / 60),
   });
   const [logo, setLogo] = useState<string | null>(barberia.logo_url);
   const [logoOscuro, setLogoOscuro] = useState<string | null>(barberia.logo_oscuro_url);
@@ -136,6 +137,12 @@ export function BarberiaForm({ barberia }: { barberia: Barberia }) {
       return;
     }
 
+    const plazoMin = Math.round(Number(form.plazo_horas) * 60);
+    if (!Number.isFinite(plazoMin) || plazoMin < 0) {
+      toast.error("El plazo para cancelar debe ser 0 o más horas");
+      return;
+    }
+
     setGuardando(true);
     const supabase = createClient();
     // RLS: solo el admin de la barbería puede actualizarla
@@ -148,6 +155,7 @@ export function BarberiaForm({ barberia }: { barberia: Barberia }) {
         instagram: form.instagram.trim() || null,
         telefono: form.telefono.trim() || null,
         email_contacto: form.email_contacto.trim().toLowerCase() || null,
+        plazo_cancelacion_min: plazoMin,
         logo_url: logo,
         logo_oscuro_url: logoOscuro,
         galeria,
@@ -207,6 +215,11 @@ export function BarberiaForm({ barberia }: { barberia: Barberia }) {
             <div className="space-y-2">
               <Label htmlFor="email_contacto">Correo de contacto</Label>
               <Input id="email_contacto" type="email" value={form.email_contacto} onChange={set("email_contacto")} maxLength={120} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plazo_horas">Plazo para cancelar o reprogramar (horas)</Label>
+              <Input id="plazo_horas" type="number" min={0} step={0.5} value={form.plazo_horas} onChange={set("plazo_horas")} aria-describedby="plazo_ayuda" />
+              <p id="plazo_ayuda" className="text-xs text-muted-foreground">Tus clientes pueden cancelar o cambiar la hora hasta este tiempo antes de la cita.</p>
             </div>
           </div>
         </CardContent>

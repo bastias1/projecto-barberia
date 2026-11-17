@@ -17,20 +17,44 @@ interface ContactFormProps {
     aceptaPrivacidad: boolean;
   };
   onFormChange: (data: any) => void;
+  /** Datos de la cuenta con sesión (HU-02); null = sin sesión, solo invitado */
+  cuenta?: { firstName: string; lastName: string; email: string; phone: string } | null;
+  usarCuenta?: boolean;
+  onUsarCuentaChange?: (usar: boolean) => void;
   onBack: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }
 
-export function ContactForm({ formData, onFormChange, onBack, onSubmit }: ContactFormProps) {
+export function ContactForm({ formData, onFormChange, cuenta, usarCuenta, onUsarCuentaChange, onBack, onSubmit }: ContactFormProps) {
+  const conCuenta = !!cuenta && !!usarCuenta;
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card className="border-2">
         <CardHeader>
           <CardTitle className="text-xl md:text-2xl">Información de Contacto</CardTitle>
-          <CardDescription className="text-sm">Completa tus datos para confirmar la reserva</CardDescription>
+          <CardDescription className="text-sm">
+            {conCuenta ? "La reserva quedará a nombre de tu cuenta" : "Completa tus datos para confirmar la reserva"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
+            {cuenta && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                {conCuenta ? (
+                  <div className="min-w-0">
+                    <p className="font-medium">{cuenta.firstName} {cuenta.lastName}</p>
+                    <p className="text-zinc-600 dark:text-zinc-400 break-all">{cuenta.email}{cuenta.phone && ` · ${cuenta.phone}`}</p>
+                  </div>
+                ) : (
+                  <p className="text-zinc-600 dark:text-zinc-400">Reservando con otros datos, sin usar tu cuenta.</p>
+                )}
+                <Button type="button" variant="ghost" size="sm" onClick={() => onUsarCuentaChange?.(!conCuenta)}>
+                  {conCuenta ? "Reservar con otros datos" : "Usar mi cuenta"}
+                </Button>
+              </div>
+            )}
+
+            {!conCuenta && (<>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName" className="text-sm md:text-base">Nombre *</Label>
@@ -98,13 +122,14 @@ export function ContactForm({ formData, onFormChange, onBack, onSubmit }: Contac
                 </span>
               </Label>
             </div>
+            </>)}
 
             <div className="flex gap-2 md:gap-3 pt-4">
               <Button type="button" variant="outline" onClick={onBack} className="flex-1">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Atrás
               </Button>
-              <Button type="submit" className="flex-1" disabled={!formData.aceptaPrivacidad}>
+              <Button type="submit" className="flex-1" disabled={!conCuenta && !formData.aceptaPrivacidad}>
                 <span className="hidden sm:inline">Confirmar Reserva</span>
                 <span className="sm:hidden">Confirmar</span>
                 <Check className="h-4 w-4 ml-2" />

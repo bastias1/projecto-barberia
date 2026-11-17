@@ -25,7 +25,8 @@ export async function crearCitaManual(input: CrearCitaManualInput): Promise<Crea
   }
 
   const { confirmar, ...reserva } = input;
-  const result = await crearReserva(reserva);
+  // La cita es del cliente, nunca de la cuenta del personal que la registra
+  const result = await crearReserva({ ...reserva, conCuenta: false });
   if (!result.success) {
     return result.error === "CLIENT_BLOCKED"
       ? { success: false, error: "Este cliente está bloqueado en la barbería" }

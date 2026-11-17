@@ -26,6 +26,7 @@ interface DateTimeSelectionProps {
   onTimeSelect: (time: string) => void;
   onBack: () => void;
   onContinue: () => void;
+  continueLabel?: string; // p. ej. "Cambiar la hora" al reprogramar
 }
 
 export function DateTimeSelection({
@@ -36,7 +37,8 @@ export function DateTimeSelection({
   onDateSelect,
   onTimeSelect,
   onBack,
-  onContinue
+  onContinue,
+  continueLabel = "Continuar"
 }: DateTimeSelectionProps) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -130,7 +132,7 @@ export function DateTimeSelection({
               disabled={!selectedDate || !selectedTime}
               className="flex-1"
             >
-              Continuar
+              {continueLabel}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>

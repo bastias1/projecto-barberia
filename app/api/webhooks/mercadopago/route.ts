@@ -145,6 +145,10 @@ export async function POST(request: Request) {
                         console.error('Error recording payment:', error);
                     } else {
                         console.log(`Order ${pedido.id_pedido} payment recorded as ${estado}`);
+                        if (estado === 'aprobado') {
+                            const { notificarStockBajo } = await import("@/lib/notifications");
+                            await notificarStockBajo(pedido.id_barberia).catch((e) => console.error('Error en alerta de stock:', e));
+                        }
                     }
                 }
             } catch (error) {

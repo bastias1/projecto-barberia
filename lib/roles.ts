@@ -65,32 +65,19 @@ export async function esSuperadmin(supabase: SupabaseClient, userId: string): Pr
   return data?.rol === "superadmin";
 }
 
-// Rutas a las que el personal sí debe llegar aunque tenga dashboard
-const RUTAS_DE_TRABAJO = [/^\/invitacion\//, /^\/registro/, /^\/cuenta/, /\/dashboard(\/|$|\?)/];
-
 /**
  * A dónde llevar a un usuario tras iniciar sesión.
- * - Personal (admin o barbero): a su dashboard (el de la barbería de origen si
- *   trabaja ahí), salvo que `next` sea una ruta de trabajo (invitación,
- *   registro de barbería, su cuenta o un dashboard).
- * - Cliente o sin barbería: a `next`, o a la barbería de origen, o a su cuenta
- *   (invitaciones, barberías y crear la suya).
- * - Administrador de plataforma sin barbería de origen: al panel /admin.
+ * 1. A `next` si viene: es la página que pidió (checkout, tienda, un dashboard…).
+ * 2. Con barbería de origen: a su dashboard si trabaja ahí; si no, a su página
+ *    (nunca al dashboard de otra barbería).
+ * 3. Sin contexto: el administrador de plataforma a /admin; quien trabaja en una
+ *    sola barbería, a su dashboard; el resto a su cuenta (ahí elige barbería).
  */
 export function destinoTrasLogin(membresias: Membresia[], slug?: string | null, next?: string | null, superadmin = false): string {
-  const staff = (m: Membresia) => m.rol === "admin" || m.rol === "profesional";
-  const trabajo = membresias.filter(staff);
-
-  if (superadmin && !slug && !(next && RUTAS_DE_TRABAJO.some((r) => r.test(next)))) {
-    return next?.startsWith("/admin") ? next : "/admin";
-  }
-
-  if (trabajo.length > 0) {
-    if (next && RUTAS_DE_TRABAJO.some((r) => r.test(next))) return next;
-    const enEsta = slug ? trabajo.find((m) => m.slug === slug) : undefined;
-    return `/${(enEsta ?? trabajo[0]).slug}/dashboard`;
-  }
-
   if (next) return next;
-  return slug ? `/${slug}` : "/cuenta";
+
+  const trabajo = membresias.filter((m) => m.rol === "admin" || m.rol === "profesional");
+  if (slug) return trabajo.some((m) => m.slug === slug) ? `/${slug}/dashboard` : `/${slug}`;
+  if (superadmin) return "/admin";
+  return trabajo.length === 1 ? `/${trabajo[0].slug}/dashboard` : "/cuenta";
 }

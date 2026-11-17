@@ -67,6 +67,10 @@ function Agendar() {
     phone: "",
     aceptaPrivacidad: false
   });
+  // HU-02: con sesión se reserva a nombre de la cuenta, salvo que se elija usar otros datos
+  const [cuenta, setCuenta] = useState<{ firstName: string; lastName: string; email: string; phone: string } | null>(null);
+  const [usarCuenta, setUsarCuenta] = useState(true);
+  const conCuenta = cuenta !== null && usarCuenta;
 
   // Sucursales activas; se preselecciona la del link o la única que haya
   useEffect(() => {
@@ -101,6 +105,12 @@ function Agendar() {
         .eq("id_usuario", user.id)
         .maybeSingle();
       if (!data) return;
+      setCuenta({
+        firstName: data.nombre || "",
+        lastName: data.apellido || "",
+        email: data.email || user.email || "",
+        phone: data.telefono || "",
+      });
       setFormData((prev) => ({
         ...prev,
         firstName: prev.firstName || data.nombre || "",
@@ -216,6 +226,7 @@ function Agendar() {
           phone: formData.phone,
         },
         aceptaPrivacidad: formData.aceptaPrivacidad,
+        conCuenta,
       });
 
       if (result.success) {
@@ -377,6 +388,9 @@ function Agendar() {
           <ContactForm
             formData={formData}
             onFormChange={setFormData}
+            cuenta={cuenta}
+            usarCuenta={usarCuenta}
+            onUsarCuentaChange={setUsarCuenta}
             onBack={() => setStep(3)}
             onSubmit={handleFormSubmit}
           />
@@ -388,7 +402,7 @@ function Agendar() {
             selectedService={selectedService}
             selectedDate={selectedDate}
             selectedTime={selectedTime}
-            formData={formData}
+            formData={conCuenta ? { ...formData, ...cuenta } : formData}
             sucursal={selectedSucursal}
             onNewBooking={resetBooking}
           />

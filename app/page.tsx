@@ -95,6 +95,7 @@ export default async function PlataformaHome() {
             <a href="#funcionalidades" className="hover:text-foreground transition-colors">Funcionalidades</a>
             <a href="#como-funciona" className="hover:text-foreground transition-colors">Cómo funciona</a>
             <a href="#planes" className="hover:text-foreground transition-colors">Planes</a>
+            <Link href="/barberias" className="hover:text-foreground transition-colors">Buscar barberías</Link>
           </div>
           <div className="flex items-center gap-2">
             <ModeToggle />
@@ -136,6 +137,10 @@ export default async function PlataformaHome() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-4">Sin tarjeta de crédito para empezar.</p>
+          <p className="text-sm text-muted-foreground mt-6">
+            ¿Buscas dónde cortarte el pelo?{" "}
+            <Link href="/barberias" className="underline underline-offset-4 hover:text-foreground">Encuentra tu barbería</Link>
+          </p>
         </section>
 
         {/* Features */}

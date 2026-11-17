@@ -86,6 +86,8 @@ CREATE TABLE public.barberia (
   descripcion     text,
   instagram       text,
   galeria         text[]      NOT NULL DEFAULT '{}',
+  plazo_cancelacion_min integer NOT NULL DEFAULT 120   -- HU-22: anticipación mínima para que el cliente cancele o reprograme
+    CONSTRAINT barberia_plazo_cancelacion_check CHECK (plazo_cancelacion_min >= 0),
   activa         boolean     NOT NULL DEFAULT true,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
@@ -97,7 +99,7 @@ CREATE TABLE public.barberia (
     'api','auth','login','signup','registro','resena','error','private','dashboard',
     'admin','superadmin','static','public','www','app','planes','precios','ayuda',
     'soporte','contacto','terminos','privacidad','cuenta','perfil','profile','invitacion',
-    'eliminar-datos','reembolsos','cookies',
+    'eliminar-datos','reembolsos','cookies','barberias','buscar',
     -- rutas del sitio antiguo, redirigidas a /benjvmin/... (next.config.ts)
     'agendar','tienda','cart','carrito','checkout','booking-confirmed','booking-cancelled'
   ]))
@@ -400,7 +402,7 @@ $$;
 CREATE OR REPLACE FUNCTION private.slug_sucursal_reservado(p_slug text)
 RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
   SELECT p_slug = ANY (ARRAY['agendar','tienda','cart','carrito','checkout','profile','dashboard',
-                             'booking-confirmed','booking-cancelled'])
+                             'booking-confirmed','booking-cancelled','reprogramar'])
 $$;
 
 -- La página de la sucursal es /<barberia>/<slug>; si no se indica se genera desde el nombre
@@ -576,6 +578,7 @@ CREATE TABLE public.producto (
   imagen_url   text,
   tag          text,
   activo       boolean          NOT NULL DEFAULT true,
+  alerta_stock_at timestamptz,                         -- correo de stock bajo ya enviado (se limpia al reponer)
   created_at   timestamptz      NOT NULL DEFAULT now(),
   updated_at   timestamptz      NOT NULL DEFAULT now(),
   CONSTRAINT producto_pkey PRIMARY KEY (id_producto),
@@ -595,6 +598,7 @@ CREATE TABLE public.pedido (
   monto_total     public.monto_clp NOT NULL DEFAULT 0,             -- suma de detalle_pedido (trigger)
   tipo_entrega    text             NOT NULL DEFAULT 'retiro',
   direccion_envio text,                            -- copia de la dirección al comprar
+  stock_descontado boolean         NOT NULL DEFAULT false,         -- lo maneja pedido_antes_de_guardar
   created_at      timestamptz      NOT NULL DEFAULT now(),
   updated_at      timestamptz      NOT NULL DEFAULT now(),
   CONSTRAINT pedido_pkey PRIMARY KEY (id_pedido),
@@ -1007,6 +1011,7 @@ BEGIN
   IF TG_OP = 'INSERT' THEN
     NEW.monto_total := 0;                           -- se suma al agregar detalles
     NEW.estado_pago := 'pendiente';                 -- lo actualiza la tabla pago
+    NEW.stock_descontado := false;
     IF NEW.id_cliente IS NOT NULL THEN
       PERFORM public.asegurar_membresia_cliente(NEW.id_barberia, NEW.id_cliente);
     END IF;
@@ -1018,8 +1023,25 @@ BEGIN
     NEW.monto_total := OLD.monto_total;
     NEW.estado_pago := OLD.estado_pago;
   END IF;
+  NEW.stock_descontado := OLD.stock_descontado;
   IF OLD.estado = 'cancelado' AND NEW.estado <> 'cancelado' THEN
     RAISE EXCEPTION 'Un pedido cancelado no se puede reactivar' USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- HU-23: el stock se descuenta al quedar pagado y se devuelve al cancelar (solo si se descontó)
+  IF NEW.estado_pago = 'pagado' AND NEW.estado <> 'cancelado' AND NOT NEW.stock_descontado THEN
+    -- Si dos compras pagan la última unidad, el stock queda en 0 (nunca negativo): el pago no se pierde
+    UPDATE public.producto pr SET stock = greatest(pr.stock - d.cantidad, 0)
+    FROM public.detalle_pedido d
+    WHERE d.id_barberia = NEW.id_barberia AND d.id_pedido = NEW.id_pedido
+      AND pr.id_barberia = d.id_barberia AND pr.id_producto = d.id_producto;
+    NEW.stock_descontado := true;
+  ELSIF NEW.estado = 'cancelado' AND NEW.stock_descontado THEN
+    UPDATE public.producto pr SET stock = pr.stock + d.cantidad
+    FROM public.detalle_pedido d
+    WHERE d.id_barberia = NEW.id_barberia AND d.id_pedido = NEW.id_pedido
+      AND pr.id_barberia = d.id_barberia AND pr.id_producto = d.id_producto;
+    NEW.stock_descontado := false;
   END IF;
   RETURN NEW;
 END $$;
@@ -1037,13 +1059,14 @@ RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
   WHERE p.id_barberia = p_barberia AND p.id_pedido = p_pedido;
 $$;
 
--- 9.5 Detalle de pedido: precio vigente, descuento de stock con bloqueo
+-- 9.5 Detalle de pedido: precio vigente y validación de stock (se descuenta al pagar, 9.4)
 CREATE FUNCTION public.detalle_pedido_antes()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_estado text;
   v_precio numeric;
   v_activo boolean;
+  v_stock  integer;
 BEGIN
   IF TG_OP = 'UPDATE' THEN
     RAISE EXCEPTION 'El detalle de un pedido no se modifica: elimínelo y agréguelo de nuevo'
@@ -1058,31 +1081,22 @@ BEGIN
     IF v_estado IS DISTINCT FROM 'pendiente' THEN
       RAISE EXCEPTION 'Solo se pueden agregar productos a un pedido pendiente' USING ERRCODE = 'check_violation';
     END IF;
-    SELECT pr.precio, pr.activo INTO v_precio, v_activo
+    SELECT pr.precio, pr.activo, pr.stock INTO v_precio, v_activo, v_stock
     FROM public.producto pr
     WHERE pr.id_barberia = NEW.id_barberia AND pr.id_producto = NEW.id_producto;
     IF NOT FOUND OR NOT v_activo THEN
       RAISE EXCEPTION 'El producto no está disponible' USING ERRCODE = 'check_violation';
     END IF;
-    NEW.precio_unitario := v_precio;              -- el cliente no fija el precio
-    UPDATE public.producto
-    SET stock = stock - NEW.cantidad
-    WHERE id_barberia = NEW.id_barberia AND id_producto = NEW.id_producto
-      AND stock >= NEW.cantidad;                  -- el UPDATE bloquea la fila: sin sobreventa
-    IF NOT FOUND THEN
+    IF v_stock < NEW.cantidad THEN
       RAISE EXCEPTION 'Stock insuficiente para el producto %', NEW.id_producto USING ERRCODE = 'check_violation';
     END IF;
+    NEW.precio_unitario := v_precio;              -- el cliente no fija el precio
     RETURN NEW;
   END IF;
 
-  -- DELETE: solo en pedidos pendientes (o en cascada al borrar el pedido);
-  -- devuelve el stock salvo que el pedido ya esté cancelado (ya se devolvió)
+  -- DELETE: solo en pedidos pendientes (o en cascada al borrar el pedido)
   IF v_estado IS NOT NULL AND v_estado NOT IN ('pendiente','cancelado') THEN
     RAISE EXCEPTION 'Solo se pueden quitar productos de un pedido pendiente' USING ERRCODE = 'check_violation';
-  END IF;
-  IF v_estado IS DISTINCT FROM 'cancelado' THEN
-    UPDATE public.producto SET stock = stock + OLD.cantidad
-    WHERE id_barberia = OLD.id_barberia AND id_producto = OLD.id_producto;
   END IF;
   RETURN OLD;
 END $$;
@@ -1103,23 +1117,63 @@ CREATE TRIGGER detalle_pedido_despues
   AFTER INSERT OR DELETE ON public.detalle_pedido
   FOR EACH ROW EXECUTE FUNCTION public.detalle_pedido_despues();
 
--- 9.6 Al cancelar un pedido se devuelve el stock
-CREATE FUNCTION public.devolver_stock_pedido_cancelado()
+-- 9.6 Movimientos de stock (HU-08): todo cambio de producto.stock queda registrado
+CREATE TABLE public.movimiento_stock (
+  id_movimiento    bigint      GENERATED ALWAYS AS IDENTITY,
+  id_barberia      uuid        NOT NULL,
+  id_producto      bigint      NOT NULL,
+  tipo             text        NOT NULL,
+  cantidad         integer     NOT NULL,            -- con signo
+  stock_resultante integer     NOT NULL,
+  id_usuario       uuid,                            -- NULL = sistema (pago por webhook)
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT movimiento_stock_pkey PRIMARY KEY (id_movimiento),
+  CONSTRAINT movimiento_stock_producto_fkey FOREIGN KEY (id_barberia, id_producto)
+             REFERENCES public.producto(id_barberia, id_producto) ON DELETE CASCADE,
+  CONSTRAINT movimiento_stock_tipo_check CHECK (tipo IN ('ingreso','ajuste','venta','devolucion')),
+  CONSTRAINT movimiento_stock_cantidad_check CHECK (cantidad <> 0)
+);
+CREATE INDEX movimiento_stock_producto_idx ON public.movimiento_stock (id_barberia, id_producto, created_at DESC);
+
+CREATE FUNCTION public.registrar_movimiento_stock()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_delta integer := NEW.stock - CASE WHEN TG_OP = 'UPDATE' THEN OLD.stock ELSE 0 END;
 BEGIN
-  IF NEW.estado = 'cancelado' AND OLD.estado <> 'cancelado' THEN
-    UPDATE public.producto pr
-    SET stock = pr.stock + d.cantidad
-    FROM public.detalle_pedido d
-    WHERE d.id_barberia = NEW.id_barberia AND d.id_pedido = NEW.id_pedido
-      AND pr.id_barberia = d.id_barberia AND pr.id_producto = d.id_producto;
+  IF v_delta <> 0 THEN
+    INSERT INTO public.movimiento_stock (id_barberia, id_producto, tipo, cantidad, stock_resultante, id_usuario)
+    VALUES (NEW.id_barberia, NEW.id_producto,
+            CASE WHEN pg_trigger_depth() > 1 THEN CASE WHEN v_delta < 0 THEN 'venta' ELSE 'devolucion' END  -- desde un pedido
+                 WHEN v_delta > 0 THEN 'ingreso' ELSE 'ajuste' END,
+            v_delta, NEW.stock, auth.uid());
+  END IF;
+  -- Repuesto sobre el mínimo: la próxima baja vuelve a avisar (HU-09)
+  IF NEW.stock > NEW.stock_minimo AND NEW.alerta_stock_at IS NOT NULL THEN
+    UPDATE public.producto SET alerta_stock_at = NULL WHERE id_producto = NEW.id_producto;
   END IF;
   RETURN NULL;
 END $$;
 
-CREATE TRIGGER pedido_devolver_stock
-  AFTER UPDATE OF estado ON public.pedido
-  FOR EACH ROW EXECUTE FUNCTION public.devolver_stock_pedido_cancelado();
+CREATE TRIGGER producto_movimiento_stock
+  AFTER INSERT OR UPDATE OF stock, stock_minimo ON public.producto
+  FOR EACH ROW EXECUTE FUNCTION public.registrar_movimiento_stock();
+
+-- Ingreso de stock (suma relativa: no pisa ventas simultáneas). RLS: solo el admin
+CREATE FUNCTION public.ingresar_stock(p_id_producto bigint, p_cantidad integer)
+RETURNS integer LANGUAGE sql SECURITY INVOKER SET search_path = '' AS $$
+  UPDATE public.producto SET stock = stock + p_cantidad
+  WHERE id_producto = p_id_producto AND p_cantidad > 0
+  RETURNING stock;
+$$;
+
+-- Productos activos bajo el mínimo que aún no avisaron: los marca y los devuelve (un correo por baja)
+CREATE FUNCTION public.reclamar_alertas_stock(p_barberia uuid)
+RETURNS TABLE (nombre text, stock integer, stock_minimo integer)
+LANGUAGE sql SECURITY INVOKER SET search_path = '' AS $$
+  UPDATE public.producto pr SET alerta_stock_at = now()
+  WHERE pr.id_barberia = p_barberia AND pr.activo AND pr.stock <= pr.stock_minimo AND pr.alerta_stock_at IS NULL
+  RETURNING pr.nombre, pr.stock, pr.stock_minimo;
+$$;
 
 -- 9.7 Un pago aprobado/rechazado/reembolsado actualiza el estado de pago del pedido
 CREATE FUNCTION public.aplicar_pago_a_pedido()

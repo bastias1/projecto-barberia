@@ -2,7 +2,7 @@ import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getBarberiaById, DEFAULT_TZ } from "./barberia";
 import { formatCLP, formatFecha, toZoned } from "./datetime";
 import { emailButton, emailDetalle, emailLayout, escapeHtml, sendEmail } from "./email";
-import { bookingActionUrl, getSiteUrl, reviewUrl } from "./signed-links";
+import { bookingActionUrl, getSiteUrl, reprogramarUrl, reviewUrl } from "./signed-links";
 import { one } from "./utils";
 
 /*
@@ -86,12 +86,44 @@ export async function notificarReservaCreada(idReserva: number): Promise<void> {
        ["Total", formatCLP(info.reserva.monto)],
      ])}
      <p style="margin:0 0 12px">Por favor confirma tu asistencia:</p>
-     <p style="margin:0">${emailButton(confirmar, "Confirmar cita", "#16a34a")}${emailButton(cancelar, "Cancelar cita", "#dc2626")}</p>`,
+     <p style="margin:0">${emailButton(confirmar, "Confirmar cita", "#16a34a")}${emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora")}${emailButton(cancelar, "Cancelar cita", "#dc2626")}</p>`,
     barberia.nombre,
   );
 
   const enviado = await sendEmail({ to: info.contacto.correo, subject: `Tu reserva en ${barberia.nombre}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
   if (!enviado) console.info(`[notificaciones] Links reserva ${idReserva}: confirmar=${confirmar} cancelar=${cancelar}`);
+}
+
+/** HU-22: aviso al cliente de que su cita se canceló o cambió de hora. */
+export async function notificarCambioReserva(idReserva: number, cambio: "cancelada" | "reprogramada"): Promise<void> {
+  const info = await cargarReserva(idReserva);
+  if (!info?.contacto) return;
+
+  const { barberia } = info;
+  const cancelada = cambio === "cancelada";
+  const html = emailLayout(
+    cancelada ? "Tu cita fue cancelada" : "Tu cita cambió de hora",
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, ${cancelada ? "cancelamos esta cita y el horario quedó libre:" : "estos son los nuevos datos de tu cita:"}</p>
+     ${emailDetalle([
+       ["Servicio", info.servicio],
+       ["Barbero", info.barbero],
+       ["Fecha", formatFecha(info.fecha, "EEEE d 'de' MMMM")],
+       ["Hora", info.hora],
+       ...(info.sucursal ? [["Sucursal", `${info.sucursal.nombre} · ${info.sucursal.direccion}`] as [string, string]] : []),
+     ])}
+     <p style="margin:0">${cancelada
+       ? emailButton(`${getSiteUrl()}/${barberia.slug}/agendar`, "Agendar otra cita")
+       : emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora") + emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "#dc2626")}</p>`,
+    barberia.nombre,
+  );
+
+  await sendEmail({
+    to: info.contacto.correo,
+    subject: cancelada ? `Cita cancelada en ${barberia.nombre}` : `Nueva hora para tu cita en ${barberia.nombre}`,
+    html,
+    fromName: barberia.nombre,
+    replyTo: barberia.email_contacto,
+  });
 }
 
 /** Correo con el link de reseña, cuando una reserva se marca como completada. */
@@ -170,6 +202,41 @@ export async function notificarResenaPedido(idPedido: number): Promise<void> {
 
   const enviado = await sendEmail({ to: cliente.email, subject: `Califica tu pedido #${idPedido}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
   if (!enviado) console.info(`[notificaciones] Link reseña pedido ${idPedido}: ${link}`);
+}
+
+/**
+ * HU-09: avisa a los administradores de los productos que quedaron en o bajo su stock mínimo.
+ * `reclamar_alertas_stock` marca cada producto, así llega un solo correo por baja aunque el pago
+ * se registre dos veces (respuesta síncrona + webhook).
+ */
+export async function notificarStockBajo(idBarberia: string): Promise<void> {
+  const supabase = createServiceRoleClient();
+  const { data: productos, error } = await supabase.rpc("reclamar_alertas_stock", { p_barberia: idBarberia });
+  if (error) console.error("[notificaciones] Error en reclamar_alertas_stock:", error);
+  const bajos = (productos ?? []) as Array<{ nombre: string; stock: number; stock_minimo: number }>;
+  if (bajos.length === 0) return;
+
+  const [barberia, { data: admins }] = await Promise.all([
+    getBarberiaById(supabase, idBarberia),
+    supabase.from("usuario_barberia").select("id_usuario").eq("id_barberia", idBarberia).eq("rol", "admin").eq("activo", true),
+  ]);
+  if (!barberia) return;
+  const { data: usuarios } = await supabase
+    .from("usuario")
+    .select("email")
+    .in("id_usuario", (admins ?? []).map((a) => a.id_usuario))
+    .is("deleted_at", null);
+
+  const html = emailLayout(
+    "Productos con stock bajo",
+    `<p style="margin:0 0 16px">Estos productos llegaron a su stock mínimo:</p>
+     ${emailDetalle(bajos.map((p) => [p.nombre, `quedan ${p.stock} (mínimo ${p.stock_minimo})`]))}
+     <p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/productos`, "Ver productos")}</p>`,
+    barberia.nombre,
+  );
+  for (const u of usuarios ?? []) {
+    await sendEmail({ to: u.email, subject: `Stock bajo en ${barberia.nombre}`, html, fromName: barberia.nombre });
+  }
 }
 
 /** Correo de invitación al equipo de una barbería (link a /invitacion/<token>). Devuelve si se envió. */
