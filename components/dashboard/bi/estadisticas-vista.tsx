@@ -85,12 +85,12 @@ export async function EstadisticasVista({ slug, ctx, modo, searchParams, basePat
     const completadas = datos.resumen.reduce((s, m) => s + m.completadas, 0);
     const noAsistio = datos.resumen.reduce((s, m) => s + m.noAsistio, 0);
     const citas = completadas + noAsistio;
-    return [
+    return { vacio: transacciones === 0 && citas === 0, items: [
       { label: "Ingresos", valor: formatCLP(ingresos), detalle: propio ? "Tus servicios completados" : "Servicios + productos pagados", icon: "ingresos" as const },
       { label: "Transacciones", valor: String(transacciones), detalle: propio ? "Tus citas completadas" : "Citas completadas y pedidos", icon: "transacciones" as const },
       { label: "Ticket promedio", valor: transacciones ? formatCLP(ingresos / transacciones) : "—", detalle: "Ingresos por transacción", icon: "ticket" as const },
       { label: "Inasistencia", valor: citas ? `${Math.round((noAsistio / citas) * 1000) / 10}%` : "—", detalle: `${noAsistio} de ${citas} citas`, icon: "noshow" as const },
-    ];
+    ] };
   })();
 
   return (
@@ -150,7 +150,7 @@ export async function EstadisticasVista({ slug, ctx, modo, searchParams, basePat
       ) : (
         // key: al cambiar el rango los paneles se remontan y sus filtros se reinician
         <div key={`${desde}|${hasta}|${gran}`} className="space-y-6">
-          <KpiTiles items={kpis} />
+          <KpiTiles items={kpis.items} vacio={kpis.vacio} />
           <IngresosPanel slug={slug} modo={modo} rango={rango} inicial={datos.ingresos} opciones={datos.opciones} />
           <div className="grid gap-6 lg:grid-cols-2">
             <ServiciosPanel slug={slug} modo={modo} rango={rango} inicial={datos.servicios} opciones={datos.opciones} />
