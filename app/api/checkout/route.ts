@@ -61,7 +61,7 @@ export async function POST(request: Request) {
             return Response.json({ error: 'Error al crear el pedido' }, { status: 500 });
         }
 
-        // 3. Order lines: el trigger fija el precio vigente y descuenta stock
+        // 3. Order lines: el trigger fija el precio vigente y valida el stock (se descuenta al pagar)
         const { error: detailsError } = await supabase
             .from('detalle_pedido')
             .insert(items.map((item) => ({

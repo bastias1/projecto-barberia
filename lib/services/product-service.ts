@@ -150,6 +150,19 @@ export async function updateProduct(id: number, updates: ProductInput): Promise<
     return data as Product;
 }
 
+// HU-08: ingreso de stock (suma en la BD, no pisa ventas simultáneas). Devuelve el stock resultante
+export async function ingresarStock(id: number, cantidad: number): Promise<number> {
+    const { data, error } = await createClient().rpc('ingresar_stock', { p_id_producto: id, p_cantidad: cantidad });
+
+    // Sin permiso (RLS) o cantidad inválida la función no actualiza nada y devuelve null
+    if (error || data == null) {
+        console.error('Error registering stock entry:', error);
+        throw new Error('No se pudo registrar el ingreso');
+    }
+
+    return data as number;
+}
+
 export async function deleteProduct(id: number): Promise<boolean> {
     const supabase = createClient();
 

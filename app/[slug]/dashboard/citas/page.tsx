@@ -20,8 +20,8 @@ export default async function CitasPage({
     ctx.isProfesional ? getSucursalesDelProfesional(await createClient(), idBarberia, ctx.userId) : Promise.resolve([]),
   ]);
 
-  // ?vista=semana|mes&fecha=YYYY-MM-DD (lo que no calce, se ignora)
-  const vistaInicial: Vista = vista === "mes" ? "mes" : "semana";
+  // ?vista=dia|semana|mes&fecha=YYYY-MM-DD (lo que no calce, se ignora)
+  const vistaInicial: Vista = vista === "dia" || vista === "mes" ? vista : "semana";
   const fechaInicial = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) && !isNaN(Date.parse(fecha)) ? fecha : null;
 
   return (

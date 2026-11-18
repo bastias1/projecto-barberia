@@ -20,11 +20,12 @@ export interface CrearReservaInput {
     phone: string;
   };
   aceptaPrivacidad: boolean;
+  conCuenta?: boolean; // HU-02: a nombre del usuario con sesión (ignora customerInfo)
 }
 
 export type CrearReservaResult =
   | { success: true; idReserva: number }
-  | { success: false; error: string };
+  | { success: false; error: string; horarioTomado?: boolean };
 
 export async function crearReserva(input: CrearReservaInput): Promise<CrearReservaResult> {
   const supabase = await createClient();
@@ -40,27 +41,35 @@ export async function crearReserva(input: CrearReservaInput): Promise<CrearReser
   }
   const tz = sucursal.zona_horaria || DEFAULT_TZ;
 
-  const { data: idReserva, error } = await supabase.rpc("reservar_como_invitado", {
+  const cita = {
     p_barberia: idBarberia,
     p_sucursal: input.idSucursal,
     p_profesional: input.barberoId,
     p_servicio: input.serviceId,
     p_inicio: fromZoned(input.fecha, input.hora, tz).toISOString(),
-    p_nombre: input.customerInfo.firstName.trim(),
-    p_apellido: input.customerInfo.lastName.trim(),
-    p_correo: input.customerInfo.email.trim().toLowerCase(),
-    p_telefono: input.customerInfo.phone.trim() || null,
-    p_acepta_privacidad: input.aceptaPrivacidad,
-    p_version_politica: VERSION_POLITICA,
-  });
+  };
+  const { data: idReserva, error } = input.conCuenta
+    ? await supabase.rpc("reservar_con_cuenta", cita)
+    : await supabase.rpc("reservar_como_invitado", {
+        ...cita,
+        p_nombre: input.customerInfo.firstName.trim(),
+        p_apellido: input.customerInfo.lastName.trim(),
+        p_correo: input.customerInfo.email.trim().toLowerCase(),
+        p_telefono: input.customerInfo.phone.trim() || null,
+        p_acepta_privacidad: input.aceptaPrivacidad,
+        p_version_politica: VERSION_POLITICA,
+      });
 
   if (error) {
     console.error("Error creating reservation:", error);
     if (error.message.includes("CLIENTE_BLOQUEADO")) {
       return { success: false, error: "CLIENT_BLOCKED" };
     }
+    if (error.code === "42501") {
+      return { success: false, error: "Tu sesión expiró. Inicia sesión de nuevo o reserva con otros datos." };
+    }
     if (error.code === "23P01") {
-      return { success: false, error: "Ese horario acaba de ser reservado. Por favor elige otro." };
+      return { success: false, error: "Ese horario acaba de ser reservado. Por favor elige otro.", horarioTomado: true };
     }
     if (error.code === "23514") {
       // Mensajes de validación de los triggers (horario, día bloqueado, etc.)

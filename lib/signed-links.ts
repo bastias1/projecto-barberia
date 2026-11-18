@@ -36,6 +36,11 @@ export function bookingActionUrl(action: "confirm" | "cancel", idReserva: number
   return `${getSiteUrl()}/api/${action}-booking?id=${idReserva}&token=${signLink(purpose, idReserva)}`;
 }
 
+/** HU-22: página para elegir otra hora. Usa el token de cancelar: quien puede cancelar puede reprogramar. */
+export function reprogramarUrl(slug: string, idReserva: number): string {
+  return `${getSiteUrl()}/${slug}/reprogramar?id=${idReserva}&token=${signLink("cancelar-reserva", idReserva)}`;
+}
+
 /**
  * Página con un botón que hace POST a la misma URL. Los links de los correos no
  * actúan con un GET: los filtros de correo abren cada link para revisarlo.
@@ -48,6 +53,16 @@ export function paginaConfirmarAccion(titulo: string, boton: string, color: stri
 <button type="submit" style="width:100%;padding:12px;border:0;border-radius:8px;background:${color};color:#fff;font-size:16px;font-weight:600;cursor:pointer">${boton}</button>
 </form></body></html>`;
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
+/** Página de aviso para una acción de un link que no se pudo hacer (texto generado por el servidor). */
+export function paginaAviso(titulo: string, texto: string): Response {
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${titulo}</title></head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#f4f4f5;color:#18181b">
+<main style="background:#fff;padding:32px 24px;border-radius:12px;max-width:360px;width:calc(100% - 32px);text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.1)">
+<h1 style="font-size:20px;margin:0 0 12px">${titulo}</h1><p style="margin:0;color:#52525b">${texto}</p>
+</main></body></html>`;
+  return new Response(html, { status: 409, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
 export function reviewUrl(tipo: "reserva" | "pedido", id: number): string {

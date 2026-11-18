@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Product, getProducts, createProduct, updateProduct, deleteProduct, uploadProductImage, archiveProduct, restoreProduct } from "@/lib/services/product-service";
+import { Product, getProducts, createProduct, updateProduct, deleteProduct, uploadProductImage, archiveProduct, restoreProduct, ingresarStock } from "@/lib/services/product-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Loader2, Search, Package, Edit, Upload, Image as ImageIcon, Archive, RotateCcw } from "lucide-react";
+import { Trash2, Plus, Loader2, Search, Package, PackagePlus, AlertTriangle, Edit, Upload, Image as ImageIcon, Archive, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useBarberia } from "@/components/barberia-provider";
 import {
@@ -63,12 +63,16 @@ export function ProductsManager() {
         product: null
     });
 
+    // Ingreso de stock (HU-08)
+    const [ingreso, setIngreso] = useState<{ product: Product; cantidad: string } | null>(null);
+
     const [formData, setFormData] = useState({
         nombre: "",
         descripcion: "",
         precio: "",
         categoria: "",
         stock: "",
+        stock_minimo: "",
         tag: ""
     });
 
@@ -96,6 +100,7 @@ export function ProductsManager() {
             precio: "",
             categoria: "",
             stock: "",
+            stock_minimo: "",
             tag: ""
         });
         setImageFile(null);
@@ -112,6 +117,7 @@ export function ProductsManager() {
                 precio: product.precio.toString(),
                 categoria: product.categoria,
                 stock: product.stock.toString(),
+                stock_minimo: (product.stock_minimo ?? 0).toString(),
                 tag: product.tag || ""
             });
             setImagePreview(product.imagen_url);
@@ -154,6 +160,7 @@ export function ProductsManager() {
                 precio: Number(formData.precio),
                 categoria: formData.categoria,
                 stock: Number(formData.stock) || 0,
+                stock_minimo: Number(formData.stock_minimo) || 0,
                 tag: formData.tag || null,
                 imagen_url: imageUrl
             };
@@ -236,6 +243,31 @@ export function ProductsManager() {
         }
     }
 
+    async function handleIngreso(e: React.FormEvent) {
+        e.preventDefault();
+        if (!ingreso) return;
+        const cantidad = Number(ingreso.cantidad);
+        if (!Number.isInteger(cantidad) || cantidad <= 0) {
+            toast.error("Ingresa una cantidad mayor a 0");
+            return;
+        }
+        try {
+            setIsSaving(true);
+            const stock = await ingresarStock(ingreso.product.id, cantidad);
+            setProducts(products.map(p => p.id === ingreso.product.id ? { ...p, stock } : p));
+            toast.success(`Ingreso registrado: ${ingreso.product.nombre} ahora tiene ${stock}`);
+            setIngreso(null);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "No se pudo registrar el ingreso");
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    // HU-09: activos con stock en o bajo su mínimo (los archivados no alertan)
+    const esStockBajo = (p: Product) => p.activo !== false && p.stock <= (p.stock_minimo ?? 0);
+    const bajoStock = products.filter(esStockBajo);
+
     // Categorías base más las que ya existen en el catálogo
     const categorias = Array.from(new Set([...CATEGORIAS_BASE, ...products.map(p => p.categoria)])).sort();
 
@@ -293,6 +325,16 @@ export function ProductsManager() {
                 </Card>
             </div>
 
+            {bajoStock.length > 0 && (
+                <div role="status" className="flex items-start gap-3 rounded-md border border-amber-500/50 bg-amber-500/10 p-4 text-sm">
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
+                    <p>
+                        <strong>Stock bajo en {bajoStock.length} {bajoStock.length === 1 ? "producto" : "productos"}:</strong>{" "}
+                        {bajoStock.map(p => `${p.nombre} (${p.stock})`).join(", ")}
+                    </p>
+                </div>
+            )}
+
             {/* Actions Bar */}
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <div className="relative w-full sm:w-72">
@@ -347,7 +389,7 @@ export function ProductsManager() {
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-3 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="price">Precio ($) *</Label>
                                             <Input
@@ -366,6 +408,17 @@ export function ProductsManager() {
                                                 placeholder="0"
                                                 value={formData.stock}
                                                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="stock-minimo">Stock mínimo</Label>
+                                            <Input
+                                                id="stock-minimo"
+                                                type="number"
+                                                min={0}
+                                                placeholder="0"
+                                                value={formData.stock_minimo}
+                                                onChange={(e) => setFormData({ ...formData, stock_minimo: e.target.value })}
                                             />
                                         </div>
                                     </div>
@@ -485,11 +538,25 @@ export function ProductsManager() {
                                             ${product.precio.toLocaleString("es-CL")}
                                         </div>
                                         <div className="col-span-2 sm:col-span-1 text-sm">
-                                            <Badge variant={product.stock > 0 ? "secondary" : "destructive"}>
+                                            <Badge
+                                                variant={product.stock > 0 ? "secondary" : "destructive"}
+                                                className={product.stock > 0 && esStockBajo(product) ? "border-amber-500 text-amber-700 dark:text-amber-400" : undefined}
+                                            >
                                                 {product.stock}
+                                                {esStockBajo(product) && <span className="sr-only"> (stock bajo)</span>}
                                             </Badge>
                                         </div>
                                         <div className="col-span-12 sm:col-span-2 flex justify-end gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={() => setIngreso({ product, cantidad: "" })}
+                                                title="Registrar ingreso de stock"
+                                                aria-label={`Registrar ingreso de stock de ${product.nombre}`}
+                                            >
+                                                <PackagePlus className="h-4 w-4" />
+                                            </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -557,6 +624,38 @@ export function ProductsManager() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Ingreso de stock */}
+            <Dialog open={ingreso !== null} onOpenChange={(open) => !open && setIngreso(null)}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Registrar ingreso</DialogTitle>
+                        <DialogDescription>
+                            {ingreso?.product.nombre}: stock actual {ingreso?.product.stock}. La cantidad se suma al stock.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleIngreso} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="ingreso-cantidad">Cantidad que ingresa</Label>
+                            <Input
+                                id="ingreso-cantidad"
+                                type="number"
+                                min={1}
+                                step={1}
+                                autoFocus
+                                value={ingreso?.cantidad ?? ""}
+                                onChange={(e) => ingreso && setIngreso({ ...ingreso, cantidad: e.target.value })}
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit" disabled={isSaving} className="w-full">
+                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                Registrar ingreso
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Cannot Delete Dialog - Suggest Archive */}
             <AlertDialog open={cannotDeleteDialog.open} onOpenChange={(open) => !open && setCannotDeleteDialog({ open: false, product: null })}>

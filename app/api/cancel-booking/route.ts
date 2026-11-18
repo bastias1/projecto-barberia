@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { paginaConfirmarAccion, verifyLink } from "@/lib/signed-links";
+import { paginaAviso, paginaConfirmarAccion, verifyLink } from "@/lib/signed-links";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getBarberiaById } from "@/lib/barberia";
+import { cambiarReservaCliente } from "@/lib/cambio-reserva";
 
 // El link firmado autoriza la acción: quien lo abre no tiene sesión
 function idVerificado(request: Request): string | null {
@@ -24,17 +25,9 @@ export async function POST(request: Request) {
 
   const supabase = createServiceRoleClient();
 
-  // Solo se cancela una reserva que aún no se atiende
-  const { error } = await supabase
-    .from("reserva")
-    .update({ estado: 'cancelada' })
-    .eq("id_reserva", id)
-    .in("estado", ["pendiente", "confirmada"]);
-
-  if (error) {
-    console.error("Error canceling booking:", error);
-    return NextResponse.redirect(new URL('/error?message=Could+not+cancel+booking', request.url), 303);
-  }
+  // HU-22: solo una reserva que aún no se atiende y dentro del plazo de la barbería; avisa por correo
+  const result = await cambiarReservaCliente(supabase, Number(id));
+  if (!result.success) return paginaAviso("No se pudo cancelar la cita", result.error);
 
   // La página de resultado vive dentro de la barbería de la reserva (303: el navegador sigue con GET)
   const { data: reserva } = await supabase.from("reserva").select("id_barberia").eq("id_reserva", id).maybeSingle();

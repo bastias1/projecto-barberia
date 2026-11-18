@@ -13,7 +13,7 @@ import { ProgressSteps } from "@/components/booking/progress-steps";
 import { SucursalSelection } from "@/components/booking/sucursal-selection";
 import { getBarberos, Barbero } from "@/lib/services/barber-service";
 import { getServicesByBarber, Service } from "@/lib/services/service-service";
-import { getAvailableTimeSlots, TimeSlot } from "@/lib/services/booking-service";
+import { getAvailableTimeSlots, getProximaFechaDisponible, TimeSlot } from "@/lib/services/booking-service";
 import { crearReserva } from "./actions";
 import { localDateString } from "@/lib/datetime";
 import { getSucursales, type Sucursal } from "@/lib/barberia";
@@ -60,6 +60,7 @@ function Agendar() {
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
+  const [proximaFecha, setProximaFecha] = useState<Date | null | "buscando">(null);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -67,6 +68,10 @@ function Agendar() {
     phone: "",
     aceptaPrivacidad: false
   });
+  // HU-02: con sesión se reserva a nombre de la cuenta, salvo que se elija usar otros datos
+  const [cuenta, setCuenta] = useState<{ firstName: string; lastName: string; email: string; phone: string } | null>(null);
+  const [usarCuenta, setUsarCuenta] = useState(true);
+  const conCuenta = cuenta !== null && usarCuenta;
 
   // Sucursales activas; se preselecciona la del link o la única que haya
   useEffect(() => {
@@ -101,6 +106,12 @@ function Agendar() {
         .eq("id_usuario", user.id)
         .maybeSingle();
       if (!data) return;
+      setCuenta({
+        firstName: data.nombre || "",
+        lastName: data.apellido || "",
+        email: data.email || user.email || "",
+        phone: data.telefono || "",
+      });
       setFormData((prev) => ({
         ...prev,
         firstName: prev.firstName || data.nombre || "",
@@ -150,17 +161,25 @@ function Agendar() {
 
   // Fetch available time slots when date changes
   useEffect(() => {
+    let vigente = true; // descarta respuestas de una fecha que ya no está elegida
     async function fetchAvailableSlots() {
       if (selectedDate && selectedBarber && selectedService && selectedSucursal) {
         const slots = await getAvailableTimeSlots(idBarberia, selectedDate, selectedBarber.id, selectedService.duracion, selectedSucursal.id_sucursal);
+        if (!vigente) return;
         setAvailableTimeSlots(slots);
         // Reset selected time if it's no longer available
         if (selectedTime && !slots.some((s) => s.hora === selectedTime)) {
           setSelectedTime("");
         }
+        // HU-02: sin horarios ese día, se busca la fecha libre más próxima
+        if (slots.length > 0) return setProximaFecha(null);
+        setProximaFecha("buscando");
+        const proxima = await getProximaFechaDisponible(idBarberia, selectedDate, selectedBarber.id, selectedService.duracion, selectedSucursal.id_sucursal);
+        if (vigente) setProximaFecha(proxima);
       }
     }
     fetchAvailableSlots();
+    return () => { vigente = false; };
   }, [idBarberia, selectedDate, selectedBarber, selectedService, selectedTime, selectedSucursal]);
 
   // Cambiar de sucursal reinicia lo elegido después (barbero, servicio, hora)
@@ -216,12 +235,18 @@ function Agendar() {
           phone: formData.phone,
         },
         aceptaPrivacidad: formData.aceptaPrivacidad,
+        conCuenta,
       });
 
       if (result.success) {
         setStep(5);
       } else if (result.error === 'CLIENT_BLOCKED') {
         setBlockedModalOpen(true);
+      } else if (result.horarioTomado) {
+        // Otro cliente tomó la hora: vuelve a elegir con la disponibilidad recargada (el efecto depende de selectedTime)
+        toast.error(result.error);
+        setSelectedTime("");
+        setStep(3);
       } else {
         toast.error(result.error || "Error al crear la reserva");
       }
@@ -366,6 +391,7 @@ function Agendar() {
             selectedDate={selectedDate}
             selectedTime={selectedTime}
             timeSlots={availableTimeSlots.map((s) => s.hora)}
+            proximaFecha={proximaFecha}
             onDateSelect={setSelectedDate}
             onTimeSelect={setSelectedTime}
             onBack={() => setStep(2)}
@@ -377,6 +403,9 @@ function Agendar() {
           <ContactForm
             formData={formData}
             onFormChange={setFormData}
+            cuenta={cuenta}
+            usarCuenta={usarCuenta}
+            onUsarCuentaChange={setUsarCuenta}
             onBack={() => setStep(3)}
             onSubmit={handleFormSubmit}
           />
@@ -388,7 +417,7 @@ function Agendar() {
             selectedService={selectedService}
             selectedDate={selectedDate}
             selectedTime={selectedTime}
-            formData={formData}
+            formData={conCuenta ? { ...formData, ...cuenta } : formData}
             sucursal={selectedSucursal}
             onNewBooking={resetBooking}
           />

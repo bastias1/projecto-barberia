@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addDays, addMonths, format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import type { Appointment } from "@/lib/services/dashboard-service";
 import { DEFAULT_TZ, type Sucursal } from "@/lib/barberia";
 import { localDateString, todayIn } from "@/lib/datetime";
 
-export type Vista = "semana" | "mes";
+export type Vista = "dia" | "semana" | "mes";
 
 interface AppointmentsCalendarProps {
   appointments: Appointment[];
@@ -38,7 +38,7 @@ function toDate(fecha: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/** Agenda de citas con vista semanal (predeterminada) o mensual. */
+/** Agenda de citas con vista diaria, semanal (predeterminada) o mensual. */
 export function AppointmentsCalendar({ appointments, vistaInicial, fechaInicial, nuevaCita }: AppointmentsCalendarProps) {
   // "Hoy" según la barbería, no según el reloj del navegador
   const hoy = useMemo(() => toDate(todayIn(DEFAULT_TZ)), []);
@@ -92,7 +92,7 @@ export function AppointmentsCalendar({ appointments, vistaInicial, fechaInicial,
     window.history.replaceState(window.history.state, "", url);
   }, [vista, selected]);
 
-  // Atajos de teclado: ←/→ cambian de semana (o de mes) y T vuelve a hoy
+  // Atajos de teclado: ←/→ cambian de día, semana o mes según la vista y T vuelve a hoy
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -103,7 +103,8 @@ export function AppointmentsCalendar({ appointments, vistaInicial, fechaInicial,
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         const paso = e.key === "ArrowLeft" ? -1 : 1;
         e.preventDefault();
-        if (vista === "semana") elegirDia(addDays(selected, paso * 7));
+        if (vista === "dia") elegirDia(addDays(selected, paso));
+        else if (vista === "semana") elegirDia(addDays(selected, paso * 7));
         else setMonth((m) => addMonths(m, paso));
       } else if (e.key === "t" || e.key === "T") {
         irAHoy();
@@ -113,11 +114,52 @@ export function AppointmentsCalendar({ appointments, vistaInicial, fechaInicial,
     return () => window.removeEventListener("keydown", onKey);
   }, [vista, selected, elegirDia, irAHoy]);
 
+  // Citas del día elegido: es la vista "Día" (con flechas) y el panel de la vista "Mes"
+  const agendaDia = (conFlechas: boolean) => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        {conFlechas && (
+          <Button variant="outline" size="icon" onClick={() => elegirDia(addDays(selected, -1))} aria-label="Día anterior">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        <div className={conFlechas ? "text-center" : undefined}>
+          <CardTitle className="text-lg first-letter:uppercase">
+            {format(selected, "EEEE d 'de' MMMM", { locale: es })}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {activasDia === 0 ? "Sin citas" : `${activasDia} ${activasDia === 1 ? "cita" : "citas"}`}
+          </p>
+        </div>
+        {conFlechas && (
+          <Button variant="outline" size="icon" onClick={() => elegirDia(addDays(selected, 1))} aria-label="Día siguiente">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {delDia.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <CalendarIcon className="h-12 w-12 text-zinc-300 dark:text-zinc-700 mb-3" />
+            <p className="text-sm text-muted-foreground">No tienes citas este día</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {delDia.map((appointment) => (
+              <AppointmentCard key={appointment.id} appointment={appointment} />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <Tabs value={vista} onValueChange={(v) => setVista(v as Vista)}>
           <TabsList>
+            <TabsTrigger value="dia">Día</TabsTrigger>
             <TabsTrigger value="semana">Semana</TabsTrigger>
             <TabsTrigger value="mes">Mes</TabsTrigger>
           </TabsList>
@@ -138,7 +180,9 @@ export function AppointmentsCalendar({ appointments, vistaInicial, fechaInicial,
         </div>
       </div>
 
-      {vista === "semana" ? (
+      {vista === "dia" ? (
+        agendaDia(true)
+      ) : vista === "semana" ? (
         <AppointmentsWeek porDia={porDia} hoy={hoy} selected={selected} onSelect={elegirDia} />
       ) : (
         <div className="grid gap-6 md:grid-cols-[auto_1fr] items-start">
@@ -174,31 +218,7 @@ export function AppointmentsCalendar({ appointments, vistaInicial, fechaInicial,
             </CardContent>
           </Card>
 
-          {/* Agenda del día */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg first-letter:uppercase">
-                {format(selected, "EEEE d 'de' MMMM", { locale: es })}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {activasDia === 0 ? "Sin citas" : `${activasDia} ${activasDia === 1 ? "cita" : "citas"}`}
-              </p>
-            </CardHeader>
-            <CardContent>
-              {delDia.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <CalendarIcon className="h-12 w-12 text-zinc-300 dark:text-zinc-700 mb-3" />
-                  <p className="text-sm text-muted-foreground">No tienes citas este día</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {delDia.map((appointment) => (
-                    <AppointmentCard key={appointment.id} appointment={appointment} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {agendaDia(false)}
         </div>
       )}
     </div>

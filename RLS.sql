@@ -229,6 +229,16 @@ CREATE POLICY producto_select_publico ON public.producto FOR SELECT TO anon, aut
 CREATE POLICY producto_admin ON public.producto FOR ALL TO authenticated
   USING (private.es_admin(id_barberia)) WITH CHECK (private.es_admin(id_barberia));
 
+-- movimiento_stock: solo lectura para el admin; lo escribe el trigger de producto
+CREATE POLICY movimiento_stock_select ON public.movimiento_stock FOR SELECT TO authenticated
+  USING (private.es_admin(id_barberia) OR (SELECT private.es_superadmin()));
+REVOKE ALL ON public.movimiento_stock FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.movimiento_stock FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.ingresar_stock(bigint, integer) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.ingresar_stock(bigint, integer) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.reclamar_alertas_stock(uuid) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.reclamar_alertas_stock(uuid) TO service_role;
+
 -- pedido
 CREATE POLICY pedido_select ON public.pedido FOR SELECT TO authenticated
   USING (id_cliente = (SELECT auth.uid()) OR private.es_staff(id_barberia));
@@ -307,6 +317,11 @@ BEGIN
      OR OLD.estado NOT IN ('pendiente','confirmada') THEN
     RAISE EXCEPTION 'El cliente solo puede cancelar una reserva pendiente o confirmada'
       USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  -- HU-22: mismo plazo que cambiar_reserva_cliente
+  IF OLD.fecha_hora_inicio - now() < make_interval(mins => (SELECT b.plazo_cancelacion_min FROM public.barberia b
+                                                            WHERE b.id_barberia = OLD.id_barberia)) THEN
+    RAISE EXCEPTION 'FUERA_DE_PLAZO' USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
 END $$;
@@ -423,6 +438,87 @@ BEGIN
 
   RETURN v_reserva;
 END $$;
+
+-- 5.2b Reserva con cuenta (HU-02): a nombre del usuario con sesión
+--      (la política ya se aceptó al crear la cuenta).
+CREATE FUNCTION public.reservar_con_cuenta(p_barberia uuid, p_sucursal bigint, p_profesional uuid,
+                                           p_servicio bigint, p_inicio timestamptz)
+RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_usuario  uuid := auth.uid();
+  v_correo   text;
+  v_telefono text;
+  v_reserva  bigint;
+BEGIN
+  SELECT u.email, u.telefono INTO v_correo, v_telefono
+  FROM public.usuario u WHERE u.id_usuario = v_usuario AND u.deleted_at IS NULL;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Debe iniciar sesión para reservar con su cuenta' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.barberia WHERE id_barberia = p_barberia AND activa) THEN
+    RAISE EXCEPTION 'La barbería no existe o no está activa' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT public.barberia_tiene_modulo(p_barberia, 'agenda') THEN
+    RAISE EXCEPTION 'Esta barbería no está recibiendo reservas en línea' USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.cliente_bloqueado b
+             WHERE b.id_barberia = p_barberia
+               AND (b.correo = lower(trim(v_correo))
+                    OR (nullif(regexp_replace(coalesce(v_telefono, ''), '\D', '', 'g'), '') IS NOT NULL
+                        AND regexp_replace(coalesce(b.telefono, ''), '\D', '', 'g')
+                          = regexp_replace(v_telefono, '\D', '', 'g')))) THEN
+    RAISE EXCEPTION 'CLIENTE_BLOQUEADO' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  PERFORM public.asegurar_membresia_cliente(p_barberia, v_usuario);
+
+  INSERT INTO public.reserva (id_barberia, id_sucursal, id_cliente, id_profesional, id_servicio, fecha_hora_inicio)
+  VALUES (p_barberia, p_sucursal, v_usuario, p_profesional, p_servicio, p_inicio)
+  RETURNING id_reserva INTO v_reserva;
+
+  RETURN v_reserva;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.reservar_con_cuenta(uuid, bigint, uuid, bigint, timestamptz) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.reservar_con_cuenta(uuid, bigint, uuid, bigint, timestamptz) TO authenticated;
+
+-- 5.2c HU-22: el cliente cancela (p_nuevo_inicio NULL) o reprograma su reserva, solo hasta
+--      barberia.plazo_cancelacion_min antes de la cita. La llama su dueño con sesión, o el
+--      backend con service role tras verificar el link firmado del correo.
+CREATE FUNCTION public.cambiar_reserva_cliente(p_reserva bigint, p_nuevo_inicio timestamptz DEFAULT NULL,
+                                               p_sucursal bigint DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  r       public.reserva;
+  v_plazo integer;
+BEGIN
+  SELECT * INTO r FROM public.reserva WHERE id_reserva = p_reserva FOR UPDATE;
+  IF NOT FOUND OR NOT (coalesce(auth.role(), '') = 'service_role' OR r.id_cliente = auth.uid()) THEN
+    RAISE EXCEPTION 'Reserva no encontrada' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF r.estado NOT IN ('pendiente', 'confirmada') THEN
+    RAISE EXCEPTION 'Esta reserva ya no se puede modificar' USING ERRCODE = 'check_violation';
+  END IF;
+  SELECT b.plazo_cancelacion_min INTO v_plazo FROM public.barberia b WHERE b.id_barberia = r.id_barberia;
+  IF r.fecha_hora_inicio - now() < make_interval(mins => v_plazo) THEN
+    RAISE EXCEPTION 'FUERA_DE_PLAZO' USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF p_nuevo_inicio IS NULL THEN
+    UPDATE public.reserva SET estado = 'cancelada' WHERE id_reserva = p_reserva;
+  ELSE
+    IF p_nuevo_inicio <= now() THEN
+      RAISE EXCEPTION 'La nueva hora debe ser futura' USING ERRCODE = 'check_violation';
+    END IF;
+    -- validar_reserva revisa el horario y la restricción de exclusión, que no se cruce con otra cita
+    UPDATE public.reserva
+    SET fecha_hora_inicio = p_nuevo_inicio, id_sucursal = coalesce(p_sucursal, id_sucursal)
+    WHERE id_reserva = p_reserva;
+  END IF;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.cambiar_reserva_cliente(bigint, timestamptz, bigint) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.cambiar_reserva_cliente(bigint, timestamptz, bigint) TO authenticated, service_role;
+GRANT  UPDATE (plazo_cancelacion_min) ON public.barberia TO authenticated;  -- lo edita el admin (RLS) en Mi Barbería
 
 -- 5.3 Disponibilidad pública: tramos ocupados de un profesional (sin datos del cliente)
 CREATE FUNCTION public.horarios_ocupados(

@@ -22,10 +22,13 @@ interface DateTimeSelectionProps {
   selectedDate: Date | undefined;
   selectedTime: string;
   timeSlots: string[];
+  /** HU-02: sin horarios en la fecha, la más próxima con horarios (null = ninguna; sin prop = no se busca) */
+  proximaFecha?: Date | null | "buscando";
   onDateSelect: (date: Date | undefined) => void;
   onTimeSelect: (time: string) => void;
   onBack: () => void;
   onContinue: () => void;
+  continueLabel?: string; // p. ej. "Cambiar la hora" al reprogramar
 }
 
 export function DateTimeSelection({
@@ -33,10 +36,12 @@ export function DateTimeSelection({
   selectedDate,
   selectedTime,
   timeSlots,
+  proximaFecha,
   onDateSelect,
   onTimeSelect,
   onBack,
-  onContinue
+  onContinue,
+  continueLabel = "Continuar"
 }: DateTimeSelectionProps) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -102,7 +107,20 @@ export function DateTimeSelection({
               <div className="text-center py-8 text-zinc-500 dark:text-zinc-400 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg">
                 <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p className="text-sm font-semibold mb-1">No hay horarios disponibles</p>
-                <p className="text-xs">El barbero no tiene horarios configurados para este día o está completamente reservado</p>
+                <div role="status">
+                  {proximaFecha === "buscando" ? (
+                    <p className="text-xs">Buscando la fecha más próxima con horarios…</p>
+                  ) : proximaFecha ? (
+                    <>
+                      <p className="text-xs mb-3">La fecha más próxima con horarios es el {format(proximaFecha, "EEEE d 'de' MMMM", { locale: es })}.</p>
+                      <Button variant="outline" size="sm" onClick={() => onDateSelect(proximaFecha)}>
+                        Ver ese día
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-xs">El barbero no tiene horarios configurados para este día o está completamente reservado</p>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
@@ -130,7 +148,7 @@ export function DateTimeSelection({
               disabled={!selectedDate || !selectedTime}
               className="flex-1"
             >
-              Continuar
+              {continueLabel}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>

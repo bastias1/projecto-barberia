@@ -28,6 +28,7 @@ export interface Database {
         descripcion: string | null;
         instagram: string | null;
         galeria: string[];
+        plazo_cancelacion_min: number; // HU-22
         activa: boolean;
         created_at: string;
         updated_at: string;
@@ -184,9 +185,20 @@ export interface Database {
         imagen_url: string | null;
         tag: string | null;
         activo: boolean;
+        alerta_stock_at: string | null; // correo de stock bajo ya enviado
         created_at: string;
         updated_at: string;
       }, "id_barberia" | "nombre" | "categoria" | "precio">;
+      movimiento_stock: Table<{
+        id_movimiento: number;
+        id_barberia: string;
+        id_producto: number;
+        tipo: "ingreso" | "ajuste" | "venta" | "devolucion";
+        cantidad: number; // con signo
+        stock_resultante: number;
+        id_usuario: string | null;
+        created_at: string;
+      }, never>; // solo lo escribe el trigger de producto
       pedido: Table<{
         id_pedido: number;
         id_barberia: string;
@@ -197,6 +209,7 @@ export interface Database {
         monto_total: number; // suma de detalle_pedido (trigger)
         tipo_entrega: "retiro" | "despacho";
         direccion_envio: string | null; // JSON de la dirección
+        stock_descontado: boolean; // lo maneja el trigger (se descuenta al pagar)
         created_at: string;
         updated_at: string;
       }, "id_barberia">;
@@ -206,7 +219,7 @@ export interface Database {
         id_pedido: number;
         id_producto: number;
         cantidad: number;
-        precio_unitario: number; // lo fija el trigger; también descuenta stock
+        precio_unitario: number; // lo fija el trigger; también valida stock
         subtotal: number; // columna generada
       }, "id_barberia" | "id_pedido" | "id_producto" | "cantidad">;
       pago: Table<{
