@@ -129,7 +129,7 @@ For the software's own administrators: `usuario.rol = 'superadmin'` (grant it fr
 - Exceptions using service role: `usuario.rol`/`deleted_at` (no column grant) and suspending an account (`auth.admin.updateUserById(id, { ban_duration })`). A superadmin cannot remove their own role or suspend themselves. Cortesía is refused when the barbería has a MercadoPago preapproval.
 
 ### Dashboard agenda (Citas)
-- `/[slug]/dashboard/citas?vista=semana|mes&fecha=YYYY-MM-DD` — state kept in the URL with `history.replaceState`. Week view: day×hour table on desktop, swipeable day carousel on mobile (edge slides switch week). Keys ←/→ and T.
+- `/[slug]/dashboard/citas?vista=dia|semana|mes&fecha=YYYY-MM-DD` — state kept in the URL with `history.replaceState`. Day view (HU-03): the selected day's cards with ‹ › to move one day (the same panel is the right side of the month view). Week view: day×hour table on desktop, swipeable day carousel on mobile (edge slides switch week). Keys ←/→ and T.
 - "+ Nueva cita" (`crearCitaManual` in `app/[slug]/dashboard/citas/actions.ts`) reuses `crearReserva`; staff slots use `getAvailableTimeSlots(..., minAnticipacionMs = 0)`.
 - Realtime: `reserva` is in the `supabase_realtime` publication; `components/dashboard/reservas-realtime.tsx` (mounted in the dashboard layout for barbers) toasts new/cancelled bookings and calls `router.refresh()`.
 
