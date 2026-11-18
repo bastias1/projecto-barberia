@@ -49,11 +49,14 @@ function SignupForm() {
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // HU-21: el correo ya tiene cuenta -> se ofrece iniciar sesión o recuperar la contraseña
+  const [correoRegistrado, setCorreoRegistrado] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setCorreoRegistrado(false);
 
     try {
       // Validate passwords match
@@ -95,7 +98,9 @@ function SignupForm() {
 
       if (authError) {
         console.error("Signup error:", authError);
-        if (authError.message.includes("Error sending confirmation email")) {
+        if (authError.message.includes("already registered")) {
+          setCorreoRegistrado(true);
+        } else if (authError.message.includes("Error sending confirmation email")) {
           setError("Error al enviar el correo de confirmación. Es posible que se haya alcanzado el límite de correos de prueba de Supabase. Por favor intenta más tarde o contacta al administrador.");
         } else {
           setError(authError.message);
@@ -105,6 +110,13 @@ function SignupForm() {
 
       if (!authData.user) {
         setError("Error al crear la cuenta");
+        return;
+      }
+
+      // Con confirmación de correo, Supabase no da error para un correo ya registrado:
+      // devuelve un usuario sin identidades (y no envía el correo)
+      if (authData.user.identities?.length === 0) {
+        setCorreoRegistrado(true);
         return;
       }
 
@@ -185,8 +197,22 @@ function SignupForm() {
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
               {error && (
-                <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 rounded-lg">
+                <div role="alert" className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 rounded-lg">
                   <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+                </div>
+              )}
+              {correoRegistrado && (
+                <div role="alert" className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-900 rounded-lg text-sm text-amber-900 dark:text-amber-200">
+                  <p className="font-semibold">Ya existe una cuenta con {formData.email.trim()}.</p>
+                  <p className="mt-1">
+                    <Link
+                      href={`/login?${new URLSearchParams({ ...(slug ? { barberia: slug } : {}), ...(next ? { next } : {}), email: formData.email.trim() })}`}
+                      className="underline underline-offset-4 font-medium"
+                    >
+                      Inicia sesión
+                    </Link>
+                    {" "}o, si no recuerdas la contraseña, usa &quot;¿Olvidaste tu contraseña?&quot; en esa página.
+                  </p>
                 </div>
               )}
 
