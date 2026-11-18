@@ -19,7 +19,7 @@ Functional spec from the thesis report: user stories HU-xx with acceptance crite
   - Modules: the DB has only `agenda`, `ecommerce`, `bi`. Spec modules `pronostico`, `calendario`, `soporte_directo` don't exist yet — add them as `modulo`/`plan_modulo` rows. Reviews (HU-11) are in every plan by decision, so there is no `resenas` module.
   - Payments: spec (§12.7) changes state only from the webhook; today `/api/checkout/pagar` and `/api/suscripcion/checkout` also record the synchronous Mercado Pago result, with the webhook as the other path.
   - Data model: the spec says it isn't closed; it is now in `BDD.SQL`/`RLS.sql`/`database.types.ts`. Still propose schema changes and ask before applying them. Migrations are applied through the Supabase MCP, not a `supabase/migrations` folder.
-  - Tests: spec expects Vitest/Playwright/k6; none is configured yet.
+  - Tests: spec expects Vitest/Playwright/k6; only Vitest is configured (DB-level tests in `tests/`).
   - Location data (HU-17: dirección, comuna, región, zona horaria) lives on `sucursal`, not `barberia`.
   - Pilot: the spec names Big Cut; production started with BENJVMIN (`/benjvmin`).
 
@@ -30,9 +30,10 @@ pnpm dev          # Start development server (localhost:3000)
 pnpm build        # Production build
 pnpm start        # Start production server
 pnpm lint         # Run ESLint
+pnpm test         # Vitest (tests/): runs against a NON-production Supabase project
 ```
 
-No test suite is configured.
+Tests (`tests/`, Vitest) talk to Supabase through supabase-js as real signed-in users, against the project in `.env.test.local` (`TEST_SUPABASE_URL`, `TEST_SUPABASE_PUBLISHABLE_KEY`, `TEST_SUPABASE_SECRET_KEY`; the helper refuses the production URL). That project needs `BDD.SQL`, `RLS.sql`, `BI.sql` applied plus an active plan with `bi` and one without. Each suite seeds its own barbería and deletes it after; the test users (`bi-*@pruebas.navaja.test`) are reused because `consentimiento` can't be deleted.
 
 ## Architecture
 

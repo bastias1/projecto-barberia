@@ -72,7 +72,9 @@ DECLARE t text;
 BEGIN
   FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-    -- El superadmin de la plataforma puede operar sobre todo
+    -- El superadmin de la plataforma puede operar sobre todo, salvo las tablas de solo
+    -- lectura/registro (sus políticas propias están más abajo)
+    CONTINUE WHEN t IN ('auditoria_admin', 'movimiento_stock');
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR ALL TO authenticated
          USING ((SELECT private.es_superadmin())) WITH CHECK ((SELECT private.es_superadmin()))',
@@ -177,8 +179,7 @@ CREATE POLICY profesional_sucursal_select_publico ON public.profesional_sucursal
   USING (true);
 CREATE POLICY profesional_sucursal_admin ON public.profesional_sucursal FOR ALL TO authenticated
   USING (private.es_admin(id_barberia)) WITH CHECK (private.es_admin(id_barberia));
-CREATE POLICY profesional_sucursal_superadmin ON public.profesional_sucursal FOR ALL TO authenticated
-  USING ((SELECT private.es_superadmin())) WITH CHECK ((SELECT private.es_superadmin()));
+-- (profesional_sucursal_superadmin la crea el bucle de la sección 2)
 
 -- horario_atencion: público; lo editan el admin y el propio profesional
 CREATE POLICY horario_atencion_select_publico ON public.horario_atencion FOR SELECT TO anon, authenticated
@@ -691,8 +692,204 @@ CREATE POLICY invitacion_admin ON public.invitacion FOR ALL TO authenticated
   USING (private.es_admin(id_barberia)) WITH CHECK (private.es_admin(id_barberia));
 CREATE POLICY invitacion_select_invitado ON public.invitacion FOR SELECT TO authenticated
   USING (correo = lower((SELECT auth.jwt() ->> 'email')));
-CREATE POLICY invitacion_superadmin ON public.invitacion FOR ALL TO authenticated
-  USING ((SELECT private.es_superadmin())) WITH CHECK ((SELECT private.es_superadmin()));
+-- (invitacion_superadmin la crea el bucle de la sección 2)
+
+-- Definiciones que solo existían en la BD (copiadas de producción, 2026-11-18) ----------------
+
+-- Invitación: normaliza el correo, exige suscripción vigente, rechaza miembros y respeta max_profesionales
+CREATE FUNCTION private.validar_invitacion()
+ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $function$
+DECLARE
+  v_max      integer;
+  v_ocupados integer;
+BEGIN
+  NEW.correo := lower(trim(NEW.correo));
+  NEW.estado := 'pendiente';
+  NEW.invitado_por := coalesce(NEW.invitado_por, auth.uid());
+
+  IF NEW.correo !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' THEN
+    RAISE EXCEPTION 'El correo no es válido' USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.suscripcion s
+                 WHERE s.id_barberia = NEW.id_barberia AND s.estado IN ('prueba','activa')
+                   AND (s.fecha_termino IS NULL OR s.fecha_termino >= CURRENT_DATE)) THEN
+    RAISE EXCEPTION 'Necesitas una suscripción activa para invitar a tu equipo' USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.usuario_barberia ub
+             JOIN public.usuario u ON u.id_usuario = ub.id_usuario
+             WHERE ub.id_barberia = NEW.id_barberia AND ub.activo
+               AND ub.rol IN ('admin','profesional') AND lower(u.email) = NEW.correo) THEN
+    RAISE EXCEPTION 'Esa persona ya es parte del equipo' USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Una invitación pendiente pero vencida no bloquea una nueva
+  UPDATE public.invitacion SET estado = 'cancelada'
+  WHERE id_barberia = NEW.id_barberia AND correo = NEW.correo
+    AND estado = 'pendiente' AND expira_at < now();
+
+  IF NEW.rol = 'profesional' THEN
+    PERFORM pg_advisory_xact_lock(hashtext(NEW.id_barberia::text || 'profesional'));
+    v_max := public.barberia_limite(NEW.id_barberia, 'max_profesionales');
+    IF v_max IS NOT NULL THEN
+      SELECT (SELECT count(*) FROM public.profesional p WHERE p.id_barberia = NEW.id_barberia AND p.activo)
+           + (SELECT count(*) FROM public.invitacion i
+              WHERE i.id_barberia = NEW.id_barberia AND i.rol = 'profesional'
+                AND i.estado = 'pendiente' AND i.expira_at >= now())
+        INTO v_ocupados;
+      IF v_ocupados >= v_max THEN
+        RAISE EXCEPTION 'Tu plan permite como máximo % barberos (contando invitaciones pendientes)', v_max
+          USING ERRCODE = 'check_violation';
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $function$;
+CREATE TRIGGER a_invitacion_validar BEFORE INSERT ON public.invitacion
+  FOR EACH ROW EXECUTE FUNCTION private.validar_invitacion();
+
+-- Aceptar o rechazar una invitación (solo el dueño del correo, confirmado); devuelve el slug
+CREATE FUNCTION public.responder_invitacion(p_token uuid, p_aceptar boolean)
+ RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $function$
+DECLARE
+  v_uid    uuid := auth.uid();
+  v_email  text;
+  v_meta   jsonb;
+  v_inv    public.invitacion%ROWTYPE;
+  v_slug   text;
+  v_suc    bigint[];
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Debes iniciar sesión' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  SELECT lower(email), raw_user_meta_data INTO v_email, v_meta
+  FROM auth.users WHERE id = v_uid AND email_confirmed_at IS NOT NULL;
+  IF v_email IS NULL THEN
+    RAISE EXCEPTION 'Confirma tu correo antes de responder la invitación' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  SELECT * INTO v_inv FROM public.invitacion WHERE token = p_token FOR UPDATE;
+  IF NOT FOUND OR v_inv.correo <> v_email THEN
+    RAISE EXCEPTION 'Esta invitación no es para tu cuenta' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF v_inv.estado <> 'pendiente' THEN
+    RAISE EXCEPTION 'Esta invitación ya fue %', v_inv.estado USING ERRCODE = 'check_violation';
+  END IF;
+  IF v_inv.expira_at < now() THEN
+    RAISE EXCEPTION 'Esta invitación venció; pide una nueva' USING ERRCODE = 'check_violation';
+  END IF;
+
+  SELECT slug INTO v_slug FROM public.barberia WHERE id_barberia = v_inv.id_barberia;
+
+  IF NOT p_aceptar THEN
+    UPDATE public.invitacion SET estado = 'rechazada', respondida_at = now() WHERE id_invitacion = v_inv.id_invitacion;
+    RETURN v_slug;
+  END IF;
+
+  -- Perfil de usuario (por si aún no existe)
+  INSERT INTO public.usuario (id_usuario, nombre, apellido, email)
+  VALUES (v_uid, coalesce(nullif(v_meta ->> 'nombre', ''), split_part(v_email, '@', 1)),
+          nullif(v_meta ->> 'apellido', ''), v_email)
+  ON CONFLICT (id_usuario) DO NOTHING;
+
+  INSERT INTO public.usuario_barberia (id_usuario, id_barberia, rol, activo)
+  VALUES (v_uid, v_inv.id_barberia, v_inv.rol, true)
+  ON CONFLICT (id_usuario, id_barberia) DO UPDATE SET rol = EXCLUDED.rol, activo = true;
+
+  IF v_inv.rol = 'profesional' THEN
+    -- El trigger de límites del plan valida el cupo de barberos
+    INSERT INTO public.profesional (id_barberia, id_profesional, activo)
+    VALUES (v_inv.id_barberia, v_uid, true)
+    ON CONFLICT (id_barberia, id_profesional) DO UPDATE SET activo = true;
+
+    -- Con una sola sucursal activa queda asignado a ella
+    SELECT array_agg(id_sucursal) INTO v_suc FROM public.sucursal
+    WHERE id_barberia = v_inv.id_barberia AND activa;
+    IF array_length(v_suc, 1) = 1 THEN
+      INSERT INTO public.profesional_sucursal (id_barberia, id_profesional, id_sucursal)
+      VALUES (v_inv.id_barberia, v_uid, v_suc[1])
+      ON CONFLICT DO NOTHING;
+    END IF;
+  END IF;
+
+  UPDATE public.invitacion SET estado = 'aceptada', respondida_at = now() WHERE id_invitacion = v_inv.id_invitacion;
+  RETURN v_slug;
+END $function$;
+
+-- Módulos vigentes de una barbería (RPC pública)
+CREATE FUNCTION public.modulos_barberia(p_barberia uuid)
+ RETURNS text[] LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $function$
+  SELECT coalesce(array_agg(DISTINCT codigo ORDER BY codigo), '{}')
+  FROM public.v_barberia_modulo WHERE id_barberia = p_barberia;
+$function$;
+
+-- Reseñas públicas de una barbería activa (autor abreviado)
+CREATE FUNCTION public.resenas_publicas(p_barberia uuid, p_limite integer DEFAULT 10)
+ RETURNS TABLE(id_resena bigint, calificacion smallint, comentario text, created_at timestamp with time zone,
+               autor text, profesional text, servicio text, producto text)
+ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $function$
+  SELECT r.id_resena, r.calificacion, r.comentario, r.created_at,
+         coalesce(
+           CASE WHEN u.deleted_at IS NULL THEN trim(u.nombre || coalesce(' ' || left(u.apellido, 1) || '.', '')) END,
+           trim(g.nombre || coalesce(' ' || nullif(left(g.apellido, 1), '-') || '.', '')),
+           'Cliente'),
+         coalesce(p.alias::text, nullif(trim(up.nombre || ' ' || coalesce(up.apellido, '')), '')),
+         s.nombre::text,
+         pr.nombre
+  FROM public.resena r
+  JOIN public.barberia b             ON b.id_barberia = r.id_barberia AND b.activa
+  LEFT JOIN public.usuario u         ON u.id_usuario = r.id_cliente
+  LEFT JOIN public.guest_usuario g   ON g.id_barberia = r.id_barberia AND g.id_guest = r.id_guest
+  LEFT JOIN public.profesional p     ON p.id_barberia = r.id_barberia AND p.id_profesional = r.id_profesional
+  LEFT JOIN public.usuario up        ON up.id_usuario = r.id_profesional
+  LEFT JOIN public.servicio s        ON s.id_barberia = r.id_barberia AND s.id_servicio = r.id_servicio
+  LEFT JOIN public.producto pr       ON pr.id_barberia = r.id_barberia AND pr.id_producto = r.id_producto
+  WHERE r.id_barberia = p_barberia
+  ORDER BY r.created_at DESC
+  LIMIT least(greatest(coalesce(p_limite, 10), 1), 200);
+$function$;
+GRANT EXECUTE ON FUNCTION public.resenas_publicas(uuid, integer) TO anon, authenticated;
+
+-- El profesional edita su ficha, pero solo el admin cambia activo / barbería / persona
+CREATE FUNCTION private.restringir_profesional_propio()
+ RETURNS trigger LANGUAGE plpgsql SET search_path TO ''
+AS $function$
+BEGIN
+  IF current_user NOT IN ('anon','authenticated') OR private.es_admin(OLD.id_barberia) THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.activo IS DISTINCT FROM OLD.activo
+     OR NEW.id_barberia <> OLD.id_barberia
+     OR NEW.id_profesional <> OLD.id_profesional THEN
+    RAISE EXCEPTION 'Solo el administrador puede cambiar el estado del profesional'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $function$;
+CREATE TRIGGER a_profesional_restringir_propio BEFORE UPDATE ON public.profesional
+  FOR EACH ROW EXECUTE FUNCTION private.restringir_profesional_propio();
+
+-- Clientes bloqueados por la barbería (los revisa reservar_como_invitado); los gestiona el staff
+CREATE TABLE public.cliente_bloqueado (
+  id_bloqueo    bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  id_barberia   uuid        NOT NULL REFERENCES public.barberia(id_barberia) ON DELETE CASCADE,
+  correo        text        NOT NULL CHECK (correo = lower(correo)),
+  telefono      text,
+  razon         text,
+  bloqueado_por uuid        REFERENCES public.usuario(id_usuario) ON DELETE SET NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT cliente_bloqueado_correo_uk UNIQUE (id_barberia, correo)
+);
+CREATE INDEX cliente_bloqueado_telefono_idx ON public.cliente_bloqueado (id_barberia, telefono) WHERE telefono IS NOT NULL;
+ALTER TABLE public.cliente_bloqueado ENABLE ROW LEVEL SECURITY;
+CREATE POLICY cliente_bloqueado_staff ON public.cliente_bloqueado FOR ALL TO authenticated
+  USING (private.es_staff(id_barberia)) WITH CHECK (private.es_staff(id_barberia));
+-- ------------------------------------------------------------------------------------------
 
 REVOKE EXECUTE ON FUNCTION public.responder_invitacion(uuid, boolean) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.responder_invitacion(uuid, boolean) TO authenticated;

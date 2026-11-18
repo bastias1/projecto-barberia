@@ -24,8 +24,18 @@ const COMPACTO = new Intl.NumberFormat("es-CL", { notation: "compact", maximumFr
 const ejeCLP = (v: number) => `$${COMPACTO.format(v)}`;
 const recortar = (s: string) => (s.length > 14 ? `${s.slice(0, 13)}…` : s);
 
-export function KpiTiles({ items }: { items: { label: string; valor: string; detalle: string; icon: "ingresos" | "transacciones" | "ticket" | "noshow" }[] }) {
+export function KpiTiles({ items, vacio }: { vacio: boolean; items: { label: string; valor: string; detalle: string; icon: "ingresos" | "transacciones" | "ticket" | "noshow" }[] }) {
   const iconos: Record<string, LucideIcon> = { ingresos: TrendingUp, transacciones: Receipt, ticket: Gauge, noshow: UserX };
+  if (vacio) {
+    return (
+      <Card>
+        <CardContent className="flex items-center gap-3 p-4 text-muted-foreground">
+          <BarChart3 className="h-5 w-5 shrink-0 opacity-50" aria-hidden="true" />
+          <p className="text-sm">Sin datos suficientes para este período: aún no hay citas completadas, inasistencias ni pedidos pagados.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {items.map((k) => {

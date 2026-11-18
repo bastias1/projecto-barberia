@@ -880,6 +880,21 @@ CREATE TRIGGER producto_limite_plan
   BEFORE INSERT OR UPDATE OF activo, id_barberia ON public.producto
   FOR EACH ROW EXECUTE FUNCTION public.validar_limite_plan('max_productos');
 
+-- CP-50: un módulo sin precio_addon (p. ej. 'bi') solo llega por el plan, nunca como adicional
+CREATE FUNCTION public.validar_modulo_adicional() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  IF NEW.estado = 'activo' AND NOT EXISTS (
+    SELECT 1 FROM public.modulo WHERE id_modulo = NEW.id_modulo AND precio_addon IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'Este módulo no se vende por separado' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.validar_modulo_adicional() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER suscripcion_modulo_vendible
+  BEFORE INSERT OR UPDATE OF estado, id_modulo ON public.suscripcion_modulo
+  FOR EACH ROW EXECUTE FUNCTION public.validar_modulo_adicional();
+
 -- Módulos requeridos
 CREATE TRIGGER producto_requiere_ecommerce
   BEFORE INSERT ON public.producto
