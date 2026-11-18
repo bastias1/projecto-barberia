@@ -67,7 +67,7 @@ La matriz de planes debe ser **configurable como datos**, **no hardcodeada** en 
 | Catálogo de productos + carrito (HU-06, 07) — `ecommerce` | ❌ | ✅ | ✅ |
 | Inventario y stock (HU-08) / alertas stock bajo (HU-09) | ❌ | ✅ | ✅ |
 | Pago en línea (HU-23) | ❌ | ✅ | ✅ |
-| Reseñas y calificaciones (HU-11) — `resenas` | ❌ | ✅ | ✅ |
+| Reseñas y calificaciones (HU-11) — incluidas en todos los planes (decisión del 2026-11-18; no hay módulo `resenas`) | ✅ | ✅ | ✅ |
 | Dashboard BI: ingresos, ranking, demanda, histórico (HU-13..16) — `bi` | ❌ | ❌ | ✅ |
 | Pronóstico de demanda (HU-25) — `pronostico` | ❌ | ❌ | ✅ |
 | Sincronización Google Calendar (HU-24) — `calendario` | ❌ | ❌ | ✅ |
@@ -183,7 +183,7 @@ Las condiciones de aceptación son los criterios de "hecho" — implementarlas c
 
 ### 5.3 Valoraciones y notificaciones
 
-#### HU-11 — Reseñas y calificaciones · **Should** · CU-13 · Pro
+#### HU-11 — Reseñas y calificaciones · **Should** · CU-13 · Básico (todos los planes)
 **Como** cliente, **quiero** ver reseñas de la barbería y dejar la mía al terminar un servicio o compra, **para** elegir con confianza y opinar.
 - [ ] Requiere cita completada o producto entregado, y ser su autor.
 - [ ] Calificación 1–5 estrellas + texto; **una sola vez** por cita o por producto comprado.
@@ -457,7 +457,7 @@ Implementar como tests (Vitest/Playwright/SQL). El informe define 53 casos; los 
 | HU-08 | ✅ | CRUD de productos (precio, stock, stock mínimo, imagen, activo); "Registrar ingreso" (RPC `ingresar_stock`); todo cambio de stock queda en `movimiento_stock` | Pantalla con el historial de movimientos (no la pide la HU) |
 | HU-09 | ✅ | Aviso en Productos y correo a los administradores cuando un pago deja un producto en o bajo su mínimo (un correo por baja, `producto.alerta_stock_at`); los archivados no alertan | — |
 | HU-23 | 🟡 | Pago con tarjeta (Orders API), webhook con firma, se guarda el id de transacción, nunca la tarjeta, rechazo deja el pedido pendiente; el stock se descuenta **solo con pago aprobado** (`pedido.stock_descontado`) | El resultado síncrono de Mercado Pago también cambia el estado, no solo el webhook (ver divergencia en CLAUDE.md) |
-| HU-11 | 🟡 | Reglas en BD (`validar_resena`: cita completada / producto entregado, una vez, invitados solo servicios), carrusel público, rating por producto, link de reseña por correo | Promedio y nº de reseñas **de la barbería** visible; restringir al plan Pro (no existe módulo `resenas`) |
+| HU-11 | ✅ | Reglas en BD (`validar_resena`: cita completada / producto entregado, una vez, invitados solo servicios), carrusel público, rating por producto, link de reseña por correo; promedio y nº de reseñas de la barbería en su página (RPC `resumen_resenas`, siempre al día porque se calcula al consultar); disponible en todos los planes | — |
 | HU-12 | 🟡 | Correos de reserva, pedido entregado e invitación (Resend) | Reintento de envíos fallidos y registro de envíos (hoy solo `console.error`) |
 | HU-13 | 🟡 | `/[slug]/dashboard/estadisticas` (solo admin con `bi`): ingresos por día/semana/mes (servicios completados + pedidos pagados) con funciones SQL `bi_*` (`BI.sql`) | Medir <5 s p95 (CP-04); pruebas de CP-29/CP-50 |
 | HU-14 | ✅ | Ranking de servicios (citas completadas) y productos (unidades en pedidos pagados) | — |

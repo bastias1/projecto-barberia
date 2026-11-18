@@ -16,7 +16,7 @@ Functional spec from the thesis report: user stories HU-xx with acceptance crite
 - The spec is the target; the code and DB are what exists. When they disagree, tell the user instead of silently changing either. Business rules from §8 go in the DB (constraints/triggers), plan modules/limits stay as data (never hardcode the §4 matrix).
 - Known divergences between spec and current implementation:
   - Roles: spec `propietario`/`administrador` → `usuario_barberia.rol = 'admin'` (plus `profesional`, `cliente`); platform admin → `usuario.rol = 'superadmin'`.
-  - Modules: the DB has only `agenda`, `ecommerce`, `bi`. Spec modules `resenas`, `pronostico`, `calendario`, `soporte_directo` don't exist yet — add them as `modulo`/`plan_modulo` rows.
+  - Modules: the DB has only `agenda`, `ecommerce`, `bi`. Spec modules `pronostico`, `calendario`, `soporte_directo` don't exist yet — add them as `modulo`/`plan_modulo` rows. Reviews (HU-11) are in every plan by decision, so there is no `resenas` module.
   - Payments: spec (§12.7) changes state only from the webhook; today `/api/checkout/pagar` and `/api/suscripcion/checkout` also record the synchronous Mercado Pago result, with the webhook as the other path.
   - Data model: the spec says it isn't closed; it is now in `BDD.SQL`/`RLS.sql`/`database.types.ts`. Still propose schema changes and ask before applying them. Migrations are applied through the Supabase MCP, not a `supabase/migrations` folder.
   - Tests: spec expects Vitest/Playwright/k6; none is configured yet.

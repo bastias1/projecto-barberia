@@ -21,11 +21,13 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
   if (!barberia) notFound();
 
   const supabase = await createClient();
-  const [sucursales, horario, hayProductos, modulos] = await Promise.all([
+  const [sucursales, horario, hayProductos, modulos, { data: resumen }] = await Promise.all([
     getSucursales(supabase, barberia.id_barberia),
     getHorarioResumen(supabase, barberia.id_barberia),
     tieneTienda(supabase, barberia.id_barberia),
     getModulosCached(barberia.id_barberia),
+    // HU-11: promedio y número de reseñas de la barbería
+    supabase.rpc("resumen_resenas", { p_barberia: barberia.id_barberia }).maybeSingle<{ promedio: number | null; total: number }>(),
   ]);
   const conTienda = hayProductos && modulos.includes("ecommerce");
   const conAgenda = modulos.includes("agenda");
@@ -288,11 +290,17 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
 
         {/* Reviews Section */}
         <div className="mb-20">
-          <div className="flex items-center justify-center mb-8 px-2 max-w-3xl mx-auto">
+          <div className="flex flex-col items-center justify-center gap-1 mb-8 px-2 max-w-3xl mx-auto text-center">
             <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+              <Star className="h-5 w-5 text-amber-500 fill-amber-500" aria-hidden="true" />
               Opiniones de Clientes
             </h2>
+            {resumen && resumen.total > 0 && resumen.promedio !== null && (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">{Number(resumen.promedio).toLocaleString("es-CL", { minimumFractionDigits: 1 })}</span> de 5
+                {" · "}{resumen.total} {resumen.total === 1 ? "opinión" : "opiniones"}
+              </p>
+            )}
           </div>
           <div className="max-w-5xl mx-auto">
             <ReviewsCarousel />
