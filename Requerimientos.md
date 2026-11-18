@@ -67,7 +67,7 @@ La matriz de planes debe ser **configurable como datos**, **no hardcodeada** en 
 | Catálogo de productos + carrito (HU-06, 07) — `ecommerce` | ❌ | ✅ | ✅ |
 | Inventario y stock (HU-08) / alertas stock bajo (HU-09) | ❌ | ✅ | ✅ |
 | Pago en línea (HU-23) | ❌ | ✅ | ✅ |
-| Reseñas y calificaciones (HU-11) — `resenas` | ❌ | ✅ | ✅ |
+| Reseñas y calificaciones (HU-11) — incluidas en todos los planes (decisión del 2026-11-18; no hay módulo `resenas`) | ✅ | ✅ | ✅ |
 | Dashboard BI: ingresos, ranking, demanda, histórico (HU-13..16) — `bi` | ❌ | ❌ | ✅ |
 | Pronóstico de demanda (HU-25) — `pronostico` | ❌ | ❌ | ✅ |
 | Sincronización Google Calendar (HU-24) — `calendario` | ❌ | ❌ | ✅ |
@@ -183,7 +183,7 @@ Las condiciones de aceptación son los criterios de "hecho" — implementarlas c
 
 ### 5.3 Valoraciones y notificaciones
 
-#### HU-11 — Reseñas y calificaciones · **Should** · CU-13 · Pro
+#### HU-11 — Reseñas y calificaciones · **Should** · CU-13 · Básico (todos los planes)
 **Como** cliente, **quiero** ver reseñas de la barbería y dejar la mía al terminar un servicio o compra, **para** elegir con confianza y opinar.
 - [ ] Requiere cita completada o producto entregado, y ser su autor.
 - [ ] Calificación 1–5 estrellas + texto; **una sola vez** por cita o por producto comprado.
@@ -448,7 +448,7 @@ Implementar como tests (Vitest/Playwright/SQL). El informe define 53 casos; los 
 | HU-04 | ✅ | Login, `requireStaff`, RLS por barbería, API responde 401 | — |
 | HU-05 | 🟡 | Horarios por sucursal sin superposición, días bloqueados, servicios por profesional, límite de profesionales en BD (trigger + invitaciones) | Profesional **sin cuenta** (hoy solo entra por invitación); ofrecer cambio de plan al llegar al límite (solo se muestra el cupo) |
 | HU-19 | ✅ | `/barberias`: búsqueda por nombre o comuna (sin tildes ni mayúsculas) y filtro de región, solo barberías activas; sin coincidencias avisa y muestra las activas de la región elegida (todas si no se eligió); cada resultado lleva a `/[slug]` | La "región" del fallback es la que elige la persona en el filtro (la spec no dice de dónde sale); sucursales sin `region` cargada no entran en ese filtro |
-| HU-21 | 🟡 | Signup, login, recuperar contraseña; comprar exige sesión | Checkbox obligatorio de política de datos en el signup (+ registro en `consentimiento`); aviso de correo ya registrado con opción de recuperar |
+| HU-21 | ✅ | Signup con nombre, correo y contraseña; checkbox obligatorio de términos y privacidad (sin aceptarlo el trigger `crear_perfil_usuario` rechaza la cuenta y registra `consentimiento`); correo ya registrado → aviso con link al login para entrar o recuperar la contraseña; login simplificado; comprar exige sesión | El aviso de correo registrado depende de que Supabase devuelva un usuario sin identidades (no se probó contra Supabase) |
 | HU-22 | ✅ | Cancelar y **reprogramar** (misma barbería, barbero y servicio; nueva fecha y hora) con cuenta ("Mis Reservas" en el perfil) o con el link firmado del correo (`/[slug]/reprogramar`); plazo mínimo por barbería (`barberia.plazo_cancelacion_min`, 2 h por defecto, editable en Mi Barbería) aplicado en la BD (RPC `cambiar_reserva_cliente` y trigger); fuera de plazo se rechaza e informa; correo al cliente con el cambio; aviso en tiempo real al barbero | El barbero no recibe correo (solo el aviso en el panel); reprogramar no queda en `reserva_historial` (solo registra cambios de estado) |
 | HU-10 | ✅ | Mapa embebido + ficha de contacto en la home y en `/[slug]/[sucursal]` | — |
 | HU-24 | ❌ | — | Integración Google Calendar (OAuth, token en Vault, reintentos) |
@@ -457,7 +457,7 @@ Implementar como tests (Vitest/Playwright/SQL). El informe define 53 casos; los 
 | HU-08 | ✅ | CRUD de productos (precio, stock, stock mínimo, imagen, activo); "Registrar ingreso" (RPC `ingresar_stock`); todo cambio de stock queda en `movimiento_stock` | Pantalla con el historial de movimientos (no la pide la HU) |
 | HU-09 | ✅ | Aviso en Productos y correo a los administradores cuando un pago deja un producto en o bajo su mínimo (un correo por baja, `producto.alerta_stock_at`); los archivados no alertan | — |
 | HU-23 | 🟡 | Pago con tarjeta (Orders API), webhook con firma, se guarda el id de transacción, nunca la tarjeta, rechazo deja el pedido pendiente; el stock se descuenta **solo con pago aprobado** (`pedido.stock_descontado`) | El resultado síncrono de Mercado Pago también cambia el estado, no solo el webhook (ver divergencia en CLAUDE.md) |
-| HU-11 | 🟡 | Reglas en BD (`validar_resena`: cita completada / producto entregado, una vez, invitados solo servicios), carrusel público, rating por producto, link de reseña por correo | Promedio y nº de reseñas **de la barbería** visible; restringir al plan Pro (no existe módulo `resenas`) |
+| HU-11 | ✅ | Reglas en BD (`validar_resena`: cita completada / producto entregado, una vez, invitados solo servicios), carrusel público, rating por producto, link de reseña por correo; promedio y nº de reseñas de la barbería en su página (RPC `resumen_resenas`, siempre al día porque se calcula al consultar); disponible en todos los planes | — |
 | HU-12 | 🟡 | Correos de reserva, pedido entregado e invitación (Resend) | Reintento de envíos fallidos y registro de envíos (hoy solo `console.error`) |
 | HU-13 | 🟡 | `/[slug]/dashboard/estadisticas` (solo admin con `bi`): ingresos por día/semana/mes (servicios completados + pedidos pagados) con funciones SQL `bi_*` (`BI.sql`) | Medir <5 s p95 (CP-04); pruebas de CP-29/CP-50 |
 | HU-14 | ✅ | Ranking de servicios (citas completadas) y productos (unidades en pedidos pagados) | — |

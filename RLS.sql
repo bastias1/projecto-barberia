@@ -636,6 +636,18 @@ GRANT  EXECUTE ON FUNCTION public.anonimizar_guest(uuid)   TO authenticated;
 
 GRANT  EXECUTE ON FUNCTION public.profesionales_publicos(uuid) TO anon, authenticated;
 
+-- HU-11: promedio y número de reseñas de una barbería activa (público, sin datos de clientes)
+CREATE FUNCTION public.resumen_resenas(p_barberia uuid)
+RETURNS TABLE (promedio numeric, total integer)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT round(avg(r.calificacion), 1), count(*)::integer
+  FROM public.resena r
+  JOIN public.barberia b ON b.id_barberia = r.id_barberia AND b.activa
+  WHERE r.id_barberia = p_barberia;
+$$;
+REVOKE EXECUTE ON FUNCTION public.resumen_resenas(uuid) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.resumen_resenas(uuid) TO anon, authenticated;
+
 -- =====================================================================
 -- Storage (bucket público "imgs"): cada admin escribe solo en la carpeta
 -- de su barbería; cada usuario, solo su avatar

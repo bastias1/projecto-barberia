@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +39,8 @@ function LoginForm() {
   const confirmado = searchParams.get("confirmado") === "1";
   const [barberia, setBarberia] = useState<Barberia | null>(null);
   const [recordar, setRecordar] = useState(true);
-  const [email, setEmail] = useState("");
+  // Desde "correo ya registrado" en el registro llega el correo para no escribirlo de nuevo
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -135,162 +136,130 @@ function LoginForm() {
     }
   };
 
+  const nombre = barberia?.nombre ?? PLATAFORMA.nombre;
+  const signupHref = `/signup?${new URLSearchParams({ ...(slug ? { barberia: slug } : {}), ...(next ? { next } : {}), ...(email.trim() ? { email: email.trim() } : {}) })}`;
+
   return (
-    <div className="min-h-dvh bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center p-4 md:p-8">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ModeToggle />
-      </div>
-
-      {/* Back Button */}
-      <div className="fixed top-4 left-4 z-50">
-        <Link href={slug ? `/${slug}` : "/"}>
-          <Button variant="ghost" className="gap-2">
+    <div className="min-h-dvh flex flex-col bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
+      <header className="flex items-center justify-between p-4">
+        <Button variant="ghost" size="sm" className="gap-2" asChild>
+          <Link href={slug ? `/${slug}` : "/"}>
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Volver</span>
-          </Button>
-        </Link>
-      </div>
+            Volver
+          </Link>
+        </Button>
+        <ModeToggle />
+      </header>
 
-      <div className="w-full max-w-4xl">
-        <Card className="border-2 shadow-2xl overflow-hidden p-0">
-          <div className="grid md:grid-cols-2">
+      <main id="contenido" className="flex-1 flex items-center justify-center px-4 pb-16">
+        <div className="w-full max-w-sm">
+          <div className="flex flex-col items-center text-center mb-6">
+            {barberia?.logo_url ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element -- los logos pueden venir de cualquier host */}
+                <img src={barberia.logo_url} alt="" className={`h-14 max-w-40 object-contain ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`} />
+                {barberia.logo_oscuro_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={barberia.logo_oscuro_url} alt="" className="h-14 max-w-40 object-contain hidden dark:block" />
+                )}
+              </>
+            ) : (
+              <span className="h-12 w-12 rounded-xl bg-zinc-900 dark:bg-white flex items-center justify-center">
+                <Scissors className="h-5 w-5 text-white dark:text-zinc-900" aria-hidden="true" />
+              </span>
+            )}
+            <h1 className="mt-4 text-2xl font-bold tracking-tight">Inicia sesión</h1>
+            <p className="text-sm text-muted-foreground">en {nombre}</p>
+          </div>
 
-            {/* Left Side: Login Form */}
-            <div className="p-8 md:p-12 bg-white dark:bg-zinc-950">
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold mb-2">Bienvenido</h1>
-                <p className="text-muted-foreground">Inicia sesión en tu cuenta</p>
+          <Card className="p-6 gap-0 shadow-sm">
+            <form onSubmit={handleLogin} className="space-y-4">
+              {confirmado && !error && (
+                <div role="status" className="flex items-start gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
+                  <MailCheck className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <p>Tu correo fue confirmado. Inicia sesión para continuar.</p>
+                </div>
+              )}
+              {error && (
+                <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Correo</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="tu@correo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="h-11"
+                />
               </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
-                {confirmado && !error && (
-                  <div className="p-3 flex items-start gap-2 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-800 rounded-lg text-sm text-green-800 dark:text-green-300">
-                    <MailCheck className="h-4 w-4 mt-0.5 shrink-0" />
-                    <p>Tu correo fue confirmado. Inicia sesión para continuar.</p>
-                  </div>
-                )}
-                {error && (
-                  <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-700 dark:text-red-400 font-semibold mb-1">Error al iniciar sesión:</p>
-                    <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Correo Electrónico</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="ejemplo@correo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={loading}
-                    className="h-11"
-                  />
-                </div>
-
-                <div className="space-y-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="password">Contraseña</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-11 pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-11 px-3 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                      disabled={loading}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-zinc-500" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-zinc-500" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer select-none">
-                  <Checkbox checked={recordar} onCheckedChange={(v) => setRecordar(v === true)} disabled={loading} />
-                  Mantener sesión iniciada
-                </label>
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 text-base mt-2"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Iniciando sesión...
-                    </>
-                  ) : (
-                    "Iniciar Sesión"
-                  )}
-                </Button>
-
-                <div className="text-center pt-2">
                   <button
                     type="button"
-                    className="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:underline"
+                    className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     onClick={handleOlvideClave}
+                    disabled={loading}
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
                 </div>
-              </form>
-            </div>
-
-            {/* Right Side: Sign Up Call to Action */}
-            <div className="p-8 md:p-12 bg-zinc-100 dark:bg-zinc-900 flex flex-col items-center justify-center text-center border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800">
-              <div className="w-32 h-32 mb-6 relative flex items-center justify-center">
-                {barberia?.logo_url ? (
-                  <>
-                    <img
-                      src={barberia.logo_url}
-                      alt={`Logo ${barberia.nombre}`}
-                      className={`max-h-full object-contain ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`}
-                    />
-                    {barberia.logo_oscuro_url && (
-                      <img src={barberia.logo_oscuro_url} alt={`Logo ${barberia.nombre}`} className="max-h-full object-contain hidden dark:block" />
-                    )}
-                  </>
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center">
-                    <Scissors className="h-10 w-10 text-white dark:text-zinc-900" />
-                  </div>
-                )}
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-11 pr-11"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-11 w-11 text-muted-foreground hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
 
-              <h2 className="text-2xl font-bold mb-4">¿Eres nuevo aquí?</h2>
-              <p className="text-muted-foreground mb-8 max-w-xs">
-                {barberia
-                  ? `Regístrate en ${barberia.nombre} para agendar tus citas, comprar productos y gestionar tu perfil.`
-                  : `Crea tu cuenta en ${PLATAFORMA.nombre} para registrar tu barbería o reservar en una.`}
-              </p>
+              <div className="flex items-center gap-2">
+                <Checkbox id="recordar" checked={recordar} onCheckedChange={(v) => setRecordar(v === true)} disabled={loading} />
+                <Label htmlFor="recordar" className="text-sm font-normal text-muted-foreground">Mantener sesión iniciada</Label>
+              </div>
 
-              <Link href={`/signup?${new URLSearchParams({ ...(slug ? { barberia: slug } : {}), ...(next ? { next } : {}) })}`} className="w-full max-w-xs">
-                <Button variant="outline" className="w-full h-11 text-base border-2 hover:bg-zinc-200 dark:hover:bg-zinc-800">
-                  Crear Cuenta
-                </Button>
-              </Link>
+              <Button type="submit" className="w-full h-11" disabled={loading}>
+                {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Iniciando sesión...</> : "Iniciar sesión"}
+              </Button>
+            </form>
+
+            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              ¿No tienes cuenta?
+              <span className="h-px flex-1 bg-border" />
             </div>
 
-          </div>
-        </Card>
-      </div>
+            <Button variant="outline" className="w-full h-11" asChild>
+              <Link href={signupHref}>Crear cuenta</Link>
+            </Button>
+          </Card>
+        </div>
+      </main>
     </div>
   );
 }
