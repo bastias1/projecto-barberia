@@ -74,7 +74,7 @@ BEGIN
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     -- El superadmin de la plataforma puede operar sobre todo, salvo las tablas de solo
     -- lectura/registro (sus políticas propias están más abajo)
-    CONTINUE WHEN t IN ('auditoria_admin', 'movimiento_stock');
+    CONTINUE WHEN t IN ('auditoria_admin', 'movimiento_stock', 'calendario_google', 'reserva_evento_google');
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR ALL TO authenticated
          USING ((SELECT private.es_superadmin())) WITH CHECK ((SELECT private.es_superadmin()))',
@@ -612,7 +612,7 @@ END $$;
 -- 6. PERMISOS
 -- =====================================================================
 
-GRANT USAGE ON SCHEMA private TO anon, authenticated;
+GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role;  -- service_role: triggers en private (p. ej. al actualizar reserva)
 
 -- usuario: el titular solo edita sus datos de perfil (no rol, email ni deleted_at)
 REVOKE UPDATE ON public.usuario FROM anon, authenticated;
@@ -903,3 +903,49 @@ CREATE POLICY auditoria_admin_select ON public.auditoria_admin FOR SELECT TO aut
 CREATE POLICY auditoria_admin_insert ON public.auditoria_admin FOR INSERT TO authenticated
   WITH CHECK ((SELECT private.es_superadmin()) AND id_usuario = (SELECT auth.uid()));
 REVOKE UPDATE, DELETE, TRUNCATE ON public.auditoria_admin FROM anon, authenticated;
+
+-- ---------------- HU-24 · Google Calendar (migración HU24.sql) ----------------
+-- RLS: el dueño solo ve su vínculo; la cola no tiene políticas (solo service role)
+ALTER TABLE public.calendario_google     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reserva_evento_google ENABLE ROW LEVEL SECURITY;
+CREATE POLICY calendario_google_select ON public.calendario_google FOR SELECT TO authenticated
+  USING (id_usuario = (SELECT auth.uid()));
+REVOKE ALL ON public.calendario_google FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.calendario_google FROM authenticated;
+REVOKE ALL ON public.reserva_evento_google FROM anon, authenticated;
+
+-- Refresh token en Vault: solo el backend (service role) lo guarda, lee o borra
+CREATE FUNCTION public.gcal_guardar_token(p_usuario uuid, p_token text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_id uuid;
+BEGIN
+  SELECT id INTO v_id FROM vault.secrets WHERE name = 'gcal_' || p_usuario;
+  IF v_id IS NULL THEN
+    v_id := vault.create_secret(p_token, 'gcal_' || p_usuario, 'Refresh token de Google Calendar');
+  ELSE
+    PERFORM vault.update_secret(v_id, p_token);
+  END IF;
+  RETURN v_id;
+END $$;
+
+CREATE FUNCTION public.gcal_token(p_usuario uuid)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT d.decrypted_secret FROM vault.decrypted_secrets d
+  JOIN public.calendario_google c ON c.id_secreto = d.id
+  WHERE c.id_usuario = p_usuario;
+$$;
+
+-- Desvincula: borra el secreto y el vínculo (la cola de ese usuario cae por ON DELETE CASCADE)
+CREATE FUNCTION public.gcal_borrar(p_usuario uuid)
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  DELETE FROM vault.secrets WHERE name = 'gcal_' || p_usuario;
+  DELETE FROM public.calendario_google WHERE id_usuario = p_usuario;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.gcal_guardar_token(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.gcal_token(uuid)               FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.gcal_borrar(uuid)              FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.gcal_guardar_token(uuid, text) TO service_role;
+GRANT  EXECUTE ON FUNCTION public.gcal_token(uuid)               TO service_role;
+GRANT  EXECUTE ON FUNCTION public.gcal_borrar(uuid)              TO service_role;
+
