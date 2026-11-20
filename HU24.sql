@@ -121,3 +121,18 @@ SELECT cron.schedule('gcal-sincronizar', '* * * * *', $job$
     timeout_milliseconds := 30000);
 $job$);
 SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'gcal-sincronizar';
+
+-- =====================================================================
+--  T3 · Activar la sincronización en PRODUCCIÓN (después de desplegar
+--  /api/google-calendar/sincronizar con CRON_SECRET en Vercel)
+--  1. Mismo valor que CRON_SECRET de Vercel, y la URL pública del sitio:
+--       SELECT vault.create_secret('<CRON_SECRET>', 'cron_secret');
+--       SELECT vault.create_secret('https://projecto-barberia.vercel.app', 'site_url');
+--     (si ya existen: SELECT vault.update_secret(id, '<valor>') FROM vault.secrets WHERE name = 'cron_secret';)
+--  2. Activar el job:
+--       SELECT cron.alter_job(jobid, active := true) FROM cron.job WHERE jobname = 'gcal-sincronizar';
+--  3. Revisar las ejecuciones (status_code 200 = ok, 401 = secreto distinto):
+--       SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 5;
+--       SELECT status_code, content FROM net._http_response ORDER BY created DESC LIMIT 5;
+--  Pausar: SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'gcal-sincronizar';
+-- =====================================================================

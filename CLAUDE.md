@@ -47,7 +47,7 @@ You have direct access to the Supabase database via MCP tools (e.g. `execute_sql
 Three distinct clients — use the right one for the context:
 - `utils/supabase/client.ts` — browser client (Client Components)
 - `utils/supabase/server.ts` — server client with cookie session (Server Components, Route Handlers that need auth)
-- `utils/supabase/service-role.ts` — bypasses RLS. Only for: the MercadoPago webhook, recording the result of a shop payment in `/api/checkout/pagar` (`registrarPagoOrder`) and syncing subscription charges (`sincronizarCobros`) in `/api/suscripcion/checkout` and Dashboard → Suscripción, admin API routes after `requireAdmin()` (`lib/admin-auth.ts`), signed email links after `verifyLink()` (`lib/signed-links.ts`), transactional emails (`lib/notifications.ts`), and in `/admin` only changing `usuario.rol`/`deleted_at`, Auth bans and the Auth user/avatar cleanup of `eliminarDatosPersona`, after checking `getSuperadmin()`
+- `utils/supabase/service-role.ts` — bypasses RLS. Only for: the MercadoPago webhook, recording the result of a shop payment in `/api/checkout/pagar` (`registrarPagoOrder`) and syncing subscription charges (`sincronizarCobros`) in `/api/suscripcion/checkout` and Dashboard → Suscripción, admin API routes after `requireAdmin()` (`lib/admin-auth.ts`), signed email links after `verifyLink()` (`lib/signed-links.ts`), the Google Calendar sync worker (`sincronizarPendientes` in `lib/google-calendar.ts`, Vault tokens and the `reserva_evento_google` queue) after the `CRON_SECRET` check in `/api/google-calendar/sincronizar`, transactional emails (`lib/notifications.ts`), and in `/admin` only changing `usuario.rol`/`deleted_at`, Auth bans and the Auth user/avatar cleanup of `eliminarDatosPersona`, after checking `getSuperadmin()`
 
 Middleware lives at `utils/supabase/middleware.ts` and is re-exported from `proxy.ts` at the root (Next.js requires the file to be named `middleware.ts` or `middleware.js` at root, but the project exports a `proxy` function—this is intentional to avoid conflicts).
 
@@ -183,6 +183,7 @@ MERCADOPAGO_TEST_PAYER_EMAIL         # optional, testing only: test buyer user's
 BOOKING_SECRET            # signs email links
 RESEND_API_KEY, EMAIL_FROM # sender address; the name shown is each barbería's
 NEXT_PUBLIC_SITE_URL      # base URL for email links and MercadoPago return URLs
+CRON_SECRET               # HU-24: pg_cron → /api/google-calendar/sincronizar (same value in Supabase Vault `cron_secret`)
 ```
 
 ### Remote Patterns
