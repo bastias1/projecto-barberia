@@ -4,6 +4,7 @@ import { sincronizarPendientes } from "@/lib/google-calendar";
 
 // HU-24: lo llama el job pg_cron 'gcal-sincronizar' cada minuto (Authorization: Bearer CRON_SECRET)
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // sincronizarPendientes corta a los 40 s
 
 function autorizado(header: string | null): boolean {
   const secreto = process.env.CRON_SECRET;

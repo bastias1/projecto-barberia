@@ -41,18 +41,20 @@ CREATE TABLE public.reserva_evento_google (
   pendiente    boolean     NOT NULL DEFAULT true,
   intentos     integer     NOT NULL DEFAULT 0,
   ultimo_error text,
-  updated_at   timestamptz NOT NULL DEFAULT now()
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  bloqueada_hasta timestamptz             -- gcal_reclamar: un worker la está procesando hasta esta hora
 );
 CREATE INDEX reserva_evento_google_pendiente_idx ON public.reserva_evento_google (updated_at) WHERE pendiente;
 CREATE INDEX reserva_evento_google_usuario_idx   ON public.reserva_evento_google (id_usuario);
 CREATE INDEX reserva_evento_google_barberia_idx  ON public.reserva_evento_google (id_barberia);
 
--- Encola la reserva si la barbería tiene 'calendario' y el profesional vinculó su Google
+-- Encola la reserva si el profesional vinculó su Google, con o sin el módulo: gcal_reclamar
+-- solo entrega las de barberías con 'calendario' en vigencia (lo reservado durante un corte se
+-- sincroniza al volver el módulo)
 CREATE FUNCTION private.encolar_evento_google()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
-  IF public.barberia_tiene_modulo(NEW.id_barberia, 'calendario')
-     AND EXISTS (SELECT 1 FROM public.calendario_google WHERE id_usuario = NEW.id_profesional) THEN
+  IF EXISTS (SELECT 1 FROM public.calendario_google WHERE id_usuario = NEW.id_profesional) THEN
     INSERT INTO public.reserva_evento_google (id_reserva, id_barberia, id_usuario)
     VALUES (NEW.id_reserva, NEW.id_barberia, NEW.id_profesional)
     ON CONFLICT (id_reserva) DO UPDATE
@@ -102,12 +104,34 @@ RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
   DELETE FROM public.calendario_google WHERE id_usuario = p_usuario;
 $$;
 
+-- Entrega hasta p_limite filas pendientes al worker y las reserva 2 minutos (SKIP LOCKED + lease:
+-- dos ejecuciones simultáneas nunca toman la misma). Solo barberías con 'calendario' en vigencia;
+-- las de 20+ intentos se reintentan una vez por hora.
+CREATE FUNCTION public.gcal_reclamar(p_limite integer)
+RETURNS SETOF public.reserva_evento_google LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  UPDATE public.reserva_evento_google q SET bloqueada_hasta = now() + interval '2 minutes'
+  FROM (
+    SELECT id_reserva FROM public.reserva_evento_google
+    WHERE pendiente
+      AND (bloqueada_hasta IS NULL OR bloqueada_hasta < now())
+      AND (intentos < 20 OR updated_at < now() - interval '1 hour')
+      AND public.barberia_tiene_modulo(id_barberia, 'calendario')
+    ORDER BY updated_at
+    LIMIT p_limite
+    FOR UPDATE SKIP LOCKED
+  ) c
+  WHERE q.id_reserva = c.id_reserva
+  RETURNING q.*;
+$$;
+
 REVOKE EXECUTE ON FUNCTION public.gcal_guardar_token(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.gcal_token(uuid)               FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.gcal_borrar(uuid)              FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.gcal_guardar_token(uuid, text) TO service_role;
 GRANT  EXECUTE ON FUNCTION public.gcal_token(uuid)               TO service_role;
 GRANT  EXECUTE ON FUNCTION public.gcal_borrar(uuid)              TO service_role;
+REVOKE EXECUTE ON FUNCTION public.gcal_reclamar(integer)         FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.gcal_reclamar(integer)         TO service_role;
 
 -- Job cada minuto que vacía la cola. Se crea DESACTIVADO (lo activa T3 al desplegar la ruta).
 -- URL y secreto se leen de Vault al ejecutarse ('site_url', 'cron_secret'): nada fijo en el job.

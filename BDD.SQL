@@ -1447,18 +1447,20 @@ CREATE TABLE public.reserva_evento_google (
   pendiente    boolean     NOT NULL DEFAULT true,
   intentos     integer     NOT NULL DEFAULT 0,
   ultimo_error text,
-  updated_at   timestamptz NOT NULL DEFAULT now()
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  bloqueada_hasta timestamptz             -- gcal_reclamar: un worker la está procesando hasta esta hora
 );
 CREATE INDEX reserva_evento_google_pendiente_idx ON public.reserva_evento_google (updated_at) WHERE pendiente;
 CREATE INDEX reserva_evento_google_usuario_idx   ON public.reserva_evento_google (id_usuario);
 CREATE INDEX reserva_evento_google_barberia_idx  ON public.reserva_evento_google (id_barberia);
 
--- Encola la reserva si la barbería tiene 'calendario' y el profesional vinculó su Google
+-- Encola la reserva si el profesional vinculó su Google, con o sin el módulo: gcal_reclamar
+-- solo entrega las de barberías con 'calendario' en vigencia (lo reservado durante un corte se
+-- sincroniza al volver el módulo)
 CREATE FUNCTION private.encolar_evento_google()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
-  IF public.barberia_tiene_modulo(NEW.id_barberia, 'calendario')
-     AND EXISTS (SELECT 1 FROM public.calendario_google WHERE id_usuario = NEW.id_profesional) THEN
+  IF EXISTS (SELECT 1 FROM public.calendario_google WHERE id_usuario = NEW.id_profesional) THEN
     INSERT INTO public.reserva_evento_google (id_reserva, id_barberia, id_usuario)
     VALUES (NEW.id_reserva, NEW.id_barberia, NEW.id_profesional)
     ON CONFLICT (id_reserva) DO UPDATE

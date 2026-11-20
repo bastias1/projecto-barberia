@@ -942,10 +942,32 @@ RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
   DELETE FROM public.calendario_google WHERE id_usuario = p_usuario;
 $$;
 
+-- Entrega hasta p_limite filas pendientes al worker y las reserva 2 minutos (SKIP LOCKED + lease:
+-- dos ejecuciones simultáneas nunca toman la misma). Solo barberías con 'calendario' en vigencia;
+-- las de 20+ intentos se reintentan una vez por hora.
+CREATE FUNCTION public.gcal_reclamar(p_limite integer)
+RETURNS SETOF public.reserva_evento_google LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  UPDATE public.reserva_evento_google q SET bloqueada_hasta = now() + interval '2 minutes'
+  FROM (
+    SELECT id_reserva FROM public.reserva_evento_google
+    WHERE pendiente
+      AND (bloqueada_hasta IS NULL OR bloqueada_hasta < now())
+      AND (intentos < 20 OR updated_at < now() - interval '1 hour')
+      AND public.barberia_tiene_modulo(id_barberia, 'calendario')
+    ORDER BY updated_at
+    LIMIT p_limite
+    FOR UPDATE SKIP LOCKED
+  ) c
+  WHERE q.id_reserva = c.id_reserva
+  RETURNING q.*;
+$$;
+
 REVOKE EXECUTE ON FUNCTION public.gcal_guardar_token(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.gcal_token(uuid)               FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.gcal_borrar(uuid)              FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.gcal_guardar_token(uuid, text) TO service_role;
 GRANT  EXECUTE ON FUNCTION public.gcal_token(uuid)               TO service_role;
 GRANT  EXECUTE ON FUNCTION public.gcal_borrar(uuid)              TO service_role;
+REVOKE EXECUTE ON FUNCTION public.gcal_reclamar(integer)         FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.gcal_reclamar(integer)         TO service_role;
 

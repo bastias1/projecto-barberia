@@ -18,7 +18,7 @@ describe("HU-24 · accionEvento", () => {
 // sincronizarPendientes contra la base de pruebas, con la API de Google simulada
 type Llamada = { metodo: string; url: string; body: Record<string, unknown> | null };
 let llamadas: Llamada[] = [];
-let responder: (l: Llamada) => Response = () => new Response("{}");
+let responder: (l: Llamada) => Response | Promise<Response> = () => new Response("{}");
 
 const googleFalso = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const body = init?.body;
@@ -48,7 +48,9 @@ async function sembrar() {
   const [adm, barbero] = await Promise.all(["gsync-admin", "gsync-barbero"].map(usuarioPrueba));
   const premium = (ok(await admin.from("modulo").select("plan_modulo(id_plan)").eq("codigo", "calendario").single()) as
     unknown as { plan_modulo: { id_plan: number }[] }).plan_modulo[0]?.id_plan;
-  if (!premium) throw new Error("La base de pruebas necesita un plan con 'calendario'");
+  const basico = ok(await admin.from("plan_suscripcion").select("id_plan, plan_modulo(id_plan)").eq("activo", true))
+    .find((p) => !(p.plan_modulo as unknown[]).length)?.id_plan as number;
+  if (!premium || !basico) throw new Error("La base de pruebas necesita un plan con 'calendario' y uno sin módulos");
 
   const idBarberia = ok(await adm.db.rpc("registrar_barberia", {
     p_nombre: "Pruebas GSync", p_slug: `pruebas-gsync-${Date.now()}`, p_id_plan: premium,
@@ -79,12 +81,14 @@ async function sembrar() {
     fecha_hora_inicio: lunes(h++), estado: "pendiente",
   }).select("id_reserva, fecha_hora_inicio").single())) as { id_reserva: number; fecha_hora_inicio: string };
 
-  return { idBarberia, barbero, reservar };
+  return { idBarberia, premium, basico, barbero, reservar };
 }
 
 const cola = async (idReserva: number) =>
   ok(await admin.from("reserva_evento_google").select("*").eq("id_reserva", idReserva).single());
-const sincronizar = () => sincronizarPendientes(50, admin, googleFalso);
+const sincronizar = (presupuestoMs?: number) => sincronizarPendientes(50, admin, googleFalso, presupuestoMs);
+const vinculo = async () =>
+  ok(await admin.from("calendario_google").select("ultimo_error, ultimo_error_at").eq("id_usuario", s.barbero.id).single());
 
 beforeAll(async () => {
   process.env.GOOGLE_CLIENT_ID = "cliente-prueba";
@@ -140,10 +144,79 @@ describe("HU-24 · sincronizarPendientes", () => {
     responder = (l) => l.url.includes("oauth2") ? googleOk(l) : json({ error: { message: "Backend Error" } }, 503);
     await sincronizar();
     expect(await cola(r.id_reserva)).toMatchObject({ pendiente: true, intentos: 1, ultimo_error: "Google 503: Backend Error" });
+    // el barbero ve el error de la fila en su vínculo
+    expect(await vinculo()).toMatchObject({ ultimo_error: "Google 503: Backend Error", ultimo_error_at: expect.any(String) });
 
     responder = googleOk;
     await sincronizar();
     expect(await cola(r.id_reserva)).toMatchObject({ pendiente: false, event_id: "evt-nuevo", ultimo_error: null });
+    expect(await vinculo()).toMatchObject({ ultimo_error: null });
+  });
+
+  it("dos ejecuciones simultáneas no crean el evento dos veces", async () => {
+    const r = await s.reservar();
+    llamadas = []; responder = googleOk;
+    await Promise.all([sincronizar(), sincronizar()]);
+    expect(llamadas.filter((l) => l.metodo === "POST" && l.url.endsWith("/events"))).toHaveLength(1);
+    expect(await cola(r.id_reserva)).toMatchObject({ pendiente: false, event_id: "evt-nuevo", bloqueada_hasta: null });
+  });
+
+  it("si la reserva cambia mientras se crea el evento, guarda el event_id y la deja pendiente", async () => {
+    const r = await s.reservar();
+    responder = async (l) => {
+      if (l.metodo === "POST" && l.url.endsWith("/events")) {
+        ok(await admin.from("reserva").update({ estado: "confirmada" }).eq("id_reserva", r.id_reserva));
+      }
+      return googleOk(l);
+    };
+    await sincronizar();
+    expect(await cola(r.id_reserva)).toMatchObject({ pendiente: true, event_id: "evt-nuevo", bloqueada_hasta: null });
+
+    llamadas = []; responder = googleOk;
+    await sincronizar();
+    expect(llamadas.filter((l) => l.metodo === "POST" && l.url.endsWith("/events"))).toHaveLength(0);
+    expect(llamadas.find((l) => l.metodo === "PATCH")?.url).toMatch(/\/events\/evt-nuevo$/);
+    expect(await cola(r.id_reserva)).toMatchObject({ pendiente: false });
+  });
+
+  it("una fila con 20 intentos se reintenta cada hora, no se descarta", async () => {
+    const r = await s.reservar();
+    ok(await admin.from("reserva_evento_google").update({ intentos: 20, updated_at: new Date().toISOString() }).eq("id_reserva", r.id_reserva));
+    llamadas = []; responder = googleOk;
+    await sincronizar();
+    expect(llamadas.some((l) => l.url.includes("/events"))).toBe(false);
+    expect(await cola(r.id_reserva)).toMatchObject({ pendiente: true });
+
+    ok(await admin.from("reserva_evento_google").update({ updated_at: new Date(Date.now() - 2 * 3_600_000).toISOString() })
+      .eq("id_reserva", r.id_reserva));
+    await sincronizar();
+    expect(await cola(r.id_reserva)).toMatchObject({ pendiente: false, event_id: "evt-nuevo" });
+  });
+
+  it("sin presupuesto de tiempo se detiene y deja las filas listas para el próximo ciclo", async () => {
+    const r = await s.reservar();
+    llamadas = []; responder = googleOk;
+    expect(await sincronizar(0)).toEqual({ sincronizadas: 0, errores: 0 });
+    expect(llamadas.some((l) => l.url.includes("/events"))).toBe(false);
+    expect(await cola(r.id_reserva)).toMatchObject({ pendiente: true, intentos: 0, bloqueada_hasta: null });
+    await sincronizar();
+    expect(await cola(r.id_reserva)).toMatchObject({ pendiente: false });
+  });
+
+  it("sin el módulo calendario no sincroniza; al volver el módulo sí", async () => {
+    ok(await admin.from("suscripcion").update({ id_plan: s.basico }).eq("id_barberia", s.idBarberia));
+    let id = 0;
+    try {
+      id = (await s.reservar()).id_reserva;
+      llamadas = []; responder = googleOk;
+      await sincronizar();
+      expect(llamadas.some((l) => l.url.includes("/events"))).toBe(false);
+      expect(await cola(id)).toMatchObject({ pendiente: true, intentos: 0 });
+    } finally {
+      ok(await admin.from("suscripcion").update({ id_plan: s.premium }).eq("id_barberia", s.idBarberia));
+    }
+    await sincronizar();
+    expect(await cola(id)).toMatchObject({ pendiente: false, event_id: "evt-nuevo" });
   });
 
   it("invalid_grant deja el error en calendario_google y no toca los eventos", async () => {

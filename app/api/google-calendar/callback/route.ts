@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     });
     if (errVinculo) throw errVinculo;
 
-    // Backfill: reservas futuras activas, solo de barberías con el módulo en vigencia (como el trigger)
+    // Backfill: reservas futuras activas (como el trigger, sin mirar el módulo: el worker salta las barberías sin él)
     const { data: reservas, error: errReservas } = await todasLasFilas(() => admin.from("reserva")
       .select("id_reserva, id_barberia")
       .eq("id_profesional", userId)
@@ -40,13 +40,7 @@ export async function GET(request: NextRequest) {
       .gte("fecha_hora_inicio", ahora)
       .order("id_reserva"));
     if (errReservas) throw errReservas;
-    const conModulo = new Set<string>();
-    for (const id of new Set(reservas.map((r) => r.id_barberia as string))) {
-      const { data, error } = await admin.rpc("barberia_tiene_modulo", { p_barberia: id, p_codigo: "calendario" });
-      if (error) throw error;
-      if (data) conModulo.add(id);
-    }
-    const filas = reservas.filter((r) => conModulo.has(r.id_barberia as string)).map((r) => ({
+    const filas = reservas.map((r) => ({
       id_reserva: r.id_reserva as number, id_barberia: r.id_barberia as string, id_usuario: userId,
       pendiente: true, intentos: 0, ultimo_error: null, updated_at: ahora,
     }));

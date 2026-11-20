@@ -2,7 +2,7 @@ import { getSiteUrl, signLink, verifyLink } from "./signed-links";
 
 /**
  * HU-24: vincular la cuenta de Google de un barbero (OAuth 2.0 con fetch, sin googleapis).
- * La renovación del access token y la sincronización de eventos están en lib/google-calendar.ts.
+ * La sincronización de eventos está en lib/google-calendar.ts.
  */
 
 const VIGENCIA_STATE_MS = 10 * 60_000;
@@ -83,4 +83,19 @@ export async function revocarToken(token: string): Promise<void> {
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok && res.status !== 400) throw new Error(`No se pudo revocar el acceso en Google (${res.status})`);
+}
+
+/** Refresh token → access token. Un token revocado lanza `invalid_grant`. */
+export async function renovarAccessToken(refreshToken: string, f: typeof fetch = fetch): Promise<string> {
+  const res = await f("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    body: new URLSearchParams({
+      client_id: env("GOOGLE_CLIENT_ID"), client_secret: env("GOOGLE_CLIENT_SECRET"),
+      refresh_token: refreshToken, grant_type: "refresh_token",
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.access_token) throw new Error(data?.error ?? `Google ${res.status}`);
+  return data.access_token;
 }

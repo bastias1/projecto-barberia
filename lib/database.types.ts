@@ -289,6 +289,7 @@ export interface Database {
         intentos: number;
         ultimo_error: string | null;
         updated_at: string;
+        bloqueada_hasta: string | null; // la pone gcal_reclamar mientras un worker procesa la fila
       }, "id_reserva" | "id_barberia" | "id_usuario">;
     };
   };

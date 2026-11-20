@@ -80,12 +80,25 @@ describe("HU-24 · cola de sincronización con Google Calendar", () => {
     expect(await cola(await s.reservar(s.adm.id))).toBeNull();
   });
 
-  it("sin el módulo calendario no encola", async () => {
+  it("sin el módulo calendario encola igual (se sincroniza cuando vuelva el módulo)", async () => {
     ok(await admin.from("suscripcion").update({ id_plan: s.basico }).eq("id_barberia", s.idBarberia));
     try {
-      expect(await cola(await s.reservar(s.barbero.id))).toBeNull();
+      expect(await cola(await s.reservar(s.barbero.id))).toMatchObject({ pendiente: true });
     } finally {
       ok(await admin.from("suscripcion").update({ id_plan: s.premium }).eq("id_barberia", s.idBarberia));
+    }
+  });
+
+  it("gcal_reclamar no entrega dos veces la misma fila mientras dura la reserva", async () => {
+    const id = await s.reservar(s.barbero.id);
+    try {
+      const primera = ok(await admin.rpc("gcal_reclamar", { p_limite: 500 })) as { id_reserva: number }[];
+      expect(primera.map((f) => f.id_reserva)).toContain(id);
+      const segunda = ok(await admin.rpc("gcal_reclamar", { p_limite: 500 })) as { id_reserva: number }[];
+      expect(segunda.map((f) => f.id_reserva)).not.toContain(id);
+      expect((await cola(id))?.bloqueada_hasta).toEqual(expect.any(String));
+    } finally {
+      ok(await admin.from("reserva_evento_google").update({ bloqueada_hasta: null }).eq("id_barberia", s.idBarberia));
     }
   });
 
@@ -95,7 +108,7 @@ describe("HU-24 · cola de sincronización con Google Calendar", () => {
 
   it("authenticated no lee tokens ni la cola; ve su propio vínculo sin poder editarlo", async () => {
     const db = s.barbero.db;
-    for (const [fn, args] of [["gcal_token", { p_usuario: s.barbero.id }],
+    for (const [fn, args] of [["gcal_token", { p_usuario: s.barbero.id }], ["gcal_reclamar", { p_limite: 1 }],
       ["gcal_guardar_token", { p_usuario: s.barbero.id, p_token: "x" }], ["gcal_borrar", { p_usuario: s.barbero.id }]] as const) {
       const { error } = await db.rpc(fn, args);
       expect(error?.code, fn).toBe("42501");
