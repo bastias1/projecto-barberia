@@ -47,7 +47,7 @@ You have direct access to the Supabase database via MCP tools (e.g. `execute_sql
 Three distinct clients — use the right one for the context:
 - `utils/supabase/client.ts` — browser client (Client Components)
 - `utils/supabase/server.ts` — server client with cookie session (Server Components, Route Handlers that need auth)
-- `utils/supabase/service-role.ts` — bypasses RLS. Only for: the MercadoPago webhook, recording the result of a shop payment in `/api/checkout/pagar` (`registrarPagoOrder`) and syncing subscription charges (`sincronizarCobros`) in `/api/suscripcion/checkout` and Dashboard → Suscripción, admin API routes after `requireAdmin()` (`lib/admin-auth.ts`), signed email links after `verifyLink()` (`lib/signed-links.ts`), transactional emails (`lib/notifications.ts`), and in `/admin` only changing `usuario.rol`/`deleted_at`, Auth bans and the Auth user/avatar cleanup of `eliminarDatosPersona`, after checking `getSuperadmin()`
+- `utils/supabase/service-role.ts` — bypasses RLS. Only for: the MercadoPago webhook, recording the result of a shop payment in `/api/checkout/pagar` (`registrarPagoOrder`) and syncing subscription charges (`sincronizarCobros`) in `/api/suscripcion/checkout` and Dashboard → Suscripción, admin API routes after `requireAdmin()` (`lib/admin-auth.ts`), signed email links after `verifyLink()` (`lib/signed-links.ts`), the Google Calendar routes (`/api/google-calendar/*`, Vault token RPCs, after checking the session), transactional emails (`lib/notifications.ts`), and in `/admin` only changing `usuario.rol`/`deleted_at`, Auth bans and the Auth user/avatar cleanup of `eliminarDatosPersona`, after checking `getSuperadmin()`
 
 Middleware lives at `utils/supabase/middleware.ts` and is re-exported from `proxy.ts` at the root (Next.js requires the file to be named `middleware.ts` or `middleware.js` at root, but the project exports a `proxy` function—this is intentional to avoid conflicts).
 
@@ -142,6 +142,11 @@ For the software's own administrators: `usuario.rol = 'superadmin'` (grant it fr
 - App: `lib/services/bi-service.ts` (RPCs, `cargarDatos`), `estadisticas/actions.ts` (server action `cargarGrafico(…, modo)`: recalcula un gráfico validando lo que manda el cliente; en `propio` fuerza `profesional = ctx.userId`), `components/dashboard/bi/paneles.tsx` (client: un panel por gráfico con su barra de filtros) y `bi-charts.tsx` (gráficos Recharts, presentacionales), `loading.tsx` con esqueletos. Las tarjetas KPI de arriba no llevan filtros de gráfico. El pronóstico (HU-25, `prediccion_demanda`) aún no tiene pantalla. `database.types.ts` no tipa las funciones RPC: `bi-service.ts` las tipa a mano.
 - El contenedor del dashboard (`layout.tsx`) tiene altura fija (`h-dvh`) y `<main>` es `relative`: un elemento `sr-only` sin contenedor posicionado estira el documento y deja una franja vacía al final.
 
+### Google Calendar (HU-24)
+- Each barber links their own Google account (spec says "administrador": divergence). Module `calendario` (Premium); schema in `HU24.sql` (also in `BDD.SQL`/`RLS.sql`): `calendario_google` (link, owner SELECT only), `reserva_evento_google` (sync queue, service role only, filled by trigger `reserva_encolar_google`), refresh token in Vault via `gcal_guardar_token`/`gcal_token`/`gcal_borrar` (service role only).
+- Connect: card "Google Calendar" in Dashboard → Configuración (desktop and mobile accordion; only `isProfesional` with the module; without `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` it shows a note instead of "Conectar"). `GET /api/google-calendar/conectar?barberia=<slug>` → Google (`access_type=offline`, `prompt=consent`, scopes `calendar.events openid email`) with a `state` signed by `crearState` (`lib/google-calendar-oauth.ts`, LinkPurpose `google-oauth`, 10 min). `GET /api/google-calendar/callback` checks the state and that the session is the same user, exchanges the code, stores the token in Vault, upserts `calendario_google` and enqueues the barber's future pendiente/confirmada bookings (barberías with the module). `POST /api/google-calendar/desconectar` (form, session) revokes at Google, then `gcal_borrar` (queue rows cascade; events already created stay). Results come back as `?calendario=ok|error|no-configurado|desconectado`.
+- Google console: OAuth client (Web) with redirect URIs `<site>/api/google-calendar/callback` for localhost and production.
+
 ### Emails (Resend)
 All email goes through Resend from the verified domain `sunwalk.app` (`EMAIL_FROM="Navaja <notificaciones@sunwalk.app>"`).
 - App emails: `lib/email.ts` (`sendEmail` adds a plain-text version, `fromName` = barbería name, `replyTo` = barbería `email_contacto`) + `lib/notifications.ts`. Sent on: booking created (confirm/cancel links), booking `completada` and order `entregado` (review link → `/resena`), team invitation (`/invitacion/<token>`). Confirm/cancel links open a page with a button that POSTs (mail scanners open every link, so a GET never changes the booking). Links are HMAC-signed with `BOOKING_SECRET` (invitations use their random token). Without `RESEND_API_KEY` emails are skipped and links are logged to the server console.
@@ -183,6 +188,7 @@ MERCADOPAGO_TEST_PAYER_EMAIL         # optional, testing only: test buyer user's
 BOOKING_SECRET            # signs email links
 RESEND_API_KEY, EMAIL_FROM # sender address; the name shown is each barbería's
 NEXT_PUBLIC_SITE_URL      # base URL for email links and MercadoPago return URLs
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET # HU-24 OAuth client (Web); without them Configuración hides "Conectar"
 ```
 
 ### Remote Patterns
