@@ -49,6 +49,36 @@ export default function PrivacidadPage() {
         <li>Si dejas una reseña: la calificación y el comentario.</li>
         <li>El registro de tu consentimiento: qué aceptaste, la versión del texto y la fecha.</li>
       </ul>
+      <h3>Si usas tu cuenta de Google</h3>
+      <ul>
+        <li>
+          <strong>Iniciar sesión con Google:</strong> recibimos tu nombre, correo y foto de perfil de Google, solo para
+          crear tu cuenta e identificarte. No accedemos a tu contraseña de Google.
+        </li>
+        <li>
+          <strong>Sincronizar con Google Calendar</strong> (barberos, plan Premium, solo si lo activas en
+          Configuración): con el permiso <code>calendar.events</code> creamos, actualizamos y borramos en tu calendario
+          principal un evento por cada una de tus reservas (cliente, servicio, sucursal, hora). Guardamos el correo de la
+          cuenta de Google vinculada, el identificador de cada evento que creamos y un token de acceso, cifrado en la
+          bóveda de secretos de nuestra base de datos. No leemos ni modificamos los demás eventos de tu calendario.
+        </li>
+        <li>
+          Puedes desconectar Google Calendar en cualquier momento desde Configuración (revocamos el acceso y borramos el
+          token) o quitar el acceso desde{" "}
+          <a href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer">tu cuenta de Google</a>.
+          Los eventos ya creados quedan en tu calendario y puedes borrarlos tú.
+        </li>
+      </ul>
+      <p>
+        El uso y la transferencia a cualquier otra aplicación de la información recibida de las API de Google se ajustan a
+        la{" "}
+        <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">
+          Política de datos de usuario de los servicios de API de Google
+        </a>
+        , incluidos los requisitos de Uso Limitado. No usamos datos de Google para publicidad, no los vendemos, no los
+        compartimos con terceros salvo los proveedores que nos alojan, y no los usamos para entrenar modelos de
+        inteligencia artificial.
+      </p>
       <h3>Datos técnicos</h3>
       <ul>
         <li>Cookies esenciales de sesión (ver la sección 9).</li>
@@ -66,6 +96,7 @@ export default function PrivacidadPage() {
           <tr><td>Procesar compras y despachos de la tienda</td><td>La ejecución del contrato de compra</td></tr>
           <tr><td>Cobrar la suscripción de la barbería</td><td>La ejecución del contrato de servicio</td></tr>
           <tr><td>Mostrar estadísticas del negocio a la barbería</td><td>La ejecución del servicio contratado por la barbería</td></tr>
+          <tr><td>Agregar tus reservas a tu Google Calendar (si lo activas)</td><td>Tu consentimiento, que retiras al desconectarlo</td></tr>
           <tr><td>Seguridad, prevención de fraude y cumplimiento de obligaciones legales y tributarias</td><td>Obligación legal e interés legítimo [COMPLETAR: revisar]</td></tr>
         </tbody>
       </table>
@@ -89,11 +120,11 @@ export default function PrivacidadPage() {
           <tr><th>Proveedor</th><th>Para qué</th></tr>
         </thead>
         <tbody>
-          <tr><td>Supabase</td><td>Base de datos, autenticación y almacenamiento de imágenes [COMPLETAR: región de los servidores]</td></tr>
+          <tr><td>Supabase</td><td>Base de datos, autenticación y almacenamiento de imágenes (servidores en São Paulo, Brasil)</td></tr>
           <tr><td>Vercel</td><td>Alojamiento del sitio</td></tr>
           <tr><td>Resend</td><td>Envío de correos</td></tr>
           <tr><td>Mercado Pago</td><td>Pagos con tarjeta de la tienda y de la suscripción</td></tr>
-          <tr><td>Google</td><td>Mapa embebido con la ubicación de las sucursales</td></tr>
+          <tr><td>Google</td><td>Mapa embebido con la ubicación de las sucursales; inicio de sesión con Google y Google Calendar, solo si los usas</td></tr>
         </tbody>
       </table>
       <p>Algunos de estos proveedores procesan datos fuera de Chile. [COMPLETAR: revisar transferencia internacional de datos.]</p>

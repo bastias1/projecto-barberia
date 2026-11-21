@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Navaja** (name in `lib/plataforma.ts`) — SaaS for barber shops: each barbería gets its own page with online booking, shop and a staff dashboard. Started as the site of Barbería BENJVMIN (Valdivia, Chile), now `/benjvmin`.
-Production URL: **https://projecto-barberia.vercel.app/**
+**Sunwalk** (name in `lib/plataforma.ts`; formerly Navaja) — SaaS for barber shops: each barbería gets its own page with online booking, shop and a staff dashboard. Started as the site of Barbería BENJVMIN (Valdivia, Chile), now `/benjvmin`.
+Production URL: **https://www.sunwalk.app/** (also https://projecto-barberia.vercel.app/)
 
 Stack: Next.js 16 (App Router) + TypeScript + Supabase + Tailwind v4 + shadcn/ui + Zustand + MercadoPago.
 
@@ -120,7 +120,8 @@ Roles are per barbería (`usuario_barberia`), so the same user can be admin of o
 - Everyone creates their own account (signup). Staff join a barbería by **invitation**: the admin invites an email in Dashboard → Equipo (`app/[slug]/dashboard/usuarios`, server actions in `actions.ts`); the person accepts at `/cuenta` or `/invitacion/[token]` (RPC `responder_invitacion`). Invitations can target emails without an account yet. Admins can change roles/especialidad (`/api/admin/update-user`) or remove members, but not other users' email/password.
 - `/cuenta` is the account hub: profile (`ProfileForm`), pending invitations, barberías, register a barbería, change password. Equipo shows "Copiar link" for pending invitations; invite actions return `correoEnviado` so a failed email is visible.
 - Signup with `?barberia=` creates a client of that barbería; without it, only the user. Buying in a barbería also adds the client membership.
-- Consent: signup sends `acepta_terminos`/`version_politica` in the auth metadata; trigger `crear_perfil_usuario` rejects the signup without it and records `consentimiento` (terminos + privacidad). Booking records it in `reservar_como_invitado`, registering a barbería in `app/registro/actions.ts`. Checkboxes are never pre-checked.
+- Google login: "Continuar con Google" (`components/auth/continuar-con-google.tsx`, on `/login` and `/signup`) uses the Supabase Google provider (email + profile only; the calendar is linked separately, HU-24) and returns to `/auth/callback`, which without `next` picks the destination with `destinoTrasLogin` and sends anyone without a `consentimiento` terminos row to `/cuenta/terminos` (unchecked checkbox → server action inserts terminos + privacidad). Supabase setup: Authentication → Providers → Google with the same Google client, Google redirect URI `https://jrffkkktryskigbglpit.supabase.co/auth/v1/callback`, and the site URLs in Authentication → URL Configuration.
+- Consent: signup sends `acepta_terminos`/`version_politica` in the auth metadata; trigger `crear_perfil_usuario` rejects the signup without it (except OAuth accounts, `raw_app_meta_data.provider <> 'email'`, which accept on `/cuenta/terminos`) and records `consentimiento` (terminos + privacidad). Booking records it in `reservar_como_invitado`, registering a barbería in `app/registro/actions.ts`. Checkboxes are never pre-checked.
 - Data deletion (Ley 21.719): requests arrive by email (`/eliminar-datos`); a superadmin executes them in `/admin/usuarios` → "Eliminar datos de una persona" (`eliminarDatosPersona` in `app/admin/actions.ts`): RPC `anonimizar_usuario` + `anonimizar_guest` for every guest row with that email, then (service role) the auth user gets an anonymous email, random password and a ban, and its avatar files are removed. Transactions are kept anonymized; the audit log doesn't store the email.
 
 ### Platform panel (`/admin`)
@@ -148,7 +149,7 @@ For the software's own administrators: `usuario.rol = 'superadmin'` (grant it fr
 - Google console: OAuth client (Web) with redirect URIs `<site>/api/google-calendar/callback` for localhost and production.
 
 ### Emails (Resend)
-All email goes through Resend from the verified domain `sunwalk.app` (`EMAIL_FROM="Navaja <notificaciones@sunwalk.app>"`).
+All email goes through Resend from the verified domain `sunwalk.app` (`EMAIL_FROM="Sunwalk <notificaciones@sunwalk.app>"`).
 - App emails: `lib/email.ts` (`sendEmail` adds a plain-text version, `fromName` = barbería name, `replyTo` = barbería `email_contacto`) + `lib/notifications.ts`. Sent on: booking created (confirm/cancel links), booking `completada` and order `entregado` (review link → `/resena`), team invitation (`/invitacion/<token>`). Confirm/cancel links open a page with a button that POSTs (mail scanners open every link, so a GET never changes the booking). Links are HMAC-signed with `BOOKING_SECRET` (invitations use their random token). Without `RESEND_API_KEY` emails are skipped and links are logged to the server console.
 - Supabase Auth emails (signup confirmation, password recovery, email change, magic link) use Resend's SMTP configured in the Supabase dashboard (`smtp.resend.com:465`, user `resend`, password = API key). Spanish templates live in `supabase/templates/` (paste them in Authentication → Emails → Templates).
 
