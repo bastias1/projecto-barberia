@@ -45,5 +45,10 @@ describe("urlAutorizacion", () => {
     expect(p.get("access_type")).toBe("offline");
     expect(p.get("prompt")).toBe("consent");
     expect(p.get("state")).toBe("el-state");
+    expect(p.has("login_hint")).toBe(false);
+  });
+
+  it("propone la cuenta de la sesión con login_hint", () => {
+    expect(new URL(urlAutorizacion("s", "benja@gmail.com")).searchParams.get("login_hint")).toBe("benja@gmail.com");
   });
 });

@@ -2,12 +2,14 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 import { getBarberiaBySlug } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
+import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   // Solo rutas internas (evita redirecciones abiertas)
-  const next = safeNext(requestUrl.searchParams.get("next")) ?? "/";
+  const nextPedido = safeNext(requestUrl.searchParams.get("next"));
+  const next = nextPedido ?? "/";
   // Barbería desde la que se registró (si se registró como cliente de una)
   const slug = requestUrl.searchParams.get("barberia");
 
@@ -28,8 +30,18 @@ export async function GET(request: Request) {
           );
       }
 
-      // Redirect
-      return NextResponse.redirect(new URL(next, requestUrl.origin));
+      // Sin destino pedido (login con Google desde /login): el mismo destino que el login con clave
+      const destino = nextPedido ?? destinoTrasLogin(
+        await getMembresias(supabase, data.user.id), slug, null, await esSuperadmin(supabase, data.user.id));
+
+      // Cuenta creada con Google: aún no aceptó los términos (el trigger no puede exigirlos)
+      const { data: consentimiento } = await supabase.from("consentimiento").select("id_consentimiento")
+        .eq("id_usuario", data.user.id).eq("tipo", "terminos").eq("aceptado", true).limit(1);
+      if (!consentimiento?.length) {
+        return NextResponse.redirect(new URL(`/cuenta/terminos?${new URLSearchParams({ next: destino })}`, requestUrl.origin));
+      }
+
+      return NextResponse.redirect(new URL(destino, requestUrl.origin));
     }
   }
 

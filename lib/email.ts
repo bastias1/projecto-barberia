@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const FROM = process.env.EMAIL_FROM || "Navaja <notificaciones@sunwalk.app>";
+const FROM = process.env.EMAIL_FROM || "Sunwalk <notificaciones@sunwalk.app>";
 
 // El dominio de prueba de Resend solo entrega al dueño de la cuenta
 if (/@resend\.dev>?$/.test(FROM)) {

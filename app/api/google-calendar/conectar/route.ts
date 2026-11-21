@@ -19,5 +19,5 @@ export async function GET(request: NextRequest) {
   }
   if (!googleConfigurado()) return volverAConfiguracion(request, slug, "no-configurado");
 
-  return NextResponse.redirect(urlAutorizacion(crearState(ctx.userId, slug)));
+  return NextResponse.redirect(urlAutorizacion(crearState(ctx.userId, slug), ctx.email));
 }

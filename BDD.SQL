@@ -1369,23 +1369,30 @@ CREATE INDEX invitacion_correo_idx ON public.invitacion (correo) WHERE estado = 
 CREATE OR REPLACE FUNCTION private.crear_perfil_usuario()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
-  v_version text := coalesce(nullif(trim(NEW.raw_user_meta_data ->> 'version_politica'), ''), 'desconocida');
+  v_meta    jsonb := NEW.raw_user_meta_data;
+  v_version text  := coalesce(nullif(trim(v_meta ->> 'version_politica'), ''), 'desconocida');
+  v_acepta  boolean := coalesce(v_meta ->> 'acepta_terminos', '') = 'true';
+  -- Google y otros proveedores OAuth no pueden mandar la casilla: aceptan en /cuenta/terminos (lo exige /auth/callback)
+  v_oauth   boolean := coalesce(NEW.raw_app_meta_data ->> 'provider', 'email') <> 'email';
 BEGIN
   -- app/signup/page.tsx envía acepta_terminos = true solo con la casilla marcada
-  IF coalesce(NEW.raw_user_meta_data ->> 'acepta_terminos', '') <> 'true' THEN
+  IF NOT v_acepta AND NOT v_oauth THEN
     RAISE EXCEPTION 'Debe aceptar los términos y la política de privacidad' USING ERRCODE = 'check_violation';
   END IF;
 
   INSERT INTO public.usuario (id_usuario, nombre, apellido, email)
   VALUES (NEW.id,
-          coalesce(nullif(trim(NEW.raw_user_meta_data ->> 'nombre'), ''), split_part(NEW.email, '@', 1)),
-          nullif(trim(NEW.raw_user_meta_data ->> 'apellido'), ''),
+          coalesce(nullif(trim(v_meta ->> 'nombre'), ''), nullif(trim(v_meta ->> 'given_name'), ''),
+                   nullif(trim(v_meta ->> 'full_name'), ''), split_part(NEW.email, '@', 1)),
+          coalesce(nullif(trim(v_meta ->> 'apellido'), ''), nullif(trim(v_meta ->> 'family_name'), '')),
           lower(NEW.email))
   ON CONFLICT (id_usuario) DO NOTHING;
 
-  INSERT INTO public.consentimiento (id_usuario, tipo, version_politica, aceptado)
-  VALUES (NEW.id, 'terminos', v_version, true),
-         (NEW.id, 'privacidad', v_version, true);
+  IF v_acepta THEN
+    INSERT INTO public.consentimiento (id_usuario, tipo, version_politica, aceptado)
+    VALUES (NEW.id, 'terminos', v_version, true),
+           (NEW.id, 'privacidad', v_version, true);
+  END IF;
   RETURN NEW;
 END $$;
 

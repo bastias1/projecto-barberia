@@ -15,6 +15,7 @@ import { getBarberiaBySlug } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
 import { VERSION_POLITICA } from "@/lib/plataforma";
 import { toast } from "sonner";
+import { ContinuarConGoogle } from "@/components/auth/continuar-con-google";
 
 export default function SignupPage() {
   return (
@@ -317,6 +318,15 @@ function SignupForm() {
                   "Crear Cuenta"
                 )}
               </Button>
+
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                o
+                <span className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* Con Google los términos se aceptan después, en /cuenta/terminos */}
+              <ContinuarConGoogle next={destino} barberia={slug} />
 
               <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 pt-2">
                 <p>¿Ya tienes una cuenta?</p>

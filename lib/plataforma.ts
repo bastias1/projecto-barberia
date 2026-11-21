@@ -1,12 +1,12 @@
 /** Marca del software (la página principal en "/"). Cambiar aquí para renombrarlo. */
 export const PLATAFORMA = {
-  nombre: "Navaja",
+  nombre: "Sunwalk",
   descripcion: "Agenda online, tienda y gestión para barberías",
-  emailContacto: "contacto@navaja.cl",
+  emailContacto: "contact@sunwalk.app",
 };
 
 // Versión de /terminos y /privacidad que queda en `consentimiento`. Súbela al cambiar esos textos.
-export const VERSION_POLITICA = "v1.0";
+export const VERSION_POLITICA = "v1.1";
 
 /** Páginas legales enlazadas desde los footers. */
 export const LINKS_LEGALES = [
