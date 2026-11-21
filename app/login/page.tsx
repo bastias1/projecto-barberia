@@ -17,6 +17,7 @@ import { getBarberiaBySlug, type Barberia } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
 import { PLATAFORMA } from "@/lib/plataforma";
 import { toast } from "sonner";
+import { ContinuarConGoogle } from "@/components/auth/continuar-con-google";
 
 export default function LoginPage() {
   return (
@@ -247,6 +248,14 @@ function LoginForm() {
                 {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Iniciando sesión...</> : "Iniciar sesión"}
               </Button>
             </form>
+
+            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              o
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <ContinuarConGoogle next={next} barberia={slug} />
 
             <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="h-px flex-1 bg-border" />

@@ -36,8 +36,10 @@ export function leerState(state: string | null | undefined, ahora = Date.now()):
   return { userId, slug };
 }
 
-export function urlAutorizacion(state: string): string {
+/** `loginHint`: correo de la sesión, para que Google proponga esa cuenta (útil si entró con Google). */
+export function urlAutorizacion(state: string, loginHint?: string | null): string {
   const params = new URLSearchParams({
+    ...(loginHint ? { login_hint: loginHint } : {}),
     client_id: env("GOOGLE_CLIENT_ID"),
     redirect_uri: redirectUri(),
     response_type: "code",
