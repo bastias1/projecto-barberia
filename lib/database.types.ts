@@ -270,6 +270,27 @@ export interface Database {
         detalle: Record<string, unknown>; // valores antes/después
         created_at: string;
       }, "id_usuario" | "accion" | "entidad" | "id_entidad">;
+      // HU-24: el dueño solo lee su fila; se escribe con service role. Token en Vault (gcal_guardar_token / gcal_token / gcal_borrar)
+      calendario_google: Table<{
+        id_usuario: string;
+        email_google: string;
+        id_secreto: string; // vault.secrets.id
+        conectado_at: string;
+        ultimo_error: string | null;
+        ultimo_error_at: string | null;
+      }, "id_usuario" | "email_google" | "id_secreto">;
+      // HU-24: cola que llena el trigger reserva_encolar_google; solo service role
+      reserva_evento_google: Table<{
+        id_reserva: number;
+        id_barberia: string;
+        id_usuario: string;
+        event_id: string | null;
+        pendiente: boolean;
+        intentos: number;
+        ultimo_error: string | null;
+        updated_at: string;
+        bloqueada_hasta: string | null; // la pone gcal_reclamar mientras un worker procesa la fila
+      }, "id_reserva" | "id_barberia" | "id_usuario">;
     };
   };
 }

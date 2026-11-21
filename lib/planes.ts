@@ -20,6 +20,7 @@ export const MODULO_LABEL: Record<string, string> = {
   agenda: "Agenda y reservas en línea",
   ecommerce: "Tienda en línea con Mercado Pago",
   bi: "Estadísticas y predicción de demanda",
+  calendario: "Sincronización con Google Calendar",
 };
 
 /** Planes con sus módulos y límites. Por defecto solo los activos (catálogo público). */
@@ -82,5 +83,6 @@ export function caracteristicasPlan(plan: Plan): string[] {
     }
   }
   if (plan.modulos.includes("bi")) items.push(MODULO_LABEL.bi);
+  if (plan.modulos.includes("calendario")) items.push(MODULO_LABEL.calendario);
   return items;
 }

@@ -237,7 +237,8 @@ CREATE UNIQUE INDEX suscripcion_modulo_uno_activo
 INSERT INTO public.modulo (codigo, nombre, descripcion, es_base) VALUES
   ('agenda',    'Agenda y reservas',       'Sucursales, profesionales, servicios, horarios y reservas en línea', true),
   ('ecommerce', 'Tienda en línea',         'Catálogo de productos, pedidos y pagos',                            false),
-  ('bi',        'Inteligencia de negocio', 'Indicadores y predicción de demanda',                              false);
+  ('bi',        'Inteligencia de negocio', 'Indicadores y predicción de demanda',                              false),
+  ('calendario','Google Calendar',         'Sincroniza las reservas de cada barbero con su Google Calendar',  false);
 
 INSERT INTO public.tipo_limite (codigo, nombre, unidad, id_modulo)
 SELECT v.codigo, v.nombre, v.unidad, m.id_modulo
@@ -1419,3 +1420,68 @@ CREATE TABLE public.auditoria_admin (
 );
 CREATE INDEX auditoria_admin_fecha_idx ON public.auditoria_admin (created_at DESC);
 CREATE INDEX auditoria_admin_entidad_idx ON public.auditoria_admin (entidad, id_entidad);
+
+-- ============================================================================
+-- HU-24 · Google Calendar (migración HU24.sql; el plan_modulo de Premium va en HU24.sql)
+-- ============================================================================
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+CREATE EXTENSION IF NOT EXISTS pg_net  WITH SCHEMA extensions;
+
+-- Vínculo de Google de cada persona (uno por usuario aunque atienda en varias barberías).
+-- El refresh token vive en Vault (id_secreto); se escribe solo desde el backend (service role).
+CREATE TABLE public.calendario_google (
+  id_usuario      uuid        PRIMARY KEY REFERENCES public.usuario (id_usuario) ON DELETE CASCADE,
+  email_google    text        NOT NULL,
+  id_secreto      uuid        NOT NULL,   -- vault.secrets.id (nombre 'gcal_<id_usuario>')
+  conectado_at    timestamptz NOT NULL DEFAULT now(),
+  ultimo_error    text,
+  ultimo_error_at timestamptz
+);
+
+-- Cola de sincronización: una fila por reserva; la llena el trigger, la vacía /api/google-calendar/sincronizar
+CREATE TABLE public.reserva_evento_google (
+  id_reserva   bigint      PRIMARY KEY REFERENCES public.reserva (id_reserva) ON DELETE CASCADE,
+  id_barberia  uuid        NOT NULL REFERENCES public.barberia (id_barberia) ON DELETE CASCADE,
+  id_usuario   uuid        NOT NULL REFERENCES public.calendario_google (id_usuario) ON DELETE CASCADE,
+  event_id     text,                      -- id del evento en Google (NULL = aún no creado)
+  pendiente    boolean     NOT NULL DEFAULT true,
+  intentos     integer     NOT NULL DEFAULT 0,
+  ultimo_error text,
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  bloqueada_hasta timestamptz             -- gcal_reclamar: un worker la está procesando hasta esta hora
+);
+CREATE INDEX reserva_evento_google_pendiente_idx ON public.reserva_evento_google (updated_at) WHERE pendiente;
+CREATE INDEX reserva_evento_google_usuario_idx   ON public.reserva_evento_google (id_usuario);
+CREATE INDEX reserva_evento_google_barberia_idx  ON public.reserva_evento_google (id_barberia);
+
+-- Encola la reserva si el profesional vinculó su Google, con o sin el módulo: gcal_reclamar
+-- solo entrega las de barberías con 'calendario' en vigencia (lo reservado durante un corte se
+-- sincroniza al volver el módulo)
+CREATE FUNCTION private.encolar_evento_google()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.calendario_google WHERE id_usuario = NEW.id_profesional) THEN
+    INSERT INTO public.reserva_evento_google (id_reserva, id_barberia, id_usuario)
+    VALUES (NEW.id_reserva, NEW.id_barberia, NEW.id_profesional)
+    ON CONFLICT (id_reserva) DO UPDATE
+      SET id_usuario = EXCLUDED.id_usuario, pendiente = true, intentos = 0, ultimo_error = NULL, updated_at = now();
+  END IF;
+  RETURN NULL;
+END $$;
+
+CREATE TRIGGER reserva_encolar_google
+  AFTER INSERT OR UPDATE OF estado, fecha_hora_inicio, fecha_hora_fin, id_profesional, id_sucursal ON public.reserva
+  FOR EACH ROW EXECUTE FUNCTION private.encolar_evento_google();
+
+-- Job cada minuto que vacía la cola. Se crea DESACTIVADO (lo activa T3 al desplegar la ruta).
+-- URL y secreto se leen de Vault al ejecutarse ('site_url', 'cron_secret'): nada fijo en el job.
+SELECT cron.schedule('gcal-sincronizar', '* * * * *', $job$
+  SELECT net.http_post(
+    url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'site_url') || '/api/google-calendar/sincronizar',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret')),
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 30000);
+$job$);
+SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'gcal-sincronizar';

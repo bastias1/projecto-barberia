@@ -17,6 +17,7 @@ import type { Plan } from "@/lib/planes";
 const MODULOS_OPCIONALES = [
   { codigo: "ecommerce", label: "Tienda en línea" },
   { codigo: "bi", label: "Estadísticas (BI)" },
+  { codigo: "calendario", label: "Google Calendar" },
 ];
 
 const LIMITES = [
