@@ -8,10 +8,10 @@ import { getModulosCached } from "@/lib/barberia-server";
 import { ModuloNoDisponible } from "@/components/modulo-no-disponible";
 import { addDays, formatCLP, formatFecha, todayIn } from "@/lib/datetime";
 import {
-  getDemanda, getIngresos, getOcupacion, getOpcionesFiltro, getRankingProductos, getRankingServicios, getResumenMensual,
+  getDemanda, getIngresos, getOcupacion, getPronostico, getOpcionesFiltro, getRankingProductos, getRankingServicios, getResumenMensual,
   type FiltrosBI, type Granularidad, type ModoBI, type Rango,
 } from "@/lib/services/bi-service";
-import { KpiTiles } from "@/components/dashboard/bi/bi-charts";
+import { KpiTiles, PronosticoPanel } from "@/components/dashboard/bi/bi-charts";
 import {
   DemandaPanel, IngresosPanel, OcupacionPanel, ProductosPanel, ResumenPanel, ServiciosPanel,
 } from "@/components/dashboard/bi/paneles";
@@ -29,7 +29,8 @@ export async function EstadisticasVista({ slug, ctx, modo, searchParams, basePat
   slug: string; ctx: StaffContext; modo: ModoBI; searchParams: SearchParamsBI; basePath: string;
 }) {
   const propio = modo === "propio";
-  if (!(await getModulosCached(ctx.barberia.id_barberia)).includes("bi")) {
+  const modulos = await getModulosCached(ctx.barberia.id_barberia);
+  if (!modulos.includes("bi")) {
     return (
       <ModuloNoDisponible
         titulo="Las estadísticas no están incluidas en tu plan"
@@ -58,6 +59,10 @@ export async function EstadisticasVista({ slug, ctx, modo, searchParams, basePat
   const rango: Rango = { desde, hasta, gran };
   // El barbero ve solo lo suyo; el admin que atiende también, en esta vista (la del negocio es la otra)
   const filtros: FiltrosBI = propio ? { profesional: ctx.userId } : {};
+  // HU-25: solo el admin (vista del negocio) y con el módulo; un fallo no tumba el resto
+  const pronostico = !propio && modulos.includes("pronostico")
+    ? await getPronostico(id, hoy).catch((e) => { console.error("[estadisticas] pronóstico:", e); return null; })
+    : null;
   let datos;
   try {
     const [ingresos, servicios, productos, demanda, ocupacion, resumen, opciones] = await Promise.all([
@@ -156,6 +161,7 @@ export async function EstadisticasVista({ slug, ctx, modo, searchParams, basePat
             <ServiciosPanel slug={slug} modo={modo} rango={rango} inicial={datos.servicios} opciones={datos.opciones} />
             {!propio && <ProductosPanel slug={slug} modo={modo} rango={rango} inicial={datos.productos} opciones={datos.opciones} />}
           </div>
+          {pronostico && <PronosticoPanel datos={pronostico} />}
           <DemandaPanel slug={slug} modo={modo} rango={rango} inicial={datos.demanda} opciones={datos.opciones} />
           <div className="grid gap-6 lg:grid-cols-2">
             <OcupacionPanel slug={slug} modo={modo} rango={rango} inicial={datos.ocupacion} opciones={datos.opciones} />

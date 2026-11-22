@@ -21,6 +21,7 @@ export const MODULO_LABEL: Record<string, string> = {
   ecommerce: "Tienda en línea con Mercado Pago",
   bi: "Estadísticas y predicción de demanda",
   calendario: "Sincronización con Google Calendar",
+  pronostico: "Pronóstico de demanda",
 };
 
 /** Planes con sus módulos y límites. Por defecto solo los activos (catálogo público). */
@@ -84,5 +85,6 @@ export function caracteristicasPlan(plan: Plan): string[] {
   }
   if (plan.modulos.includes("bi")) items.push(MODULO_LABEL.bi);
   if (plan.modulos.includes("calendario")) items.push(MODULO_LABEL.calendario);
+  if (plan.modulos.includes("pronostico")) items.push(MODULO_LABEL.pronostico);
   return items;
 }
