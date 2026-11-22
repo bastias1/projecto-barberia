@@ -58,7 +58,7 @@ lib/                 Lógica compartida y lib/services/ (acceso a datos)
 utils/supabase/      Clientes de Supabase (navegador, servidor, service role)
 supabase/templates/  Plantillas HTML de los correos de Auth
 tests/               Pruebas Vitest contra la base de datos
-BDD.SQL RLS.sql BI.sql HU24.sql   Esquema, políticas, funciones y Calendar
+DB.sql               Base de datos completa: esquema, triggers, vistas, RLS, RPC y BI
 proxy.ts             Middleware (re-exporta utils/supabase/middleware.ts)
 ```
 

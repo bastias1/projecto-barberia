@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 
 /**
- * Estadísticas (módulo BI). Los cálculos viven en funciones SQL `bi_*` (ver BI.sql):
+ * Estadísticas (módulo BI). Los cálculos viven en funciones SQL `bi_*` (ver DB.sql):
  * solo responden al admin de una barbería con el módulo `bi`.
  */
 

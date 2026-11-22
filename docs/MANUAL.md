@@ -71,25 +71,23 @@ pnpm install
 
 ### 3.2 Extensiones
 
-En **Database → Extensions** activa (si no lo están): `pg_cron`, `pg_net`, `btree_gist`. Supabase Vault ya viene habilitado. `BDD.SQL` intenta crearlas, pero activarlas antes evita errores de permisos.
+En **Database → Extensions** activa (si no lo están): `pg_cron`, `pg_net`, `btree_gist`. Supabase Vault ya viene habilitado. `DB.sql` intenta crearlas, pero activarlas antes evita errores de permisos.
 
 ### 3.3 Crear el esquema (SQL)
 
-En **SQL Editor** ejecuta los archivos del repositorio **en este orden**, cada uno completo (copiar, pegar, *Run*):
+En **SQL Editor** ejecuta `DB.sql` del repositorio **completo** (copiar, pegar, *Run*). Es un solo archivo con tres partes, en este orden:
 
-| Orden | Archivo | Contenido |
-|---|---|---|
-| 1 | `BDD.SQL` | Tablas, restricciones, triggers y reglas de negocio. Ya incluye lo de HU-24 (Google Calendar: tablas, cola y job de `pg_cron`, creado **desactivado**) |
-| 2 | `RLS.sql` | Políticas de seguridad (RLS), funciones RPC, políticas de Storage y la publicación `supabase_realtime` para `reserva` |
-| 3 | `BI.sql` | Funciones `bi_*` de las estadísticas |
+| Parte | Contenido |
+|---|---|
+| 1 | Tablas, restricciones, índices, triggers, reglas de negocio y vistas. Incluye Google Calendar (HU-24: tablas, cola y job de `pg_cron`, creado **desactivado**) y el pronóstico (HU-25) |
+| 2 | Políticas de seguridad (RLS), funciones RPC, políticas de Storage y la publicación `supabase_realtime` para `reserva` |
+| 3 | Funciones `bi_*` de las estadísticas |
 
-> **No ejecutes `HU24.sql` en una base nueva**: es solo la migración para bases que ya existían; en una base nueva su contenido ya está en `BDD.SQL` y `RLS.sql`.
-
-Si un script falla a la mitad, corrige la causa y vuelve a correrlo sobre un proyecto vacío (los scripts no son idempotentes). Recuerda que las reglas de negocio están en la base: no las dupliques en la app.
+Si el script falla a la mitad, corrige la causa y vuelve a correrlo sobre un proyecto vacío (no es idempotente). Recuerda que las reglas de negocio están en la base: no las dupliques en la app.
 
 ### 3.4 Storage (imágenes)
 
-Las políticas del bucket están en `RLS.sql`, pero **el bucket se crea a mano**:
+Las políticas del bucket están en la parte 2 de `DB.sql`, pero **el bucket se crea a mano**:
 
 1. **Storage → New bucket** → nombre exacto `imgs` → marcar **Public bucket** → crear.
 2. Estructura que usa la app (se crea sola al subir): `productos/<id_barberia>/`, `barberias/<id_barberia>/` (logo y galería) y `avatars/<id-usuario>-*`.
@@ -324,7 +322,7 @@ La sincronización de Calendar es una ruta Next.js (`maxDuration` ya definido en
 
 ## 10. Activar la sincronización de Google Calendar (pg_cron)
 
-`BDD.SQL` crea el job `gcal-sincronizar` **desactivado**. Cada minuto llama a `POST <site_url>/api/google-calendar/sincronizar` con `Authorization: Bearer <cron_secret>` y vacía la cola de reservas pendientes de sincronizar.
+`DB.sql` crea el job `gcal-sincronizar` **desactivado**. Cada minuto llama a `POST <site_url>/api/google-calendar/sincronizar` con `Authorization: Bearer <cron_secret>` y vacía la cola de reservas pendientes de sincronizar.
 
 En el **SQL Editor** de Supabase, con el sitio ya desplegado y `CRON_SECRET` cargado en Vercel:
 
@@ -380,7 +378,7 @@ Para entregar un sitio público a clientes, completa los `[COMPLETAR]` de `/term
 
 Las pruebas (Vitest) usan un proyecto Supabase **distinto al de producción**:
 
-1. Crea otro proyecto (o rama) de Supabase y aplícale `BDD.SQL`, `RLS.sql` y `BI.sql`, más un plan activo con el módulo `bi` y otro sin él.
+1. Crea otro proyecto (o rama) de Supabase y aplícale `DB.sql`, más un plan activo con el módulo `bi` y otro sin él.
 2. Crea `.env.test.local`:
 
 ```env
@@ -395,7 +393,7 @@ TEST_SUPABASE_SECRET_KEY=<service_role key>
 
 ## 13. Lista de verificación final
 
-- [ ] `BDD.SQL`, `RLS.sql` y `BI.sql` aplicados y bucket público `imgs` creado.
+- [ ] `DB.sql` aplicado y bucket público `imgs` creado.
 - [ ] Redirect URLs y Site URL en Supabase Auth con el dominio de producción.
 - [ ] Dominio verificado en Resend; SMTP de Resend en Supabase; 4 plantillas pegadas.
 - [ ] Cliente OAuth de Google con las tres URIs; proveedor Google activo en Supabase; Calendar API habilitada.
@@ -411,7 +409,7 @@ TEST_SUPABASE_SECRET_KEY=<service_role key>
 
 | Síntoma | Causa probable y solución |
 |---|---|
-| Error `permission denied` / datos que no aparecen | RLS o grants: no desactives RLS; revisa la política en `RLS.sql` y propón el arreglo en vez de saltarla |
+| Error `permission denied` / datos que no aparecen | RLS o grants: no desactives RLS; revisa la política en `DB.sql` y propón el arreglo en vez de saltarla |
 | No llegan correos de la app | Falta `RESEND_API_KEY`, dominio sin verificar o `EMAIL_FROM` con otro dominio. Sin API key los links salen en la consola del servidor |
 | No llegan correos de registro/recuperación | SMTP de Supabase sin configurar (límite del SMTP integrado) o contraseña SMTP distinta a la API key |
 | El link de confirmación abre `/login?confirmado=1` | Normal si se abrió en otro navegador; inicia sesión con tu clave |
