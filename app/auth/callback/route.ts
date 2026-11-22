@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 import { getBarberiaBySlug } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
-import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
+import { resolverAcceso } from "@/lib/acceso";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -31,8 +31,7 @@ export async function GET(request: Request) {
       }
 
       // Sin destino pedido (login con Google desde /login): el mismo destino que el login con clave
-      const destino = nextPedido ?? destinoTrasLogin(
-        await getMembresias(supabase, data.user.id), slug, null, await esSuperadmin(supabase, data.user.id));
+      const { destino } = await resolverAcceso(supabase, data.user.id, { barberia: slug, next: nextPedido });
 
       // Cuenta creada con Google: aún no aceptó los términos (el trigger no puede exigirlos)
       const { data: consentimiento } = await supabase.from("consentimiento").select("id_consentimiento")

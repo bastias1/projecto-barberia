@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
-import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
+import { resolverAcceso } from "@/lib/acceso";
 
 /** Nueva contraseña: desde "Mi cuenta" o desde el link de recuperación del correo. */
 export default function CambiarClavePage() {
@@ -48,8 +48,7 @@ export default function CambiarClavePage() {
     }
     toast.success("Contraseña actualizada");
     // Personal -> su dashboard; si no, su cuenta
-    const [membresias, superadmin] = await Promise.all([getMembresias(supabase, data.user.id), esSuperadmin(supabase, data.user.id)]);
-    router.push(destinoTrasLogin(membresias, null, null, superadmin));
+    router.push((await resolverAcceso(supabase, data.user.id)).destino);
   };
 
   return (

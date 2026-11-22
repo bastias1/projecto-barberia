@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RECORDAR_COOKIE, RECORDAR_MAX_AGE } from "@/lib/sesion";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
+import { resolverAcceso } from "@/lib/acceso";
 import { getBarberiaBySlug, type Barberia } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
 import { PLATAFORMA } from "@/lib/plataforma";
@@ -56,8 +56,7 @@ function LoginForm() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
-        const [membresias, superadmin] = await Promise.all([getMembresias(supabase, user.id), esSuperadmin(supabase, user.id)]);
-        router.replace(destinoTrasLogin(membresias, slug, next, superadmin));
+        router.replace((await resolverAcceso(supabase, user.id, { barberia: slug, next })).destino);
       }
     });
   }, [router, slug, next]);
@@ -124,8 +123,7 @@ function LoginForm() {
 
       if (data.user) {
         // Personal -> su dashboard; cliente -> la ruta pedida, su barbería o su cuenta
-        const [membresias, superadmin] = await Promise.all([getMembresias(supabase, data.user.id), esSuperadmin(supabase, data.user.id)]);
-        router.push(destinoTrasLogin(membresias, slug, next, superadmin));
+        router.push((await resolverAcceso(supabase, data.user.id, { barberia: slug, next })).destino);
 
         router.refresh();
       }
