@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyLink } from "@/lib/signed-links";
+import { purposeResena, verifyLink } from "@/lib/signed-links";
 import { cargarResenaPedido, cargarResenaReserva } from "@/lib/review-link";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
         if ((tipo !== "reserva" && tipo !== "pedido") || !Number.isInteger(idNum)) {
             return NextResponse.json({ error: "Link inválido" }, { status: 400 });
         }
-        if (!verifyLink(tipo === "reserva" ? "resena-reserva" : "resena-pedido", idNum, token)) {
+        if (!verifyLink(purposeResena(tipo), idNum, token)) {
             return NextResponse.json({ error: "Link inválido o vencido" }, { status: 403 });
         }
 

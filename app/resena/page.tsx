@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { verifyLink } from "@/lib/signed-links";
+import { purposeResena, verifyLink } from "@/lib/signed-links";
 import { cargarResenaPedido, cargarResenaReserva } from "@/lib/review-link";
 import { formatFecha } from "@/lib/datetime";
 import { ReviewLinkForm } from "@/components/reviews/review-link-form";
@@ -41,7 +41,7 @@ export default async function ResenaPage({
   const tipoValido = tipo === "reserva" || tipo === "pedido";
 
   if (!tipoValido || !Number.isInteger(idNum) || !token ||
-      !verifyLink(tipo === "reserva" ? "resena-reserva" : "resena-pedido", idNum, token)) {
+      !verifyLink(purposeResena(tipo), idNum, token)) {
     return (
       <Shell titulo="Link no válido">
         <Aviso texto="Este link de reseña no es válido. Revisa que lo hayas copiado completo desde el correo." />
