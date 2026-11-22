@@ -1346,6 +1346,9 @@ CREATE TRIGGER a_horario_sucursal_asignada
 --   fecha_termino IS NULL OR fecha_termino >= CURRENT_DATE
 -- modulos_barberia(p_barberia) -> text[]  (RPC pública)
 -- reservar_como_invitado rechaza si la barbería no tiene el módulo 'agenda'
+-- Límite anti-abuso (la función es pública y cada reserva envía un correo): máx. 3 reservas activas
+-- futuras por correo y barbería, y 20 reservas de invitados nuevas cada 10 minutos por barbería
+-- (check_violation 'Demasiadas reservas pendientes'). Migración reservar_invitado_limite_abuso.
 
 CREATE TABLE public.invitacion (
   id_invitacion bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

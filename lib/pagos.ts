@@ -73,7 +73,7 @@ export function mensajeRechazo(statusDetail: string | undefined): string {
  * Crea una order con la API REST: el SDK descarta el detalle de los errores
  * (`errors[]`) y, en un 402 (order creada pero el pago falló), también la order.
  */
-export async function crearOrder(body: Record<string, unknown>): Promise<
+export async function crearOrder(body: Record<string, unknown>, idempotencyKey: string): Promise<
   { ok: true; order: OrderResponse } | { ok: false; status: number; order: OrderResponse | null; errores: unknown }
 > {
   const res = await fetch("https://api.mercadopago.com/v1/orders", {
@@ -81,7 +81,7 @@ export async function crearOrder(body: Record<string, unknown>): Promise<
     headers: {
       Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN ?? ""}`,
       "Content-Type": "application/json",
-      "X-Idempotency-Key": crypto.randomUUID(),
+      "X-Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify(body),
   });
