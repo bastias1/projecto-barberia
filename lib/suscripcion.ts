@@ -37,9 +37,14 @@ function sumarDias(fecha: string, dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function sumarMes(fecha: string): string {
+/** Un mes después; el 31 de enero da el 28/29 de febrero (no el 3 de marzo). */
+export function sumarMes(fecha: string): string {
   const d = new Date(`${fecha}T00:00:00Z`);
+  const dia = d.getUTCDate();
+  d.setUTCDate(1);
   d.setUTCMonth(d.getUTCMonth() + 1);
+  const ultimo = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(dia, ultimo));
   return d.toISOString().slice(0, 10);
 }
 

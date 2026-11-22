@@ -75,6 +75,7 @@ export async function POST(request: Request) {
         // En pruebas Orders API exige que el pagador sea un usuario de prueba comprador
         const email = process.env.MERCADOPAGO_TEST_PAYER_EMAIL || user.email;
 
+        // La clave liga el intento al pedido y al token: dos solicitudes simultáneas con el mismo token no crean dos orders
         const resultado = await crearOrder({
             type: 'online',
             processing_mode: 'automatic',
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
                     payment_method: { id: paymentMethodId, type: tipo, token, installments: 1 },
                 }],
             },
-        });
+        }, `pedido-${pedido.id_pedido}-${token}`);
 
         // 402: la order se creó pero el pago falló; viene en `data` y se registra igual
         const order = resultado.order;

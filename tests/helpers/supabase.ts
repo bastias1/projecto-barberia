@@ -4,7 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 /**
  * Pruebas contra una base Supabase que NO es producción (.env.test.local):
  * TEST_SUPABASE_URL, TEST_SUPABASE_PUBLISHABLE_KEY, TEST_SUPABASE_SECRET_KEY.
- * Esa base necesita BDD.SQL, RLS.sql y BI.sql aplicados.
+ * Esa base necesita DB.sql aplicado.
  */
 for (const f of [".env.local", ".env.test.local"]) if (existsSync(f)) process.loadEnvFile(f);
 
