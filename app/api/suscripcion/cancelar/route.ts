@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PreApproval } from "mercadopago";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
-import { mercadoPagoClient } from "@/lib/suscripcion";
+import { mercadoPagoClient } from "@/lib/pagos";
 
 /** Detiene la renovación automática; la suscripción sigue vigente hasta su fecha de término. */
 export async function POST(request: NextRequest) {

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { PreApproval } from "mercadopago";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
-import { aplicarPreapproval, mercadoPagoClient, referenciaSuscripcion, sincronizarCobros, urlPublicaMP } from "@/lib/suscripcion";
+import { mercadoPagoClient } from "@/lib/pagos";
+import { aplicarPreapproval, referenciaSuscripcion, sincronizarCobros, urlPublicaMP } from "@/lib/suscripcion";
 import { MONTO_MINIMO_SUSCRIPCION } from "@/lib/planes";
 
 /**

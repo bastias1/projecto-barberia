@@ -2,8 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getBarberiaBySlug } from "@/lib/barberia";
 import { Order } from "mercadopago";
-import { crearOrder, estadoPagoDesdeOrder, mensajeRechazo, registrarPagoOrder } from "@/lib/pago-pedido";
-import { mercadoPagoClient } from "@/lib/suscripcion";
+import { crearOrder, estadoPagoDesdeOrder, mensajeRechazo, mercadoPagoClient, registrarPagoOrder } from "@/lib/pagos";
 
 const TIPOS_TARJETA = ["credit_card", "debit_card", "prepaid_card"];
 
