@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import type { Barberia } from "@/lib/barberia";
+import { tieneModulo, type ModuloCodigo } from "@/lib/modulos";
 
 const BarberiaContext = createContext<{ barberia: Barberia; modulos: string[] } | null>(null);
 
@@ -35,9 +36,9 @@ export function useModulos(): string[] {
   return useBarberiaContext().modulos;
 }
 
-/** ¿La suscripción de la barbería incluye este módulo? ('agenda' | 'ecommerce' | 'bi') */
-export function useModulo(codigo: string): boolean {
-  return useBarberiaContext().modulos.includes(codigo);
+/** ¿La suscripción de la barbería incluye este módulo? */
+export function useModulo(codigo: ModuloCodigo): boolean {
+  return tieneModulo(useBarberiaContext().modulos, codigo);
 }
 
 /** Arma rutas internas de la barbería actual: href("/tienda") -> "/benjvmin/tienda". */

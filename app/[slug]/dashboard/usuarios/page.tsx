@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/staff-context";
 import { getModulosCached } from "@/lib/barberia-server";
 import { createClient } from "@/utils/supabase/server";
 import { one } from "@/lib/utils";
+import { suscripcionVigente } from "@/lib/modulos";
 
 export default async function EquipoPage({ params }: { params: Promise<{ slug: string }> }) {
   const ctx = await requireStaff((await params).slug, { admin: true });
@@ -60,7 +61,7 @@ export default async function EquipoPage({ params }: { params: Promise<{ slug: s
         currentUserId={ctx.userId}
         miembros={miembros}
         invitaciones={(invitaciones ?? []) as Invitacion[]}
-        suscripcionVigente={modulos.includes("agenda")}
+        suscripcionVigente={suscripcionVigente(modulos)}
         cupoBarberos={{ usados: barberosActivos, maximo: (maxBarberos as number | null) ?? null }}
       />
     </div>

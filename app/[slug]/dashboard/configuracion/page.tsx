@@ -8,6 +8,7 @@ import { GoogleCalendarConexion } from "@/components/dashboard/google-calendar";
 import { requireStaff } from "@/lib/staff-context";
 import { getModulosCached } from "@/lib/barberia-server";
 import { googleConfigurado } from "@/lib/google-calendar-oauth";
+import { tieneModulo } from "@/lib/modulos";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function ConfiguracionPage({ params, searchParams }: {
@@ -18,7 +19,7 @@ export default async function ConfiguracionPage({ params, searchParams }: {
   const ctx = await requireStaff(slug);
 
   // HU-24: solo quien tiene agenda y con el módulo `calendario` en vigencia
-  const conCalendario = ctx.isProfesional && (await getModulosCached(ctx.barberia.id_barberia)).includes("calendario");
+  const conCalendario = ctx.isProfesional && tieneModulo(await getModulosCached(ctx.barberia.id_barberia), "calendario");
   const vinculo = conCalendario
     ? (await (await createClient()).from("calendario_google").select("email_google, ultimo_error")
       .eq("id_usuario", ctx.userId).maybeSingle()).data

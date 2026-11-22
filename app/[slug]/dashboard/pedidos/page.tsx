@@ -2,7 +2,8 @@ import { createClient } from "@/utils/supabase/server";
 import { PedidosClient } from "@/components/dashboard/pedidos/pedidos-client";
 import { requireStaff } from "@/lib/staff-context";
 import { getModulosCached } from "@/lib/barberia-server";
-import { ModuloNoDisponible } from "@/components/modulo-no-disponible";
+import { ModuloFueraDelPlan } from "@/components/modulo-no-disponible";
+import { tieneModulo } from "@/lib/modulos";
 
 export default async function PedidosPage({
     params,
@@ -12,15 +13,8 @@ export default async function PedidosPage({
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
     const ctx = await requireStaff((await params).slug, { admin: true });
-    if (!(await getModulosCached(ctx.barberia.id_barberia)).includes("ecommerce")) {
-        return (
-            <ModuloNoDisponible
-                titulo="La tienda no está incluida en tu plan"
-                descripcion="Cambia a un plan que lo incluya para activarlo."
-                volverHref={`/${ctx.barberia.slug}/dashboard/suscripcion`}
-                volverLabel="Ver planes"
-            />
-        );
+    if (!tieneModulo(await getModulosCached(ctx.barberia.id_barberia), "ecommerce")) {
+        return <ModuloFueraDelPlan slug={ctx.barberia.slug} modulo="ecommerce" />;
     }
 
     const supabase = await createClient();

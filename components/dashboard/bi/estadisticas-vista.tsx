@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { StaffContext } from "@/lib/staff-context";
 import { getModulosCached } from "@/lib/barberia-server";
-import { ModuloNoDisponible } from "@/components/modulo-no-disponible";
+import { ModuloFueraDelPlan } from "@/components/modulo-no-disponible";
+import { tieneModulo } from "@/lib/modulos";
 import { addDays, formatCLP, formatFecha, todayIn } from "@/lib/datetime";
 import {
   getDemanda, getIngresos, getOcupacion, getPronostico, getOpcionesFiltro, getRankingProductos, getRankingServicios, getResumenMensual,
@@ -30,16 +31,7 @@ export async function EstadisticasVista({ slug, ctx, modo, searchParams, basePat
 }) {
   const propio = modo === "propio";
   const modulos = await getModulosCached(ctx.barberia.id_barberia);
-  if (!modulos.includes("bi")) {
-    return (
-      <ModuloNoDisponible
-        titulo="Las estadísticas no están incluidas en tu plan"
-        descripcion="Cambia a un plan que lo incluya para activarlo."
-        volverHref={`/${slug}/dashboard/suscripcion`}
-        volverLabel="Ver planes"
-      />
-    );
-  }
+  if (!tieneModulo(modulos, "bi")) return <ModuloFueraDelPlan slug={slug} modulo="bi" />;
 
   const hoy = todayIn();
   let desde = searchParams.desde && FECHA.test(searchParams.desde) ? searchParams.desde : addDays(hoy, -29);
@@ -60,7 +52,7 @@ export async function EstadisticasVista({ slug, ctx, modo, searchParams, basePat
   // El barbero ve solo lo suyo; el admin que atiende también, en esta vista (la del negocio es la otra)
   const filtros: FiltrosBI = propio ? { profesional: ctx.userId } : {};
   // HU-25: solo el admin (vista del negocio) y con el módulo; un fallo no tumba el resto
-  const pronostico = !propio && modulos.includes("pronostico")
+  const pronostico = !propio && tieneModulo(modulos, "pronostico")
     ? await getPronostico(id, hoy).catch((e) => { console.error("[estadisticas] pronóstico:", e); return null; })
     : null;
   let datos;
