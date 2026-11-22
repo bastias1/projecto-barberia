@@ -12,7 +12,7 @@ import { createClient } from "@/utils/supabase/server";
 import { caracteristicasPlan, DIAS_PRUEBA, getPlanes } from "@/lib/planes";
 import { formatCLP } from "@/lib/datetime";
 import { PLATAFORMA } from "@/lib/plataforma";
-import { destinoTrasLogin, esSuperadmin, getMembresias } from "@/lib/roles";
+import { resolverAcceso } from "@/lib/acceso";
 
 const funcionalidades = [
   {
@@ -67,9 +67,7 @@ export default async function PlataformaHome() {
   const supabase = await createClient();
   const [planes, { data: { user } }] = await Promise.all([getPlanes(supabase), supabase.auth.getUser()]);
   // Con sesión: acceso directo a su panel (dashboard o cuenta)
-  const miPanel = user
-    ? destinoTrasLogin(await getMembresias(supabase, user.id), null, null, await esSuperadmin(supabase, user.id))
-    : null;
+  const miPanel = user ? (await resolverAcceso(supabase, user.id)).destino : null;
   // El plan del medio se destaca como recomendado
   const destacado = planes.length >= 3 ? planes[1].id_plan : null;
 

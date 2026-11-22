@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Invoice, MercadoPagoConfig, PreApproval } from "mercadopago";
+import { Invoice, PreApproval } from "mercadopago";
+import { mercadoPagoClient, registrarPagoCobro, type CobroMP } from "./pagos";
 import { getSiteUrl } from "./signed-links";
 
 /*
@@ -12,10 +13,6 @@ import { getSiteUrl } from "./signed-links";
  */
 
 export const DIAS_GRACIA = 5;
-
-export function mercadoPagoClient() {
-  return new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN ?? "" });
-}
 
 /** Mercado Pago rechaza URLs de retorno en localhost: en desarrollo se usa el dominio público. */
 export function urlPublicaMP(): string {
@@ -106,15 +103,6 @@ export async function aplicarPreapproval(supabase: SupabaseClient, pre: Preappro
   }
 }
 
-export interface CobroMP {
-  id?: string | number;
-  preapproval_id?: string;
-  status?: string;
-  debit_date?: string;
-  transaction_amount?: number;
-  payment?: { id?: string | number; status?: string; status_detail?: string };
-}
-
 /** Registra un cobro mensual (webhook subscription_authorized_payment) y extiende la vigencia. */
 export async function aplicarCobroSuscripcion(supabase: SupabaseClient, cobro: CobroMP): Promise<void> {
   if (!cobro.id || !cobro.preapproval_id) return;
@@ -129,23 +117,7 @@ export async function aplicarCobroSuscripcion(supabase: SupabaseClient, cobro: C
     return;
   }
 
-  const statusPago = cobro.payment?.status;
-  const estado = statusPago === "approved" ? "aprobado"
-    : statusPago === "rejected" || statusPago === "cancelled" ? "rechazado"
-    : statusPago === "refunded" || statusPago === "charged_back" ? "reembolsado"
-    : "pendiente";
-
-  const { error } = await supabase.from("pago").upsert({
-    id_barberia: sus.id_barberia,
-    concepto: "suscripcion",
-    id_suscripcion: sus.id_suscripcion,
-    monto: cobro.transaction_amount ?? sus.precio_pactado,
-    proveedor: "mercadopago",
-    id_transaccion_externa: `cobro-${cobro.id}`,
-    estado,
-    detalle: { preapproval_id: cobro.preapproval_id, payment_id: cobro.payment?.id, status: statusPago, status_detail: cobro.payment?.status_detail },
-  }, { onConflict: "proveedor,id_transaccion_externa" });
-  if (error) console.error(`[suscripcion] No se pudo registrar el cobro ${cobro.id}:`, error);
+  const estado = await registrarPagoCobro(supabase, { ...cobro, id: cobro.id, preapproval_id: cobro.preapproval_id }, sus);
 
   if (estado === "aprobado") {
     // Un mes desde el cobro, más unos días de gracia por si el siguiente se atrasa

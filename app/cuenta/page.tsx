@@ -9,7 +9,8 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { ResponderInvitacion } from "@/components/cuenta/responder-invitacion";
 import { CerrarSesion } from "@/components/cuenta/cerrar-sesion";
 import { createClient } from "@/utils/supabase/server";
-import { esSuperadmin, getMembresias, ROL_LABEL } from "@/lib/roles";
+import { resolverAcceso } from "@/lib/acceso";
+import { ROL_LABEL } from "@/lib/roles";
 import { one } from "@/lib/utils";
 import { PLATAFORMA } from "@/lib/plataforma";
 
@@ -21,9 +22,9 @@ export default async function CuentaPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/cuenta");
 
-  const [{ data: usuario }, membresias, { data: invitaciones }, superadmin] = await Promise.all([
+  const [{ data: usuario }, { membresias, esSuperadmin: superadmin }, { data: invitaciones }] = await Promise.all([
     supabase.from("usuario").select("nombre").eq("id_usuario", user.id).maybeSingle(),
-    getMembresias(supabase, user.id),
+    resolverAcceso(supabase, user.id),
     // RLS: solo las invitaciones dirigidas a su correo
     supabase
       .from("invitacion")
@@ -31,7 +32,6 @@ export default async function CuentaPage() {
       .eq("estado", "pendiente")
       .gte("expira_at", new Date().toISOString())
       .order("created_at", { ascending: false }),
-    esSuperadmin(supabase, user.id),
   ]);
 
   const trabajo = membresias.filter((m) => m.rol !== "cliente");

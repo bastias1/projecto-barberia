@@ -6,7 +6,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { RegistroForm } from "@/components/registro/registro-form";
 import { createClient } from "@/utils/supabase/server";
 import { getPlanes, DIAS_PRUEBA } from "@/lib/planes";
-import { getMembresias } from "@/lib/roles";
+import { resolverAcceso } from "@/lib/acceso";
 import { PLATAFORMA } from "@/lib/plataforma";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export default async function RegistroPage({
 
   const [planes, membresias] = await Promise.all([
     getPlanes(supabase),
-    user ? getMembresias(supabase, user.id) : Promise.resolve([]),
+    user ? resolverAcceso(supabase, user.id).then((a) => a.membresias) : Promise.resolve([]),
   ]);
   const administradas = membresias.filter((m) => m.rol === "admin");
   const next = encodeURIComponent(`/registro${plan ? `?plan=${plan}` : ""}`);
