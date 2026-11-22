@@ -1,6 +1,6 @@
 import { Invoice, Order, Payment, PreApproval, WebhookSignatureValidator } from 'mercadopago';
-import { aplicarCobroSuscripcion, aplicarPreapproval, mercadoPagoClient } from "@/lib/suscripcion";
-import { estadoPagoDesdePayment, registrarPagoOrder } from "@/lib/pago-pedido";
+import { aplicarCobroSuscripcion, aplicarPreapproval } from "@/lib/suscripcion";
+import { mercadoPagoClient, registrarPagoOrder, registrarPagoPayment } from "@/lib/pagos";
 
 const client = mercadoPagoClient();
 
@@ -95,62 +95,11 @@ export async function POST(request: Request) {
         // Pedidos antiguos pagados con Checkout Pro (Payments API)
         if (type === 'payment') {
             try {
-                const payment = new Payment(client);
-                const paymentData = await payment.get({ id: data.id });
+                const payment = await new Payment(client).get({ id: data.id });
+                console.log(`Webhook received: payment ${data.id} (${payment.status}), external reference ${payment.external_reference}`);
 
-                console.log('Webhook received: payment');
-                console.log('Payment ID:', data.id);
-                console.log('Payment status:', paymentData.status);
-                console.log('External reference:', paymentData.external_reference);
-
-                if (paymentData.external_reference) {
-                    const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
-                    const supabase = createServiceRoleClient();
-
-                    const estado = estadoPagoDesdePayment(paymentData.status);
-
-                    const { data: pedido } = await supabase
-                        .from('pedido')
-                        .select('id_pedido, id_barberia, monto_total')
-                        .eq('id_pedido', paymentData.external_reference)
-                        .maybeSingle();
-
-                    if (!pedido) {
-                        console.error(`Order ${paymentData.external_reference} not found`);
-                        return new Response(null, { status: 200 });
-                    }
-
-                    // Un pago por transacción de Mercado Pago (pago_transaccion_unica). El
-                    // trigger aplicar_pago_a_pedido actualiza estado_pago del pedido y lo
-                    // pasa a 'confirmado' cuando se aprueba.
-                    const { error } = await supabase
-                        .from('pago')
-                        .upsert({
-                            id_barberia: pedido.id_barberia,
-                            concepto: 'pedido',
-                            id_pedido: pedido.id_pedido,
-                            monto: paymentData.transaction_amount ?? pedido.monto_total,
-                            proveedor: 'mercadopago',
-                            id_transaccion_externa: String(data.id),
-                            estado,
-                            detalle: {
-                                status: paymentData.status,
-                                status_detail: paymentData.status_detail,
-                                payment_method: paymentData.payment_method_id,
-                                installments: paymentData.installments,
-                            },
-                        }, { onConflict: 'proveedor,id_transaccion_externa' });
-
-                    if (error) {
-                        console.error('Error recording payment:', error);
-                    } else {
-                        console.log(`Order ${pedido.id_pedido} payment recorded as ${estado}`);
-                        if (estado === 'aprobado') {
-                            const { notificarStockBajo } = await import("@/lib/notifications");
-                            await notificarStockBajo(pedido.id_barberia).catch((e) => console.error('Error en alerta de stock:', e));
-                        }
-                    }
-                }
+                const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
+                await registrarPagoPayment(createServiceRoleClient(), payment);
             } catch (error) {
                 console.error('Error fetching payment:', error);
                 // Handle test payments or payment not found gracefully (SDK v3: MercadoPagoError.causes)
