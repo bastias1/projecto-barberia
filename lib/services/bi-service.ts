@@ -108,6 +108,30 @@ export async function getRankingProductos(idBarberia: string, r: Rango, f: Filtr
   return rows.map((x) => ({ id: x.id_producto, nombre: x.nombre, cantidad: x.unidades, monto: x.monto }));
 }
 
+export interface PuntoPronostico { fecha: string; estimado: number; min: number; max: number }
+export interface Pronostico { reservas: PuntoPronostico[]; ingresos: PuntoPronostico[]; mape: number | null }
+
+/** HU-25: lo que dejó ml/pronostico.py (RLS: solo admin con el módulo `pronostico`). Vacío = "aún no disponible". */
+export async function getPronostico(idBarberia: string, desde: string): Promise<Pronostico> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("prediccion_demanda")
+    .select("tipo, fecha_objetivo, valor_estimado, valor_min, valor_max, mape")
+    .eq("id_barberia", idBarberia).in("tipo", ["reservas", "ingresos"]).gte("fecha_objetivo", desde)
+    .order("fecha_objetivo");
+  if (error) throw new Error(error.message);
+  const punto = (r: NonNullable<typeof data>[number]): PuntoPronostico => ({
+    fecha: r.fecha_objetivo, estimado: Number(r.valor_estimado),
+    min: Number(r.valor_min ?? r.valor_estimado), max: Number(r.valor_max ?? r.valor_estimado),
+  });
+  const filas = data ?? [];
+  const mapes = filas.flatMap((r) => (r.mape == null ? [] : [Number(r.mape)]));
+  return {
+    reservas: filas.filter((r) => r.tipo === "reservas").map(punto),
+    ingresos: filas.filter((r) => r.tipo === "ingresos").map(punto),
+    mape: mapes.length ? Math.max(...mapes) : null,
+  };
+}
+
 export function getDemanda(idBarberia: string, r: Rango, f: FiltrosBI = {}) {
   return rpc<DemandaCelda>("bi_demanda", {
     ...base(idBarberia, r), p_sucursal: f.sucursal, p_profesional: f.profesional, p_servicio: f.servicio,

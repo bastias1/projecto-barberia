@@ -1,0 +1,4 @@
+pandas>=2.2
+statsmodels>=0.14
+supabase>=2.5
+pytest>=8

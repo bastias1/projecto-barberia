@@ -279,6 +279,20 @@ export interface Database {
         ultimo_error: string | null;
         ultimo_error_at: string | null;
       }, "id_usuario" | "email_google" | "id_secreto">;
+      // HU-25: la escribe ml/pronostico.py (service role); el admin la lee con el módulo `pronostico`
+      prediccion_demanda: Table<{
+        id_prediccion: number;
+        id_barberia: string;
+        id_producto: number | null;
+        tipo: "producto" | "reservas" | "ingresos";
+        fecha_objetivo: string;
+        valor_estimado: number;
+        valor_min: number | null;
+        valor_max: number | null;
+        modelo: string;
+        mape: number | null;
+        created_at: string;
+      }, "id_barberia" | "tipo" | "fecha_objetivo" | "valor_estimado" | "modelo">;
       // HU-24: cola que llena el trigger reserva_encolar_google; solo service role
       reserva_evento_google: Table<{
         id_reserva: number;

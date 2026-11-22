@@ -1,12 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BarChart3, Gauge, Receipt, TrendingUp, UserX, type LucideIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCLP, formatFecha } from "@/lib/datetime";
 import type {
-  DemandaCelda, Granularidad, IngresoPeriodo, Ocupacion, RankingItem, ResumenMes,
+  DemandaCelda, Granularidad, IngresoPeriodo, Ocupacion, Pronostico, PuntoPronostico, RankingItem, ResumenMes,
 } from "@/lib/services/bi-service";
 
 export const COLOR_SERVICIOS = "#ec4899";
@@ -254,6 +254,53 @@ export function ResumenMensualTabla({ datos, ...extra }: PanelExtra & { datos: R
           </tbody>
         </table>
       </div>
+    </ChartCard>
+  );
+}
+
+function PronosticoSerie({ titulo, datos, formato }: { titulo: string; datos: PuntoPronostico[]; formato: (v: number) => string }) {
+  // La banda es un área apilada: base transparente hasta `min` y encima el ancho (max - min)
+  const puntos = datos.map((d) => ({ ...d, etiqueta: formatFecha(d.fecha, "dd MMM"), banda: d.max - d.min }));
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-medium">{titulo}</h3>
+      <div className="h-56 sm:h-64" role="img" aria-label={`${titulo}: estimado con margen de error`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={puntos}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+            <XAxis dataKey="etiqueta" tick={TICK} tickLine={false} axisLine={false} minTickGap={24} />
+            <YAxis tick={TICK} tickLine={false} axisLine={false} tickFormatter={(v) => formato(Number(v))} width={52} />
+            <Tooltip contentStyle={TOOLTIP_STYLE}
+              formatter={(v, n, item) => n === "banda"
+                ? [`${formato(item.payload.min)} – ${formato(item.payload.max)}`, "Margen de error"]
+                : [formato(Number(v)), "Estimado"]} />
+            <Area dataKey="min" stackId="m" stroke="none" fill="transparent" legendType="none" />
+            <Area dataKey="banda" stackId="m" stroke="none" fill={COLOR_PRODUCTOS} fillOpacity={0.2} name="banda" />
+            <Line dataKey="estimado" stroke={COLOR_SERVICIOS} strokeWidth={2} dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/** HU-25: sin datos = el modelo no publicó (poco historial o MAPE ≥ 20 %). */
+export function PronosticoPanel({ datos }: { datos: Pronostico }) {
+  const vacio = datos.reservas.length === 0 && datos.ingresos.length === 0;
+  return (
+    <ChartCard titulo="Pronóstico de demanda" vacio={false}
+      descripcion={vacio ? undefined : `Próximas semanas, con margen de error. Error medio del modelo: ${datos.mape?.toFixed(1)} %`}>
+      {vacio ? (
+        <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+          <TrendingUp className="h-8 w-8 opacity-50" aria-hidden="true" />
+          <p className="text-sm">Pronóstico aún no disponible: se necesita más historial de citas o el modelo todavía no es lo bastante preciso.</p>
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {datos.reservas.length > 0 && <PronosticoSerie titulo="Citas por día" datos={datos.reservas} formato={(v) => String(Math.round(v))} />}
+          {datos.ingresos.length > 0 && <PronosticoSerie titulo="Ingresos por día" datos={datos.ingresos} formato={ejeCLP} />}
+        </div>
+      )}
     </ChartCard>
   );
 }

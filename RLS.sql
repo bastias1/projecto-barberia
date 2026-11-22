@@ -293,9 +293,9 @@ CREATE POLICY resena_update_autor ON public.resena FOR UPDATE TO authenticated
 CREATE POLICY resena_delete ON public.resena FOR DELETE TO authenticated
   USING (id_cliente = (SELECT auth.uid()) OR private.es_admin(id_barberia));
 
--- prediccion_demanda: la escribe el job de BI (service_role); la ve el admin con módulo BI
+-- prediccion_demanda: la escribe el job de ML (service_role); la ve el admin con módulo pronóstico
 CREATE POLICY prediccion_demanda_select_admin ON public.prediccion_demanda FOR SELECT TO authenticated
-  USING (private.es_admin(id_barberia) AND public.barberia_tiene_modulo(id_barberia, 'bi'));
+  USING (private.es_admin(id_barberia) AND public.barberia_tiene_modulo(id_barberia, 'pronostico'));
 
 -- =====================================================================
 -- 4. RESTRICCIONES DE EDICIÓN PARA CLIENTES
