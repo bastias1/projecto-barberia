@@ -43,3 +43,7 @@ next-env.d.ts
 # python (ml/)
 __pycache__/
 .pytest_cache/
+
+# script destructivo de un solo uso
+limpiar-datos.sql
+limpiar-usuarios.sql
