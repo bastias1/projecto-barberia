@@ -11,6 +11,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getProfesionalesDeSucursal, getSucursalBySlug, getSucursales } from "@/lib/barberia";
 import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
 import { getHorarioResumen, mapaEmbedUrl } from "@/lib/barberia-publica";
+import { tieneModulo } from "@/lib/modulos";
 
 type Params = Promise<{ slug: string; sucursal: string }>;
 
@@ -92,7 +93,7 @@ export default async function SucursalPage({ params }: { params: Params }) {
             <MapPin className="h-4 w-4" />
             {sucursal.direccion}, {sucursal.comuna}
           </p>
-          {modulos.includes("agenda") ? (
+          {tieneModulo(modulos, "agenda") ? (
             <Link href={agendarHref}>
               <Button size="lg" className="h-12 px-8 text-base gap-2">
                 <Calendar className="h-5 w-5" />

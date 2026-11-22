@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TEXTO_PANEL, type ModuloConPanel } from "@/lib/modulos";
 
 /** Sección apagada porque la suscripción de la barbería no incluye el módulo (o venció). */
 export function ModuloNoDisponible({
@@ -28,4 +29,9 @@ export function ModuloNoDisponible({
       )}
     </div>
   );
+}
+
+/** Panel del dashboard: el plan de la barbería no incluye el módulo (con link a Suscripción). */
+export function ModuloFueraDelPlan({ slug, modulo }: { slug: string; modulo: ModuloConPanel }) {
+  return <ModuloNoDisponible {...TEXTO_PANEL[modulo]} volverHref={`/${slug}/dashboard/suscripcion`} volverLabel="Ver planes" />;
 }

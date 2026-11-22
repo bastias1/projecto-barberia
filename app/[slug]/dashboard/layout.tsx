@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/staff-context";
 import { countCitasPorAtenderHoy } from "@/lib/services/dashboard-service";
 import { ReservasRealtime } from "@/components/dashboard/reservas-realtime";
 import { getModulosCached } from "@/lib/barberia-server";
+import { suscripcionVigente } from "@/lib/modulos";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 
@@ -17,7 +18,7 @@ export default async function DashboardLayout({
   // Los barberos llegan por invitación del administrador (Equipo).
   const ctx = await requireStaff((await params).slug);
   // Sin el módulo base la suscripción no está vigente: la agenda pública queda cerrada
-  const vigente = (await getModulosCached(ctx.barberia.id_barberia)).includes("agenda");
+  const vigente = suscripcionVigente(await getModulosCached(ctx.barberia.id_barberia));
   // Solo quien tiene agenda propia tiene citas que contar y avisos de reservas
   const citasHoy = ctx.isProfesional ? await countCitasPorAtenderHoy(ctx.barberia.id_barberia, ctx.userId) : 0;
 

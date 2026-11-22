@@ -14,6 +14,7 @@ import { getSucursales } from "@/lib/barberia";
 import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
 import { getHorarioResumen, instagramUrl, mapaEmbedUrl, tieneTienda } from "@/lib/barberia-publica";
 import { PLATAFORMA } from "@/lib/plataforma";
+import { tieneModulo } from "@/lib/modulos";
 
 export default async function BarberiaHome({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -29,8 +30,8 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
     // HU-11: promedio y número de reseñas de la barbería
     supabase.rpc("resumen_resenas", { p_barberia: barberia.id_barberia }).maybeSingle<{ promedio: number | null; total: number }>(),
   ]);
-  const conTienda = hayProductos && modulos.includes("ecommerce");
-  const conAgenda = modulos.includes("agenda");
+  const conTienda = hayProductos && tieneModulo(modulos, "ecommerce");
+  const conAgenda = tieneModulo(modulos, "agenda");
 
   const principal = sucursales[0];
   const parrafos = (barberia.descripcion ?? "").split(/\n\s*\n/).filter(Boolean);

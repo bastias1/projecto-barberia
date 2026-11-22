@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { tieneModulo, type ModuloCodigo } from "./modulos";
 
 export interface Plan {
   id_plan: number;
@@ -16,7 +17,7 @@ export const DIAS_PRUEBA = 14;
 /** Mercado Pago no acepta preapprovals menores a este monto en CLP. */
 export const MONTO_MINIMO_SUSCRIPCION = 950;
 
-export const MODULO_LABEL: Record<string, string> = {
+export const MODULO_LABEL: Record<ModuloCodigo, string> = {
   agenda: "Agenda y reservas en línea",
   ecommerce: "Tienda en línea con Mercado Pago",
   bi: "Estadísticas y predicción de demanda",
@@ -77,14 +78,14 @@ export function caracteristicasPlan(plan: Plan): string[] {
     describirLimite(plan.limites.max_profesionales, "barbero", "barberos", "Barberos ilimitados"),
     "Correos de confirmación y reseñas",
   ];
-  if (plan.modulos.includes("ecommerce")) {
+  if (tieneModulo(plan.modulos, "ecommerce")) {
     items.push(MODULO_LABEL.ecommerce);
     if (plan.limites.max_productos !== 0) {
       items.push(describirLimite(plan.limites.max_productos, "producto", "productos", "Productos ilimitados"));
     }
   }
-  if (plan.modulos.includes("bi")) items.push(MODULO_LABEL.bi);
-  if (plan.modulos.includes("calendario")) items.push(MODULO_LABEL.calendario);
-  if (plan.modulos.includes("pronostico")) items.push(MODULO_LABEL.pronostico);
+  if (tieneModulo(plan.modulos, "bi")) items.push(MODULO_LABEL.bi);
+  if (tieneModulo(plan.modulos, "calendario")) items.push(MODULO_LABEL.calendario);
+  if (tieneModulo(plan.modulos, "pronostico")) items.push(MODULO_LABEL.pronostico);
   return items;
 }

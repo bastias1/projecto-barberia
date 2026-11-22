@@ -9,6 +9,7 @@ import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { sincronizarCobros } from "@/lib/suscripcion";
 import { caracteristicasPlan, getPlanes, MODULO_LABEL } from "@/lib/planes";
 import { formatCLP, formatFecha } from "@/lib/datetime";
+import { suscripcionVigente, tieneModulo, type ModuloCodigo } from "@/lib/modulos";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export default async function SuscripcionPage({ params }: { params: Promise<{ sl
   ]);
 
   const plan = planes.find((p) => p.id_plan === sus?.id_plan);
-  const vigente = modulos.includes("agenda");
+  const vigente = suscripcionVigente(modulos);
   const vencida = !!sus?.fecha_termino && sus.fecha_termino < hoy();
   const renovacionAutomatica = !!sus?.id_suscripcion_externa;
   const fecha = (f: string | null | undefined) => (f ? formatFecha(f, "d 'de' MMMM yyyy") : "");
@@ -83,7 +84,7 @@ export default async function SuscripcionPage({ params }: { params: Promise<{ sl
   const usoLimites = [
     { label: "Barberos", usados: barberos, max: limite("max_profesionales") },
     { label: "Sucursales", usados: sucursales, max: limite("max_sucursales") },
-    ...(plan?.modulos.includes("ecommerce") ? [{ label: "Productos", usados: productos, max: limite("max_productos") }] : []),
+    ...(plan && tieneModulo(plan.modulos, "ecommerce") ? [{ label: "Productos", usados: productos, max: limite("max_productos") }] : []),
   ];
 
   return (
@@ -114,7 +115,7 @@ export default async function SuscripcionPage({ params }: { params: Promise<{ sl
                   {modulos.map((m) => (
                     <li key={m} className="flex items-center gap-2 text-sm">
                       <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      {MODULO_LABEL[m] ?? m}
+                      {MODULO_LABEL[m as ModuloCodigo] ?? m}
                     </li>
                   ))}
                 </ul>
