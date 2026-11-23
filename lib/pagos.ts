@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MercadoPagoConfig, type Order, type Payment } from "mercadopago";
-import { notificarStockBajo } from "./notifications";
+import { notificarPedidoPagado, notificarStockBajo, notificarSuscripcion } from "./notifications";
 
 type OrderResponse = Awaited<ReturnType<Order["get"]>>;
 type PaymentResponse = Awaited<ReturnType<Payment["get"]>>;
@@ -108,6 +108,9 @@ interface PagoNuevo {
  * Devuelve false si no se pudo guardar (el error queda en el log).
  */
 export async function registrarPago(supabase: SupabaseClient, p: PagoNuevo): Promise<boolean> {
+  // La respuesta síncrona y el webhook registran el mismo pago: el correo sale solo cuando cambia el estado
+  const { data: previo } = await supabase.from("pago").select("estado").eq("proveedor", "mercadopago").eq("id_transaccion_externa", p.idTransaccion).maybeSingle();
+  const cambio = previo?.estado !== p.estado;
   const { error } = await supabase.from("pago").upsert(
     {
       id_barberia: p.idBarberia,
@@ -128,6 +131,10 @@ export async function registrarPago(supabase: SupabaseClient, p: PagoNuevo): Pro
   }
   if (p.concepto === "pedido" && p.estado === "aprobado") {
     await notificarStockBajo(p.idBarberia).catch((e) => console.error("Error en alerta de stock:", e));
+    if (cambio && p.idPedido) await notificarPedidoPagado(p.idPedido).catch((e) => console.error("Error en comprobante:", e));
+  }
+  if (p.concepto === "suscripcion" && p.estado === "rechazado" && cambio) {
+    await notificarSuscripcion(p.idBarberia, "cobro_rechazado").catch((e) => console.error("Error en aviso de cobro:", e));
   }
   return true;
 }

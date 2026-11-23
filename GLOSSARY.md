@@ -11,3 +11,13 @@ Domain terms used in the code. Names stay in Spanish where the code uses them.
 **Destino**: the path a user lands on after signing in. Rules, in order: a safe internal `?next=`; else with an origin barbería, its dashboard for its staff and its public page for everyone else; else `/admin` for a superadmin, the dashboard for staff of exactly one barbería, and `/cuenta` for the rest.
 
 **Personal** (staff): `admin` or `profesional` members of a barbería. A superadmin is staff everywhere (see `getRolApp` in `lib/roles.ts`).
+
+**Suscripción** (`suscripcion`, `lib/suscripcion.ts`): a barbería's contract with a plan. The current one is the most recent row (`ultimaSuscripcion`); callers never query it themselves.
+
+**Vigencia**: a suscripción is in force while its `estado` is `prueba` or `activa` and `fecha_termino` is null or not past. "Today" is the `America/Santiago` date (`DEFAULT_TZ`), not UTC. `estadoSuscripcion()` is the only TypeScript rule; the DB enforces the same one on modules.
+
+**Gracia** (`DIAS_GRACIA`, 5): extra days of vigencia after each approved charge, in case the next one is late.
+
+**Cortesía**: active suscripción with no Mercado Pago charge, granted by a superadmin. Cannot be set while a renovación automática exists.
+
+**Renovación automática**: the suscripción's Mercado Pago preapproval (`id_suscripcion_externa`). Cancelling it, by the owner or by webhook, is one transition: the suscripción stays in force until `fecha_termino` and the owner is told once.

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { avisarCambioSeguridad } from "@/app/cuenta/actions";
 import { toast } from "sonner";
 
 export function PasswordForm() {
@@ -38,6 +39,7 @@ export function PasswordForm() {
 
       if (error) throw error;
 
+      avisarCambioSeguridad("clave").catch(() => {});
       toast.success('Contraseña actualizada correctamente');
       setPasswords({ newPassword: '', confirmPassword: '' });
     } catch (error) {

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
 import { resolverAcceso } from "@/lib/acceso";
+import { avisarCambioSeguridad } from "@/app/cuenta/actions";
 
 /** Nueva contraseña: desde "Mi cuenta" o desde el link de recuperación del correo. */
 export default function CambiarClavePage() {
@@ -46,6 +47,7 @@ export default function CambiarClavePage() {
       toast.error(error.message.includes("different") ? "La nueva contraseña debe ser distinta a la actual" : "No se pudo cambiar la contraseña");
       return;
     }
+    avisarCambioSeguridad("clave").catch(() => {});
     toast.success("Contraseña actualizada");
     // Personal -> su dashboard; si no, su cuenta
     router.push((await resolverAcceso(supabase, data.user.id)).destino);

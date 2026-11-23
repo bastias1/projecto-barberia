@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CerrarSesion } from "@/components/cuenta/cerrar-sesion";
 import { createClient } from "@/utils/supabase/server";
@@ -38,6 +39,13 @@ export default async function TerminosPage({ searchParams }: { searchParams: Pro
                   </span>
                 </Label>
               </div>
+              {user.app_metadata?.provider !== "email" && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Contraseña (opcional)</Label>
+                  <Input id="password" name="password" type="password" minLength={6} autoComplete="new-password" />
+                  <p className="text-xs text-muted-foreground">Para entrar también con tu correo. Puedes crearla después desde tu cuenta.</p>
+                </div>
+              )}
               {error && (
                 <p role="alert" className="text-sm text-red-600 dark:text-red-400">
                   Debes aceptar los términos y la política de privacidad para continuar.

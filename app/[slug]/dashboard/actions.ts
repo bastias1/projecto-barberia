@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { notificarResenaPedido, notificarResenaReserva } from "@/lib/notifications";
+import { notificarCambioReserva, notificarEstadoPedido, notificarResenaPedido, notificarResenaReserva } from "@/lib/notifications";
 
 const ESTADOS_RESERVA = ["pendiente", "confirmada", "completada", "cancelada", "no_asistio"];
 const ESTADOS_PEDIDO = ["pendiente", "confirmado", "preparando", "listo_retiro", "enviado", "entregado", "cancelado"];
@@ -15,12 +15,12 @@ export async function updateBookingStatus(id: number, status: string) {
     const supabase = await createClient();
 
     // RLS: solo el personal de la barbería puede cambiar el estado
-    const { data, error } = await supabase
-        .from("reserva")
-        .update({ estado: status })
-        .eq("id_reserva", id)
-        .select("id_reserva")
-        .maybeSingle();
+    let consulta = supabase.from("reserva").update({ estado: status }).eq("id_reserva", id);
+    // Ya cancelada: no se repite ni el cambio ni el correo al cliente
+    if (status === "cancelada") consulta = consulta.neq("estado", "cancelada");
+    const { data, error } = await consulta.select("id_reserva").maybeSingle();
+
+    if (!error && !data && status === "cancelada") return;
 
     if (error || !data) {
         console.error("Error updating booking status:", error);
@@ -30,6 +30,11 @@ export async function updateBookingStatus(id: number, status: string) {
     // Al completar la cita se invita al cliente a dejar su reseña
     if (status === "completada") {
         await notificarResenaReserva(id);
+    }
+
+    // Si el personal cancela, el cliente se entera (cancelar por el link ya lo avisa en cambiarReservaCliente)
+    if (status === "cancelada") {
+        await notificarCambioReserva(id, "cancelada").catch((e) => console.error("[notificaciones] cancelación:", e));
     }
 
     revalidatePath("/[slug]/dashboard", "layout");
@@ -68,6 +73,10 @@ export async function updateOrderStatus(id: number, status: string) {
     // Al entregar el pedido se invita al cliente a calificar los productos
     if (status === "entregado") {
         await notificarResenaPedido(id);
+    }
+
+    if (status === "listo_retiro" || status === "enviado") {
+        await notificarEstadoPedido(id, status).catch((e) => console.error("[notificaciones] estado del pedido:", e));
     }
 
     revalidatePath("/[slug]/dashboard/pedidos", "page");

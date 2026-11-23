@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { BarberiaAcciones } from "@/components/admin/barberia-acciones";
 import { BitacoraLista } from "@/components/admin/bitacora-lista";
 import { createClient } from "@/utils/supabase/server";
+import { ultimaSuscripcion } from "@/lib/suscripcion";
 import { estadoSuscripcion, inicioMes, type SuscripcionResumen } from "@/lib/admin-datos";
 import { getPlanes } from "@/lib/planes";
 import { ROL_LABEL } from "@/lib/roles";
@@ -27,14 +28,8 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
     .maybeSingle();
   if (!barberia) notFound();
 
-  const [{ data: sus }, planes, { data: sucursales }, { data: equipo }, { count: reservasMes }, { count: productos }, { data: pagos }, { data: bitacora }] = await Promise.all([
-    supabase
-      .from("suscripcion")
-      .select("id_suscripcion, id_plan, estado, fecha_inicio, fecha_termino, precio_pactado, id_suscripcion_externa")
-      .eq("id_barberia", id)
-      .order("id_suscripcion", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [sus, planes, { data: sucursales }, { data: equipo }, { count: reservasMes }, { count: productos }, { data: pagos }, { data: bitacora }] = await Promise.all([
+    ultimaSuscripcion(supabase, id),
     getPlanes(supabase, { incluirInactivos: true }),
     supabase.from("sucursal").select("id_sucursal, nombre, direccion, comuna, activa").eq("id_barberia", id).order("id_sucursal"),
     supabase

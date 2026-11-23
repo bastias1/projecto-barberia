@@ -4,6 +4,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStaff } from "@/lib/staff-context";
 import { createClient } from "@/utils/supabase/server";
+import { ultimaSuscripcion } from "@/lib/suscripcion";
 import { caracteristicasPlan, getPlanes, MONTO_MINIMO_SUSCRIPCION } from "@/lib/planes";
 import { formatCLP } from "@/lib/datetime";
 import { PagarSuscripcionForm } from "./pagar-form";
@@ -24,16 +25,7 @@ export default async function PagarSuscripcionPage({
   const volver = `/${slug}/dashboard/suscripcion`;
   const supabase = await createClient();
 
-  const [planes, { data: sus }] = await Promise.all([
-    getPlanes(supabase),
-    supabase
-      .from("suscripcion")
-      .select("id_plan, estado, id_suscripcion_externa")
-      .eq("id_barberia", ctx.barberia.id_barberia)
-      .order("id_suscripcion", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [planes, sus] = await Promise.all([getPlanes(supabase), ultimaSuscripcion(supabase, ctx.barberia.id_barberia)]);
 
   const plan = planes.find((p) => p.id_plan === Number(planParam));
   if (!plan || plan.precio_mensual < MONTO_MINIMO_SUSCRIPCION) redirect(volver);

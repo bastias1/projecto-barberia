@@ -71,6 +71,13 @@ END $$;
 CREATE DOMAIN public.monto_clp AS numeric(12,0)
   CONSTRAINT monto_clp_no_negativo CHECK (VALUE >= 0);
 
+-- "Hoy" de la plataforma = fecha de Chile (igual que DEFAULT_TZ en lib/barberia.ts). La vigencia de las
+-- suscripciones usa esta fecha y no current_date (UTC): así coincide con estadoSuscripcion (lib/suscripcion.ts).
+CREATE FUNCTION public.hoy_chile()
+RETURNS date LANGUAGE sql STABLE SET search_path = '' AS $$
+  SELECT (now() AT TIME ZONE 'America/Santiago')::date
+$$;
+
 -- Valida un nombre de zona horaria IANA (p. ej. 'America/Santiago')
 CREATE FUNCTION public.es_zona_horaria_valida(p_tz text)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $$
@@ -214,10 +221,11 @@ CREATE TABLE public.suscripcion (
   id_barberia             uuid             NOT NULL,
   id_plan                 bigint           NOT NULL,
   precio_pactado          public.monto_clp NOT NULL,   -- precio congelado al contratar
-  fecha_inicio            date             NOT NULL DEFAULT current_date,
+  fecha_inicio            date             NOT NULL DEFAULT public.hoy_chile(),
   fecha_termino           date,
   estado                  text             NOT NULL DEFAULT 'activa',
   id_suscripcion_externa  text,                        -- id de la suscripción recurrente en la pasarela
+  aviso_enviado           text,                        -- último aviso de vencimiento enviado ("por_vencer:<fecha_termino>")
   created_at              timestamptz      NOT NULL DEFAULT now(),
   updated_at              timestamptz      NOT NULL DEFAULT now(),
   CONSTRAINT suscripcion_pkey PRIMARY KEY (id_suscripcion),
@@ -237,7 +245,7 @@ CREATE TABLE public.suscripcion_modulo (
   id_barberia            uuid             NOT NULL,
   id_modulo              bigint           NOT NULL,
   precio_pactado         public.monto_clp NOT NULL,
-  fecha_inicio           date             NOT NULL DEFAULT current_date,
+  fecha_inicio           date             NOT NULL DEFAULT public.hoy_chile(),
   fecha_termino          date,
   estado                 text             NOT NULL DEFAULT 'activo',
   id_suscripcion_externa text,
@@ -547,6 +555,7 @@ CREATE TABLE public.reserva (
   estado            text             NOT NULL DEFAULT 'pendiente',
   monto             public.monto_clp NOT NULL,     -- precio del servicio al reservar (lo asigna el trigger)
   notas             text,
+  recordatorio_enviado_at timestamptz,             -- correo de recordatorio (24 h antes) ya enviado
   created_at        timestamptz      NOT NULL DEFAULT now(),
   updated_at        timestamptz      NOT NULL DEFAULT now(),
   CONSTRAINT reserva_pkey PRIMARY KEY (id_reserva),
@@ -819,18 +828,20 @@ SELECT s.id_barberia, m.id_modulo, m.codigo, 'base'::text AS origen
 FROM public.suscripcion s
 JOIN public.modulo m ON m.es_base AND m.activo
 WHERE s.estado IN ('prueba','activa')
+  AND (s.fecha_termino IS NULL OR s.fecha_termino >= public.hoy_chile())
 UNION
 SELECT s.id_barberia, m.id_modulo, m.codigo, 'plan'
 FROM public.suscripcion s
 JOIN public.plan_modulo pm ON pm.id_plan = s.id_plan
 JOIN public.modulo m       ON m.id_modulo = pm.id_modulo AND m.activo
 WHERE s.estado IN ('prueba','activa')
+  AND (s.fecha_termino IS NULL OR s.fecha_termino >= public.hoy_chile())
 UNION
 SELECT sm.id_barberia, m.id_modulo, m.codigo, 'adicional'
 FROM public.suscripcion_modulo sm
 JOIN public.modulo m ON m.id_modulo = sm.id_modulo AND m.activo
 WHERE sm.estado = 'activo'
-  AND (sm.fecha_termino IS NULL OR sm.fecha_termino >= current_date);
+  AND (sm.fecha_termino IS NULL OR sm.fecha_termino >= public.hoy_chile());
 
 -- ¿La barbería tiene habilitado el módulo?
 CREATE FUNCTION public.barberia_tiene_modulo(p_barberia uuid, p_codigo text)
@@ -848,6 +859,7 @@ RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   FROM (SELECT 1) AS x
   LEFT JOIN public.suscripcion s
          ON s.id_barberia = p_barberia AND s.estado IN ('prueba','activa')
+        AND (s.fecha_termino IS NULL OR s.fecha_termino >= public.hoy_chile())
   LEFT JOIN public.tipo_limite tl ON tl.codigo = p_codigo
   LEFT JOIN public.plan_limite pl
          ON pl.id_plan = s.id_plan AND pl.id_tipo_limite = tl.id_tipo_limite;
@@ -1364,7 +1376,7 @@ CREATE TRIGGER a_horario_sucursal_asignada
 -- (migración invitaciones_y_suscripciones; definiciones completas en la base)
 -- =====================================================================
 -- v_barberia_modulo y barberia_limite exigen además
---   fecha_termino IS NULL OR fecha_termino >= CURRENT_DATE
+--   fecha_termino IS NULL OR fecha_termino >= public.hoy_chile()   (fecha de Chile, no UTC)
 -- modulos_barberia(p_barberia) -> text[]  (RPC pública)
 -- reservar_como_invitado rechaza si la barbería no tiene el módulo 'agenda'
 -- Límite anti-abuso (la función es pública y cada reserva envía un correo): máx. 3 reservas activas
@@ -1522,6 +1534,28 @@ SELECT cron.schedule('gcal-sincronizar', '* * * * *', $job$
     timeout_milliseconds := 30000);
 $job$);
 SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'gcal-sincronizar';
+
+-- Recordatorio de cita 24 h antes: cada hora llama a /api/recordatorios (mismo secreto y URL de Vault).
+SELECT cron.schedule('recordatorios-reservas', '0 * * * *', $job$
+  SELECT net.http_post(
+    url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'site_url') || '/api/recordatorios',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret')),
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 30000);
+$job$);
+
+-- Avisos de vencimiento de la suscripción: una vez al día (12:00 UTC).
+SELECT cron.schedule('avisos-suscripcion', '0 12 * * *', $job$
+  SELECT net.http_post(
+    url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'site_url') || '/api/suscripciones/avisos',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret')),
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 30000);
+$job$);
 
 -- =====================================================================
 -- HU-25 · Pronóstico de demanda (pronóstico)
@@ -1946,7 +1980,7 @@ BEGIN
   RETURNING id_barberia INTO v_barberia;
 
   INSERT INTO public.suscripcion (id_barberia, id_plan, precio_pactado, estado, fecha_termino)
-  VALUES (v_barberia, p_id_plan, v_precio, 'prueba', current_date + 14);  -- fijo: la RPC es pública
+  VALUES (v_barberia, p_id_plan, v_precio, 'prueba', public.hoy_chile() + 14);  -- fijo: la RPC es pública
 
   INSERT INTO public.usuario_barberia (id_usuario, id_barberia, rol)
   VALUES (v_usuario, v_barberia, 'admin');
@@ -2276,7 +2310,7 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM public.suscripcion s
                  WHERE s.id_barberia = NEW.id_barberia AND s.estado IN ('prueba','activa')
-                   AND (s.fecha_termino IS NULL OR s.fecha_termino >= CURRENT_DATE)) THEN
+                   AND (s.fecha_termino IS NULL OR s.fecha_termino >= public.hoy_chile())) THEN
     RAISE EXCEPTION 'Necesitas una suscripción activa para invitar a tu equipo' USING ERRCODE = 'check_violation';
   END IF;
 

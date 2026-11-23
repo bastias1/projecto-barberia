@@ -6,6 +6,7 @@ import { Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
+import { avisarInvitacionAceptada } from "@/app/cuenta/actions";
 
 /** Aceptar o rechazar una invitación (RPC responder_invitacion valida que sea para esta cuenta). */
 export function ResponderInvitacion({ token, barberia }: { token: string; barberia: string }) {
@@ -23,6 +24,7 @@ export function ResponderInvitacion({ token, barberia }: { token: string; barber
       return;
     }
     if (aceptar) {
+      avisarInvitacionAceptada(token).catch(() => {}); // el aviso al administrador no debe frenar la entrada
       toast.success(`¡Ya eres parte de ${barberia}!`);
       router.push(`/${slug}/dashboard`);
     } else {

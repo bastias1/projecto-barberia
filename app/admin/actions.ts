@@ -4,22 +4,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getSuperadmin, registrarAccion } from "@/lib/superadmin";
+import {
+  activarCortesia as activarCortesiaSus, cambiarPlan as cambiarPlanSus, extenderVigencia as extenderVigenciaSus,
+} from "@/lib/suscripcion";
 
 type Resultado = { success: true } | { success: false; error: string };
 
 const SIN_PERMISO: Resultado = { success: false, error: "Solo un administrador de la plataforma puede hacer esto" };
-const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-
-async function suscripcionActual(supabase: Awaited<ReturnType<typeof createClient>>, idBarberia: string) {
-  const { data } = await supabase
-    .from("suscripcion")
-    .select("id_suscripcion, id_plan, estado, fecha_termino, precio_pactado, id_suscripcion_externa")
-    .eq("id_barberia", idBarberia)
-    .order("id_suscripcion", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data;
-}
 
 function refrescar(idBarberia?: string) {
   revalidatePath("/admin", "layout");
@@ -28,84 +19,42 @@ function refrescar(idBarberia?: string) {
 
 // ------------------------------------------------------------------ barberías
 
+/** Resultado del módulo → bitácora (`antes`/`despues` los arma `lib/suscripcion.ts`) y refresco. */
+async function aplicarCambio(
+  admin: NonNullable<Awaited<ReturnType<typeof getSuperadmin>>>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  accion: string,
+  idBarberia: string,
+  r: Awaited<ReturnType<typeof extenderVigenciaSus>>,
+): Promise<Resultado> {
+  if (!r.ok) return { success: false, error: r.error };
+  await registrarAccion(supabase, admin, accion, "barberia", idBarberia, { antes: r.antes, despues: r.despues });
+  refrescar(idBarberia);
+  return { success: true };
+}
+
 /** Nueva fecha de término (prueba o suscripción). Si estaba vencida o cancelada, vuelve a activa. */
 export async function extenderVigencia(input: { idBarberia: string; fecha: string }): Promise<Resultado> {
   const admin = await getSuperadmin();
   if (!admin) return SIN_PERMISO;
-  if (!FECHA.test(input.fecha)) return { success: false, error: "Fecha inválida" };
-
   const supabase = await createClient();
-  const sus = await suscripcionActual(supabase, input.idBarberia);
-  if (!sus) return { success: false, error: "La barbería no tiene suscripción" };
-
-  const estado = sus.estado === "vencida" || sus.estado === "cancelada" ? "activa" : sus.estado;
-  const { error } = await supabase
-    .from("suscripcion")
-    .update({ fecha_termino: input.fecha, estado })
-    .eq("id_suscripcion", sus.id_suscripcion);
-  if (error) return { success: false, error: error.message };
-
-  await registrarAccion(supabase, admin, "extender_vigencia", "barberia", input.idBarberia, {
-    antes: { fecha_termino: sus.fecha_termino, estado: sus.estado },
-    despues: { fecha_termino: input.fecha, estado },
-  });
-  refrescar(input.idBarberia);
-  return { success: true };
+  return aplicarCambio(admin, supabase, "extender_vigencia", input.idBarberia, await extenderVigenciaSus(supabase, input.idBarberia, input.fecha));
 }
 
 /** Cambia el plan (y su precio pactado). El cobro de Mercado Pago no cambia hasta que el dueño vuelva a pagar. */
 export async function cambiarPlan(input: { idBarberia: string; idPlan: number }): Promise<Resultado> {
   const admin = await getSuperadmin();
   if (!admin) return SIN_PERMISO;
-
   const supabase = await createClient();
-  const [sus, { data: plan }] = await Promise.all([
-    suscripcionActual(supabase, input.idBarberia),
-    supabase.from("plan_suscripcion").select("id_plan, nombre, precio_mensual").eq("id_plan", input.idPlan).maybeSingle(),
-  ]);
-  if (!sus) return { success: false, error: "La barbería no tiene suscripción" };
-  if (!plan) return { success: false, error: "Plan no encontrado" };
-
-  const { error } = await supabase
-    .from("suscripcion")
-    .update({ id_plan: plan.id_plan, precio_pactado: plan.precio_mensual })
-    .eq("id_suscripcion", sus.id_suscripcion);
-  if (error) return { success: false, error: error.message };
-
-  await registrarAccion(supabase, admin, "cambiar_plan", "barberia", input.idBarberia, {
-    antes: { id_plan: sus.id_plan, precio_pactado: sus.precio_pactado },
-    despues: { id_plan: plan.id_plan, plan: plan.nombre, precio_pactado: plan.precio_mensual },
-  });
-  refrescar(input.idBarberia);
-  return { success: true };
+  return aplicarCambio(admin, supabase, "cambiar_plan", input.idBarberia, await cambiarPlanSus(supabase, input.idBarberia, input.idPlan));
 }
 
 /** Suscripción activa sin cobro (fecha opcional: sin fecha = indefinida). */
 export async function activarCortesia(input: { idBarberia: string; fecha: string | null }): Promise<Resultado> {
   const admin = await getSuperadmin();
   if (!admin) return SIN_PERMISO;
-  if (input.fecha && !FECHA.test(input.fecha)) return { success: false, error: "Fecha inválida" };
-
   const supabase = await createClient();
-  const sus = await suscripcionActual(supabase, input.idBarberia);
-  if (!sus) return { success: false, error: "La barbería no tiene suscripción" };
-  // Si se borrara la referencia, Mercado Pago seguiría cobrando sin que la app lo sepa
-  if (sus.id_suscripcion_externa) {
-    return { success: false, error: "Tiene un cobro automático en Mercado Pago. El dueño debe cancelarlo antes de pasar a cortesía." };
-  }
-
-  const { error } = await supabase
-    .from("suscripcion")
-    .update({ estado: "activa", fecha_termino: input.fecha })
-    .eq("id_suscripcion", sus.id_suscripcion);
-  if (error) return { success: false, error: error.message };
-
-  await registrarAccion(supabase, admin, "activar_cortesia", "barberia", input.idBarberia, {
-    antes: { estado: sus.estado, fecha_termino: sus.fecha_termino },
-    despues: { estado: "activa", fecha_termino: input.fecha },
-  });
-  refrescar(input.idBarberia);
-  return { success: true };
+  return aplicarCambio(admin, supabase, "activar_cortesia", input.idBarberia, await activarCortesiaSus(supabase, input.idBarberia, input.fecha));
 }
 
 /** Suspender cierra la página y el dashboard de la barbería; reactivar los vuelve a abrir. */
