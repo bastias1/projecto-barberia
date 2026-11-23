@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getBarberiaBySlug } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
 import { resolverAcceso } from "@/lib/acceso";
+import { notificarBienvenida } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL(`/cuenta/terminos?${new URLSearchParams({ next: destino })}`, requestUrl.origin));
       }
 
+      await notificarBienvenida(data.user, slug); // email: aquí se confirma la cuenta; no repite (flag)
       return NextResponse.redirect(new URL(destino, requestUrl.origin));
     }
   }

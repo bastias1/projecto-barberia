@@ -547,6 +547,7 @@ CREATE TABLE public.reserva (
   estado            text             NOT NULL DEFAULT 'pendiente',
   monto             public.monto_clp NOT NULL,     -- precio del servicio al reservar (lo asigna el trigger)
   notas             text,
+  recordatorio_enviado_at timestamptz,             -- correo de recordatorio (24 h antes) ya enviado
   created_at        timestamptz      NOT NULL DEFAULT now(),
   updated_at        timestamptz      NOT NULL DEFAULT now(),
   CONSTRAINT reserva_pkey PRIMARY KEY (id_reserva),
@@ -1522,6 +1523,17 @@ SELECT cron.schedule('gcal-sincronizar', '* * * * *', $job$
     timeout_milliseconds := 30000);
 $job$);
 SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'gcal-sincronizar';
+
+-- Recordatorio de cita 24 h antes: cada hora llama a /api/recordatorios (mismo secreto y URL de Vault).
+SELECT cron.schedule('recordatorios-reservas', '0 * * * *', $job$
+  SELECT net.http_post(
+    url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'site_url') || '/api/recordatorios',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret')),
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 30000);
+$job$);
 
 -- =====================================================================
 -- HU-25 · Pronóstico de demanda (pronóstico)

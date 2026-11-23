@@ -170,6 +170,7 @@ export interface Database {
         estado: EstadoReserva;
         monto: number; // lo fija el trigger con el precio vigente
         notas: string | null;
+        recordatorio_enviado_at: string | null; // correo de recordatorio ya enviado
         created_at: string;
         updated_at: string;
       }, "id_barberia" | "id_sucursal" | "id_profesional" | "id_servicio" | "fecha_hora_inicio">;

@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
-import { getBarberiaById, DEFAULT_TZ } from "./barberia";
+import { getBarberiaById, getBarberiaBySlug, DEFAULT_TZ } from "./barberia";
+import { PLATAFORMA } from "./plataforma";
 import { formatCLP, formatFecha, toZoned } from "./datetime";
 import { emailButton, emailDetalle, emailLayout, escapeHtml, sendEmail } from "./email";
 import { bookingActionUrl, getSiteUrl, reprogramarUrl, reviewUrl } from "./signed-links";
@@ -237,6 +238,83 @@ export async function notificarStockBajo(idBarberia: string): Promise<void> {
   for (const u of usuarios ?? []) {
     await sendEmail({ to: u.email, subject: `Stock bajo en ${barberia.nombre}`, html, fromName: barberia.nombre });
   }
+}
+
+/**
+ * Bienvenida a una cuenta nueva (email al confirmar, Google al aceptar términos). Una sola vez:
+ * `app_metadata.bienvenida_enviada`. shortcut: solo cuentas de menos de 7 días (las anteriores a esta
+ * función no la reciben); subir si se acepta confirmar el correo más tarde.
+ */
+export async function notificarBienvenida(
+  user: { id: string; email?: string; created_at: string; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> },
+  slug?: string | null,
+): Promise<void> {
+  if (!user.email || user.app_metadata?.bienvenida_enviada) return;
+  if (Date.now() - new Date(user.created_at).getTime() > 7 * 24 * 3600 * 1000) return;
+
+  const supabase = createServiceRoleClient();
+  const barberia = slug ? await getBarberiaBySlug(supabase, slug) : null;
+  const nombre = String(user.user_metadata?.nombre ?? user.user_metadata?.given_name ?? "").trim();
+  const destino = barberia ? `${getSiteUrl()}/${barberia.slug}` : `${getSiteUrl()}/cuenta`;
+
+  const html = emailLayout(
+    `Te damos la bienvenida a ${PLATAFORMA.nombre}`,
+    `<p style="margin:0 0 16px">Hola${nombre ? ` ${escapeHtml(nombre)}` : ""}, tu cuenta ya está lista.</p>
+     <p style="margin:0 0 16px">${barberia ? `Ya puedes reservar en <strong>${escapeHtml(barberia.nombre)}</strong> y ver tus citas desde tu cuenta.` : "Desde tu cuenta puedes ver tus reservas, tus barberías y registrar la tuya."}</p>
+     <p style="margin:0">${emailButton(destino, barberia ? `Ir a ${barberia.nombre}` : "Ir a mi cuenta")}</p>`,
+    PLATAFORMA.nombre,
+  );
+
+  const enviado = await sendEmail({ to: user.email, subject: `Bienvenido a ${PLATAFORMA.nombre}`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
+  if (!enviado) return;
+  // Si falla el marcador el próximo ingreso reenvía: aceptable frente a perder el aviso.
+  const { error } = await supabase.auth.admin.updateUserById(user.id, { app_metadata: { ...user.app_metadata, bienvenida_enviada: true } });
+  if (error) console.error("[notificaciones] No se pudo marcar la bienvenida:", error);
+}
+
+/** Recordatorio 24 h antes de la cita. Reclama cada reserva con un UPDATE condicional: un solo correo aunque corran dos jobs. */
+export async function notificarRecordatorios(): Promise<number> {
+  const supabase = createServiceRoleClient();
+  const ahora = Date.now();
+  const { data, error } = await supabase
+    .from("reserva")
+    .update({ recordatorio_enviado_at: new Date(ahora).toISOString() })
+    .is("recordatorio_enviado_at", null)
+    .in("estado", ["pendiente", "confirmada"])
+    .gt("fecha_hora_inicio", new Date(ahora + 3600_000).toISOString()) // las reservadas con menos de 1 h no se recuerdan
+    .lte("fecha_hora_inicio", new Date(ahora + 24 * 3600_000).toISOString())
+    .select("id_reserva");
+  if (error) {
+    console.error("[notificaciones] Error reclamando recordatorios:", error);
+    return 0;
+  }
+  let enviados = 0;
+  for (const { id_reserva } of data ?? []) {
+    if (await enviarRecordatorio(id_reserva)) enviados++;
+    // Falló el envío: se libera la reserva para que el próximo job lo reintente
+    else await supabase.from("reserva").update({ recordatorio_enviado_at: null }).eq("id_reserva", id_reserva);
+  }
+  return enviados;
+}
+
+async function enviarRecordatorio(idReserva: number): Promise<boolean> {
+  const info = await cargarReserva(idReserva);
+  if (!info?.contacto) return false;
+  const { barberia } = info;
+  const html = emailLayout(
+    "Te esperamos pronto",
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, te recordamos tu cita:</p>
+     ${emailDetalle([
+       ["Servicio", info.servicio],
+       ["Barbero", info.barbero],
+       ["Fecha", formatFecha(info.fecha, "EEEE d 'de' MMMM")],
+       ["Hora", info.hora],
+       ...(info.sucursal ? [["Sucursal", `${info.sucursal.nombre} · ${info.sucursal.direccion}`] as [string, string]] : []),
+     ])}
+     <p style="margin:0">${emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora")}${emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "#dc2626")}</p>`,
+    barberia.nombre,
+  );
+  return sendEmail({ to: info.contacto.correo, subject: `Recordatorio de tu cita en ${barberia.nombre}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
 }
 
 /** Correo de invitación al equipo de una barbería (link a /invitacion/<token>). Devuelve si se envió. */
