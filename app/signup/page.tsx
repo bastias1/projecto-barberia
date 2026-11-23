@@ -121,8 +121,6 @@ function SignupForm() {
         return;
       }
 
-      console.log("User created:", authData.user);
-      console.log("Session:", authData.session);
 
       // Check if email confirmation is required
       if (!authData.session) {
