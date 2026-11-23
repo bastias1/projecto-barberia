@@ -1,144 +1,127 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { HeroSection } from "@/components/shop/hero-section";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { PackageSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddToCartButton } from "@/components/add-to-cart-button";
-import { Filter } from "lucide-react";
 import { Product } from "@/lib/services/product-service";
 import { useBarberiaHref } from "@/components/barberia-provider";
+import { cn } from "@/lib/utils";
 
 interface StoreClientProps {
     products: Product[];
 }
 
+const TODOS = "Todos";
+
 export function StoreClient({ products }: StoreClientProps) {
     const href = useBarberiaHref();
-    const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const consulta = searchParams.get("q");
 
-    // Extract unique categories
-    const categories = useMemo(() => {
-        const cats = new Set(products.map((p) => p.categoria));
-        return ["Todos", ...Array.from(cats)];
-    }, [products]);
+    // La categoría vive en la URL (?categoria=): se puede compartir y funciona con el botón Atrás
+    const categories = useMemo(() => [TODOS, ...new Set(products.map((p) => p.categoria))], [products]);
+    const pedida = searchParams.get("categoria") ?? TODOS;
+    const selectedCategory = categories.includes(pedida) ? pedida : TODOS;
 
-    // Filter products
-    const filteredProducts = useMemo(() => {
-        if (selectedCategory === "Todos") return products;
-        return products.filter((p) => p.categoria === selectedCategory);
-    }, [products, selectedCategory]);
+    const filteredProducts = useMemo(
+        () => (selectedCategory === TODOS ? products : products.filter((p) => p.categoria === selectedCategory)),
+        [products, selectedCategory],
+    );
+
+    const elegirCategoria = (categoria: string) => {
+        const params = new URLSearchParams(searchParams);
+        if (categoria === TODOS) params.delete("categoria");
+        else params.set("categoria", categoria);
+        router.replace(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+    };
 
     return (
-        <>
-            <HeroSection />
-
-            <div className="flex flex-col md:flex-row gap-8 mt-12">
-                {/* Sidebar Filters */}
-                <aside className="w-full md:w-64 flex-shrink-0">
-                    <div className="sticky top-24 space-y-6">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Filter className="h-5 w-5" />
-                            <h2 className="font-bold text-lg">Categorías</h2>
-                        </div>
-
-                        <div className="flex flex-row md:flex-col gap-2 overflow-x-auto pb-4 md:pb-0 scrollbar-hide">
-                            {categories.map((category) => (
-                                <Button
-                                    key={category}
-                                    variant={selectedCategory === category ? "default" : "ghost"}
-                                    className={`justify-start ${selectedCategory === category
-                                        ? "bg-zinc-900 text-white dark:bg-white dark:text-black"
-                                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                                        }`}
-                                    onClick={() => setSelectedCategory(category)}
-                                >
-                                    {category}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                </aside>
-
-                {/* Product Grid */}
-                <main id="contenido" className="flex-1">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold">
-                            {selectedCategory === "Todos" ? "Todos los Productos" : selectedCategory}
-                        </h2>
-                        <span className="text-sm text-zinc-500">
-                            {filteredProducts.length} productos
-                        </span>
-                    </div>
-
-                    {filteredProducts.length === 0 ? (
-                        <div className="text-center py-20 bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
-                            <p className="text-zinc-500">No se encontraron productos en esta categoría.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                            {filteredProducts.map((product) => (
-                                <Card
-                                    key={product.id}
-                                    className="group relative overflow-hidden rounded-xl border-zinc-200 bg-white shadow-sm hover:shadow-lg transition-all duration-300 dark:border-zinc-800 dark:bg-zinc-900"
-                                >
-                                    {/* Badge */}
-                                    {product.tag && (
-                                        <div className="absolute top-3 right-3 z-10">
-                                            <Badge className="bg-black text-white dark:bg-white dark:text-black border-none shadow-sm">
-                                                {product.tag}
-                                            </Badge>
-                                        </div>
-                                    )}
-
-                                    {/* Image */}
-                                    <Link href={href(`/tienda/${product.id}`)} className="block relative aspect-square bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                                        <Image
-                                            src={product.imagen_url || "/placeholder.svg"}
-                                            alt={product.nombre}
-                                            fill
-                                            className="object-cover transition-transform duration-500 group-hover:scale-105"
-                                        />
-                                    </Link>
-
-                                    <CardContent className="p-5">
-                                        <div className="mb-3">
-                                            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
-                                                {product.categoria}
-                                            </p>
-                                            <Link href={href(`/tienda/${product.id}`)}>
-                                                <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100 line-clamp-1 hover:text-blue-600 transition-colors">
-                                                    {product.nombre}
-                                                </h3>
-                                            </Link>
-                                        </div>
-
-                                        <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
-                                            <span className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                                                ${product.precio.toLocaleString("es-CL")}
-                                            </span>
-                                            <div className="flex-shrink-0">
-                                                <AddToCartButton
-                                                    id={product.id}
-                                                    name={product.nombre}
-                                                    price={product.precio}
-                                                    priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
-                                                    stock={product.stock}
-                                                    image={product.imagen_url || "/placeholder.svg"}
-                                                    size="sm"
-                                                />
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </main>
+        <main id="contenido">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-2">
+                <h1 className="display text-3xl sm:text-4xl">Tienda</h1>
+                <p className="tabular text-sm text-muted-foreground" role="status">
+                    {filteredProducts.length} {filteredProducts.length === 1 ? "producto" : "productos"}
+                    {consulta ? ` para "${consulta}"` : ""}
+                </p>
             </div>
-        </>
+
+            {categories.length > 2 && (
+                <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Categorías">
+                    <div className="flex gap-2 sm:flex-wrap">
+                        {categories.map((category) => (
+                            <Button
+                                key={category}
+                                variant={selectedCategory === category ? "default" : "outline"}
+                                aria-pressed={selectedCategory === category}
+                                className="h-11 shrink-0 rounded-full px-4"
+                                onClick={() => elegirCategoria(category)}
+                            >
+                                {category}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {filteredProducts.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border px-4 py-16 text-center">
+                    <PackageSearch className="mx-auto mb-3 size-8 text-muted-foreground" aria-hidden="true" />
+                    <p className="font-semibold">No encontramos productos</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {consulta ? "Prueba con otra búsqueda o revisa otra categoría." : "Esta categoría aún no tiene productos."}
+                    </p>
+                </div>
+            ) : (
+                <ul className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+                    {filteredProducts.map((product) => {
+                        const agotado = product.stock <= 0;
+                        return (
+                            <li key={product.id} className="lift group flex flex-col overflow-hidden rounded-2xl border border-border bg-card">
+                                <Link href={href(`/tienda/${product.id}`)} className="relative block aspect-square overflow-hidden bg-muted">
+                                    <Image
+                                        src={product.imagen_url || "/placeholder.svg"}
+                                        alt={product.nombre}
+                                        fill
+                                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                                        className={cn("object-cover transition-transform duration-500 group-hover:scale-[1.03]", agotado && "opacity-50")}
+                                    />
+                                    {(agotado || product.tag) && (
+                                        <span className="absolute left-2 top-2 rounded-full bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
+                                            {agotado ? "Agotado" : product.tag}
+                                        </span>
+                                    )}
+                                </Link>
+
+                                <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-xs text-muted-foreground">{product.categoria}</p>
+                                        <Link href={href(`/tienda/${product.id}`)} className="mt-0.5 line-clamp-2 font-semibold leading-snug hover:underline underline-offset-4">
+                                            {product.nombre}
+                                        </Link>
+                                    </div>
+                                    <div className="mt-auto space-y-3">
+                                        <p className="tabular text-lg font-semibold">${product.precio.toLocaleString("es-CL")}</p>
+                                        <AddToCartButton
+                                            id={product.id}
+                                            name={product.nombre}
+                                            price={product.precio}
+                                            priceLabel={`$${product.precio.toLocaleString("es-CL")}`}
+                                            stock={product.stock}
+                                            image={product.imagen_url || "/placeholder.svg"}
+                                        />
+                                    </div>
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </main>
     );
 }

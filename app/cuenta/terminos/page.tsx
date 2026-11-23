@@ -17,7 +17,7 @@ export default async function TerminosPage({ searchParams }: { searchParams: Pro
   if (!user) redirect(`/login?${new URLSearchParams({ next })}`);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
       <main id="contenido" className="w-full max-w-md">
         <Card>
           <CardHeader>

@@ -30,8 +30,8 @@ export function BlockedClientModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
-            <div className="h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <Ban className="h-8 w-8 text-red-600 dark:text-red-400" />
+            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+              <Ban className="h-8 w-8 text-destructive" />
             </div>
           </div>
           <DialogTitle className="text-center text-xl">

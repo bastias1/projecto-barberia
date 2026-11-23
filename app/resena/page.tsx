@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 function Shell({ titulo, slug, children }: { titulo: string; slug?: string | null; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
       <div className="max-w-md w-full bg-white dark:bg-zinc-900 rounded-lg shadow-xl p-8 border border-zinc-200 dark:border-zinc-800">
         <h1 className="text-2xl font-bold mb-3 text-center text-zinc-900 dark:text-zinc-100">{titulo}</h1>
         {children}

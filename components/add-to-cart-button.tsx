@@ -1,6 +1,6 @@
 "use client";
 
-import { ShoppingCart } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBarberiaCart } from "@/lib/cart-store";
 import { toast } from "sonner";
@@ -38,15 +38,12 @@ export function AddToCartButton({
     <Button
       onClick={handleClick}
       size={size}
-      className={`font-medium transition-all active:scale-95 ${fullWidth ? "w-full" : ""
-        } ${size === "icon"
-          ? "rounded-full h-10 w-10 p-0"
-          : "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-sm hover:shadow-md"
-        }`}
+      disabled={stock <= 0}
+      className={`h-11 font-medium active:scale-[0.98] ${fullWidth ? "w-full" : ""} ${size === "icon" ? "w-11 p-0" : ""}`}
       type="button"
     >
-      <ShoppingCart className={`h-4 w-4 ${size !== "icon" ? "mr-2" : ""}`} />
-      {size !== "icon" && "Agregar"}
+      <ShoppingBag className="size-4" aria-hidden="true" />
+      {size === "icon" ? <span className="sr-only">Agregar al carrito</span> : stock <= 0 ? "Agotado" : "Agregar"}
     </Button>
   );
 }

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Scissors, Loader2, ArrowLeft, Eye, EyeOff, MailCheck } from "lucide-react";
+import { Loader2, ArrowLeft, Eye, EyeOff, MailCheck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RECORDAR_COOKIE, RECORDAR_MAX_AGE } from "@/lib/sesion";
 import Link from "next/link";
@@ -16,6 +16,7 @@ import { resolverAcceso } from "@/lib/acceso";
 import { getBarberiaBySlug, type Barberia } from "@/lib/barberia";
 import { safeNext } from "@/lib/utils";
 import { PLATAFORMA } from "@/lib/plataforma";
+import { Marca } from "@/components/plataforma/marca";
 import { toast } from "sonner";
 import { ContinuarConGoogle } from "@/components/auth/continuar-con-google";
 
@@ -139,8 +140,8 @@ function LoginForm() {
   const signupHref = `/signup?${new URLSearchParams({ ...(slug ? { barberia: slug } : {}), ...(next ? { next } : {}), ...(email.trim() ? { email: email.trim() } : {}) })}`;
 
   return (
-    <div className="min-h-dvh flex flex-col bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
-      <header className="flex items-center justify-between p-4">
+    <div className="min-h-dvh flex flex-col bg-background text-foreground">
+      <header className="flex items-center justify-between border-b border-border p-4">
         <Button variant="ghost" size="sm" className="gap-2" asChild>
           <Link href={slug ? `/${slug}` : "/"}>
             <ArrowLeft className="h-4 w-4" />
@@ -163,15 +164,13 @@ function LoginForm() {
                 )}
               </>
             ) : (
-              <span className="h-12 w-12 rounded-xl bg-zinc-900 dark:bg-white flex items-center justify-center">
-                <Scissors className="h-5 w-5 text-white dark:text-zinc-900" aria-hidden="true" />
-              </span>
+              <Marca />
             )}
-            <h1 className="mt-4 text-2xl font-bold tracking-tight">Inicia sesión</h1>
+            <h1 className="display mt-4 text-4xl">Inicia sesión</h1>
             <p className="text-sm text-muted-foreground">en {nombre}</p>
           </div>
 
-          <Card className="p-6 gap-0 shadow-sm">
+          <Card className="p-6 gap-0 border border-border">
             <form onSubmit={handleLogin} className="space-y-4">
               {confirmado && !error && (
                 <div role="status" className="flex items-start gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">

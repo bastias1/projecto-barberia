@@ -21,11 +21,13 @@ export function SearchInput() {
     }, 300);
 
     return (
-        <div className="relative w-full md:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+        <div className="relative w-full">
+            <Search className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" aria-hidden="true" />
             <Input
-                placeholder="Buscar productos..."
-                className="pl-9 bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 focus-visible:ring-blue-500"
+                type="search"
+                aria-label="Buscar productos"
+                placeholder="Buscar productos"
+                className="h-10 pl-9 text-base"
                 onChange={(e) => handleSearch(e.target.value)}
                 defaultValue={searchParams.get("q")?.toString()}
             />

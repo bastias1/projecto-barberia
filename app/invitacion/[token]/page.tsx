@@ -21,8 +21,8 @@ function ocultarCorreo(correo: string): string {
 
 function Shell({ titulo, descripcion, children }: { titulo: string; descripcion?: string; children?: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
-      <Card className="max-w-md w-full border-2 shadow-xl">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
+      <Card className="max-w-md w-full border shadow-xl">
         <CardHeader className="text-center">
           <div className="mx-auto w-14 h-14 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center mb-2">
             <MailOpen className="h-7 w-7 text-white dark:text-zinc-900" />

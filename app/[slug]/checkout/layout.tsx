@@ -1,23 +1,5 @@
-import { Suspense } from "react";
-import { StoreHeader } from "@/components/shop/store-header";
-import { RequiereModulo } from "@/components/requiere-modulo";
+import { TiendaShell } from "@/components/shop/tienda-shell";
 
-export default function CheckoutLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    // La tienda solo existe si el plan incluye el módulo ecommerce
-    return (
-        <RequiereModulo modulo="ecommerce">
-        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2 sm:py-8">
-                <Suspense fallback={<div className="h-20" />}>
-                    <StoreHeader />
-                </Suspense>
-                {children}
-            </div>
-        </div>
-        </RequiereModulo>
-    );
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return <TiendaShell>{children}</TiendaShell>;
 }

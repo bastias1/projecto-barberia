@@ -61,10 +61,10 @@ export function ReprogramarForm({ idReserva, token, barberoId, servicio, duracio
   if (listo) {
     return (
       <div role="status" className="text-center space-y-4 mt-8">
-        <CheckCircle2 className="h-12 w-12 mx-auto text-green-600" aria-hidden="true" />
+        <CheckCircle2 className="size-12 mx-auto" aria-hidden="true" />
         <p className="text-lg font-semibold">Tu cita quedó para las {hora} del {fecha?.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}.</p>
         <p className="text-muted-foreground">Te enviamos un correo con los nuevos datos.</p>
-        <Button asChild><Link href={`/${barberia.slug}`}>Volver a {barberia.nombre}</Link></Button>
+        <Button asChild className="h-12"><Link href={`/${barberia.slug}`}>Volver a {barberia.nombre}</Link></Button>
       </div>
     );
   }

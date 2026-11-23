@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Host_Grotesk } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -7,6 +7,12 @@ import { PLATAFORMA } from "@/lib/plataforma";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+// Titulares de la plataforma
+const host = Host_Grotesk({
+  variable: "--font-host",
   subsets: ["latin"],
 });
 
@@ -42,7 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${host.variable} antialiased`}>
         {/* Cada página marca su contenido principal con <main id="contenido"> */}
         <a
           href="#contenido"

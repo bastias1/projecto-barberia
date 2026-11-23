@@ -31,7 +31,7 @@ export default async function DashboardLayout({
 
   return (
     // Altura fija del viewport: solo scrollea <main>; sin esto el documento también scrollea y deja una franja vacía abajo
-    <div className="h-dvh overflow-hidden bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
+    <div className="h-dvh overflow-hidden bg-background">
       {/* Main Layout with Sidebar */}
       <div className="flex h-full overflow-hidden">
         {/* Sidebar */}

@@ -73,9 +73,9 @@ export default async function PaymentSuccessPage({
         <main id="contenido" className="mx-auto w-full max-w-5xl space-y-4 pt-2">
             <VaciarCarrito />
 
-            <div className="flex flex-col gap-4 rounded-xl border border-green-200 bg-green-50 p-4 sm:flex-row sm:items-center dark:border-green-900/60 dark:bg-green-950/30">
+            <div className="flex flex-col gap-4 rounded-xl border border-border bg-accent p-4 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-10 w-10 shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />
+                    <CheckCircle2 className="h-10 w-10 shrink-0" aria-hidden="true" />
                     <div>
                         <h1 className="text-xl font-bold">¡Pago exitoso!</h1>
                         <p className="text-sm text-muted-foreground">

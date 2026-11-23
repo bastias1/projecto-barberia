@@ -52,12 +52,12 @@ export default function CambiarClavePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
       <div className="w-full max-w-md space-y-4">
         <Link href="/cuenta">
           <Button variant="ghost" className="gap-2"><ArrowLeft className="h-4 w-4" />Mi cuenta</Button>
         </Link>
-        <Card className="border-2 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-2">
               <KeyRound className="h-6 w-6" />
