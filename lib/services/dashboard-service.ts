@@ -93,16 +93,9 @@ function startOf(fecha: string) {
   return fromZoned(fecha, "00:00", DEFAULT_TZ).toISOString();
 }
 
-async function getContext(idBarberia: string) {
-  return { supabase: await createClient(), idBarberia };
-}
-
 // Síncrona a propósito: el builder de PostgREST es "thenable" y devolverlo
 // desde una función async ejecutaría la consulta antes de agregar filtros.
-function reservasDelBarbero(
-  { supabase, idBarberia }: Awaited<ReturnType<typeof getContext>>,
-  barberId: string
-) {
+function reservasDelBarbero(supabase: Awaited<ReturnType<typeof createClient>>, idBarberia: string, barberId: string) {
   return supabase
     .from('reserva')
     .select(RESERVA_COLUMNS)
@@ -200,7 +193,7 @@ export async function getDashboardStats(idBarberia: string, barberId: string): P
 export async function getUpcomingAppointments(idBarberia: string, barberId: string, limit = 10): Promise<Appointment[]> {
   const today = todayIn(DEFAULT_TZ);
 
-  const { data, error } = await reservasDelBarbero(await getContext(idBarberia), barberId)
+  const { data, error } = await reservasDelBarbero(await createClient(), idBarberia, barberId)
     .gte('fecha_hora_inicio', startOf(today))
     .lt('fecha_hora_inicio', startOf(addDays(today, 7)))
     .order('fecha_hora_inicio', { ascending: true })
@@ -220,7 +213,7 @@ export async function getUpcomingAppointments(idBarberia: string, barberId: stri
 export async function getTodayAppointments(idBarberia: string, barberId: string): Promise<Appointment[]> {
   const today = todayIn(DEFAULT_TZ);
 
-  const { data, error } = await reservasDelBarbero(await getContext(idBarberia), barberId)
+  const { data, error } = await reservasDelBarbero(await createClient(), idBarberia, barberId)
     .gte('fecha_hora_inicio', startOf(today))
     .lt('fecha_hora_inicio', startOf(addDays(today, 1)))
     .order('fecha_hora_inicio', { ascending: true });
@@ -237,7 +230,7 @@ export async function getTodayAppointments(idBarberia: string, barberId: string)
  * Get recent bookings for a barber
  */
 export async function getRecentBookings(idBarberia: string, barberId: string, limit = 5): Promise<Booking[]> {
-  const { data, error } = await reservasDelBarbero(await getContext(idBarberia), barberId)
+  const { data, error } = await reservasDelBarbero(await createClient(), idBarberia, barberId)
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -253,8 +246,8 @@ export async function getRecentBookings(idBarberia: string, barberId: string, li
  * Get all appointments for a barber (for full appointments list)
  */
 export async function getAllAppointments(idBarberia: string, barberId: string): Promise<Appointment[]> {
-  const context = await getContext(idBarberia);
-  const { data, error } = await todasLasFilas<ReservaRow>(() => reservasDelBarbero(context, barberId)
+  const supabase = await createClient();
+  const { data, error } = await todasLasFilas<ReservaRow>(() => reservasDelBarbero(supabase, idBarberia, barberId)
     .order('fecha_hora_inicio', { ascending: true })
     .order('id_reserva'));
 
@@ -344,11 +337,10 @@ function soloDigitos(telefono: string | null | undefined) {
  * Get all unique clients (grouped by email) with booking stats for a barber
  */
 export async function getClientsWithStats(idBarberia: string, barberId: string): Promise<ClientStat[]> {
-  const context = await getContext(idBarberia);
-  const { supabase } = context;
+  const supabase = await createClient();
 
   const [{ data, error }, { data: blockedList }] = await Promise.all([
-    todasLasFilas<ReservaRow>(() => reservasDelBarbero(context, barberId)
+    todasLasFilas<ReservaRow>(() => reservasDelBarbero(supabase, idBarberia, barberId)
       .order('fecha_hora_inicio', { ascending: true })
       .order('id_reserva')),
     supabase
@@ -439,8 +431,7 @@ export interface ClientBookingDetail {
  * All bookings of one client (by email) with a barber
  */
 export async function getClientBookings(idBarberia: string, barberId: string, correo: string): Promise<ClientBookingDetail[]> {
-  const context = await getContext(idBarberia);
-  const { supabase } = context;
+  const supabase = await createClient();
   // ilike para ignorar mayúsculas; se escapan los comodines (_ es común en correos)
   const email = correo.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`);
 
@@ -458,7 +449,7 @@ export async function getClientBookings(idBarberia: string, barberId: string, co
   ].filter(Boolean);
   if (filtros.length === 0) return [];
 
-  const { data, error } = await reservasDelBarbero(context, barberId).or(filtros.join(','));
+  const { data, error } = await reservasDelBarbero(supabase, idBarberia, barberId).or(filtros.join(','));
   if (error || !data) return [];
 
   return (data as ReservaRow[]).map((row) => {
