@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Invoice, PreApproval } from "mercadopago";
+import { notificarSuscripcion } from "./notifications";
 import { mercadoPagoClient, registrarPagoCobro, type CobroMP } from "./pagos";
 import { getSiteUrl } from "./signed-links";
 
@@ -105,6 +106,8 @@ export async function aplicarPreapproval(supabase: SupabaseClient, pre: Preappro
       .from("suscripcion")
       .update({ id_suscripcion_externa: null, ...(vencida ? { estado: "cancelada" } : {}) })
       .eq("id_suscripcion", sus.id_suscripcion);
+    // El webhook puede repetirse, pero la segunda vez id_suscripcion_externa ya no coincide: un solo aviso
+    await notificarSuscripcion(sus.id_barberia, "cancelada").catch((e) => console.error("[suscripcion] aviso de cancelación:", e));
   }
 }
 

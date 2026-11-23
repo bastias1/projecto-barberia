@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
+import { avisarCambioSeguridad } from "@/app/cuenta/actions";
 
 export function PasswordForm() {
     const [isSaving, setIsSaving] = useState(false);
@@ -37,6 +38,7 @@ export function PasswordForm() {
 
             if (error) throw error;
 
+            avisarCambioSeguridad("clave").catch(() => {});
             toast.success("Contraseña actualizada correctamente");
             setPasswords({ password: "", confirmPassword: "" });
         } catch (error) {

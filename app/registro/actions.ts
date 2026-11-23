@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { DEFAULT_TZ, isSlugValido } from "@/lib/barberia";
 import { VERSION_POLITICA } from "@/lib/plataforma";
+import { notificarBarberiaRegistrada } from "@/lib/notifications";
 
 export interface RegistrarBarberiaInput {
   nombre: string;
@@ -81,6 +82,8 @@ export async function registrarBarberia(input: RegistrarBarberiaInput): Promise<
     aceptado: true,
   });
   if (errorConsentimiento) console.error("Error saving consentimiento:", errorConsentimiento);
+
+  if (user.email) await notificarBarberiaRegistrada(user.email, nombre, slug).catch((e) => console.error("[registro] correo de bienvenida:", e));
 
   return { success: true, slug };
 }

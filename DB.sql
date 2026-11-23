@@ -218,6 +218,7 @@ CREATE TABLE public.suscripcion (
   fecha_termino           date,
   estado                  text             NOT NULL DEFAULT 'activa',
   id_suscripcion_externa  text,                        -- id de la suscripción recurrente en la pasarela
+  aviso_enviado           text,                        -- último aviso de vencimiento enviado ("por_vencer:<fecha_termino>")
   created_at              timestamptz      NOT NULL DEFAULT now(),
   updated_at              timestamptz      NOT NULL DEFAULT now(),
   CONSTRAINT suscripcion_pkey PRIMARY KEY (id_suscripcion),
@@ -1528,6 +1529,17 @@ SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'gca
 SELECT cron.schedule('recordatorios-reservas', '0 * * * *', $job$
   SELECT net.http_post(
     url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'site_url') || '/api/recordatorios',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret')),
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 30000);
+$job$);
+
+-- Avisos de vencimiento de la suscripción: una vez al día (12:00 UTC).
+SELECT cron.schedule('avisos-suscripcion', '0 12 * * *', $job$
+  SELECT net.http_post(
+    url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'site_url') || '/api/suscripciones/avisos',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret')),

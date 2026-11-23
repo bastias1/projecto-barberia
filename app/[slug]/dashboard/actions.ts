@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { notificarCambioReserva, notificarResenaPedido, notificarResenaReserva } from "@/lib/notifications";
+import { notificarCambioReserva, notificarEstadoPedido, notificarResenaPedido, notificarResenaReserva } from "@/lib/notifications";
 
 const ESTADOS_RESERVA = ["pendiente", "confirmada", "completada", "cancelada", "no_asistio"];
 const ESTADOS_PEDIDO = ["pendiente", "confirmado", "preparando", "listo_retiro", "enviado", "entregado", "cancelado"];
@@ -73,6 +73,10 @@ export async function updateOrderStatus(id: number, status: string) {
     // Al entregar el pedido se invita al cliente a calificar los productos
     if (status === "entregado") {
         await notificarResenaPedido(id);
+    }
+
+    if (status === "listo_retiro" || status === "enviado") {
+        await notificarEstadoPedido(id, status).catch((e) => console.error("[notificaciones] estado del pedido:", e));
     }
 
     revalidatePath("/[slug]/dashboard/pedidos", "page");

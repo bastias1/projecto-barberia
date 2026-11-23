@@ -217,16 +217,9 @@ export async function notificarStockBajo(idBarberia: string): Promise<void> {
   const bajos = (productos ?? []) as Array<{ nombre: string; stock: number; stock_minimo: number }>;
   if (bajos.length === 0) return;
 
-  const [barberia, { data: admins }] = await Promise.all([
-    getBarberiaById(supabase, idBarberia),
-    supabase.from("usuario_barberia").select("id_usuario").eq("id_barberia", idBarberia).eq("rol", "admin").eq("activo", true),
-  ]);
+  const barberia = await getBarberiaById(supabase, idBarberia);
   if (!barberia) return;
-  const { data: usuarios } = await supabase
-    .from("usuario")
-    .select("email")
-    .in("id_usuario", (admins ?? []).map((a) => a.id_usuario))
-    .is("deleted_at", null);
+  const correos = await correosAdmins(supabase, idBarberia);
 
   const html = emailLayout(
     "Productos con stock bajo",
@@ -235,9 +228,189 @@ export async function notificarStockBajo(idBarberia: string): Promise<void> {
      <p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/productos`, "Ver productos")}</p>`,
     barberia.nombre,
   );
-  for (const u of usuarios ?? []) {
-    await sendEmail({ to: u.email, subject: `Stock bajo en ${barberia.nombre}`, html, fromName: barberia.nombre });
+  for (const to of correos) {
+    await sendEmail({ to, subject: `Stock bajo en ${barberia.nombre}`, html, fromName: barberia.nombre });
   }
+}
+
+/** Correos de los administradores activos de una barbería. */
+async function correosAdmins(supabase: ReturnType<typeof createServiceRoleClient>, idBarberia: string): Promise<string[]> {
+  const { data: admins } = await supabase.from("usuario_barberia").select("id_usuario").eq("id_barberia", idBarberia).eq("rol", "admin").eq("activo", true);
+  const { data: usuarios } = await supabase
+    .from("usuario")
+    .select("email")
+    .in("id_usuario", (admins ?? []).map((a) => a.id_usuario))
+    .is("deleted_at", null);
+  return (usuarios ?? []).map((u) => u.email);
+}
+
+async function cargarPedido(idPedido: number) {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("pedido")
+    .select(`
+      id_pedido, id_barberia, monto_total, tipo_entrega, direccion_envio,
+      cliente:usuario!pedido_cliente_fkey (nombre, email),
+      detalle_pedido!detalle_pedido_pedido_fkey (cantidad, precio_unitario, producto:producto!detalle_pedido_producto_fkey (nombre))
+    `)
+    .eq("id_pedido", idPedido)
+    .single();
+  if (error || !data) {
+    console.error(`[notificaciones] No se pudo cargar el pedido ${idPedido}:`, error);
+    return null;
+  }
+  const cliente = one<{ nombre: string; email: string }>(data.cliente);
+  const barberia = await getBarberiaById(supabase, data.id_barberia);
+  return cliente && barberia ? { pedido: data, cliente, barberia } : null; // sin cliente = venta presencial
+}
+
+/** Comprobante al comprador cuando se aprueba el pago de un pedido. */
+export async function notificarPedidoPagado(idPedido: number): Promise<void> {
+  const info = await cargarPedido(idPedido);
+  if (!info) return;
+  const { pedido, cliente, barberia } = info;
+  const detalles = (pedido.detalle_pedido ?? []) as Array<{ cantidad: number; precio_unitario: number; producto: unknown }>;
+
+  const html = emailLayout(
+    "Recibimos tu pago",
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(cliente.nombre)}, tu pedido #${idPedido} fue pagado correctamente:</p>
+     ${emailDetalle([
+       ...detalles.map((d) => [`${d.cantidad} × ${one<{ nombre: string }>(d.producto)?.nombre ?? "Producto"}`, formatCLP(d.cantidad * d.precio_unitario)] as [string, string]),
+       ["Entrega", pedido.tipo_entrega === "despacho" ? `Despacho a ${pedido.direccion_envio}` : "Retiro en la barbería"],
+       ["Total", formatCLP(pedido.monto_total)],
+     ])}
+     <p style="margin:0">Te avisaremos cuando esté listo.</p>`,
+    barberia.nombre,
+  );
+  await sendEmail({ to: cliente.email, subject: `Pago recibido · pedido #${idPedido}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+}
+
+/** Aviso al comprador cuando el pedido queda listo para retirar o sale en camino. */
+export async function notificarEstadoPedido(idPedido: number, estado: "listo_retiro" | "enviado"): Promise<void> {
+  const info = await cargarPedido(idPedido);
+  if (!info) return;
+  const { cliente, barberia } = info;
+  const listo = estado === "listo_retiro";
+
+  const html = emailLayout(
+    listo ? "Tu pedido está listo para retirar" : "Tu pedido va en camino",
+    `<p style="margin:0">Hola ${escapeHtml(cliente.nombre)}, tu pedido #${idPedido} ${listo ? "ya puedes retirarlo en la barbería." : "fue enviado a tu dirección."}</p>`,
+    barberia.nombre,
+  );
+  await sendEmail({ to: cliente.email, subject: listo ? `Tu pedido #${idPedido} está listo` : `Tu pedido #${idPedido} va en camino`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+}
+
+const AVISOS_SUSCRIPCION = {
+  cobro_rechazado: { titulo: "No pudimos cobrar tu suscripción", texto: "El último cobro de tu suscripción fue rechazado. Actualiza tu tarjeta para no perder el acceso.", boton: "Revisar suscripción" },
+  cancelada: { titulo: "Tu suscripción fue cancelada", texto: "No se harán más cobros. Mantienes el acceso hasta que termine el período ya pagado.", boton: "Ver suscripción" },
+  por_vencer: { titulo: "Tu plan está por vencer", texto: "Tu período termina en pocos días. Elige un plan para seguir recibiendo reservas sin interrupciones.", boton: "Elegir plan" },
+  vencida: { titulo: "Tu plan venció", texto: "La reserva online y el resto de los módulos están pausados. Reactiva tu plan para retomarlos.", boton: "Reactivar plan" },
+} as const;
+export type AvisoSuscripcion = keyof typeof AVISOS_SUSCRIPCION;
+
+/** Avisa a los administradores de un cambio en la suscripción de su barbería. Devuelve si se envió algo. */
+export async function notificarSuscripcion(idBarberia: string, aviso: AvisoSuscripcion): Promise<boolean> {
+  const supabase = createServiceRoleClient();
+  const barberia = await getBarberiaById(supabase, idBarberia);
+  if (!barberia) return false;
+  const a = AVISOS_SUSCRIPCION[aviso];
+  const html = emailLayout(
+    a.titulo,
+    `<p style="margin:0 0 16px">${escapeHtml(a.texto)}</p><p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/suscripcion`, a.boton)}</p>`,
+    barberia.nombre,
+  );
+  let enviado = false;
+  for (const to of await correosAdmins(supabase, idBarberia)) {
+    enviado = (await sendEmail({ to, subject: `${a.titulo} · ${barberia.nombre}`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto })) || enviado;
+  }
+  return enviado;
+}
+
+/**
+ * Avisos de vencimiento (job diario): 3 días antes si no hay renovación automática, y una vez vencida.
+ * `suscripcion.aviso_enviado` = "<aviso>:<fecha_termino>" evita repetirlos; al extenderse la fecha vuelve a avisar.
+ * shortcut: fechas en UTC (puede adelantarse un día respecto de Chile).
+ */
+export async function notificarVencimientos(): Promise<number> {
+  const supabase = createServiceRoleClient();
+  const dia = (dias: number) => new Date(Date.now() + dias * 86400_000).toISOString().slice(0, 10);
+  const hoy = dia(0);
+  const { data: filas, error } = await supabase
+    .from("suscripcion")
+    .select("id_suscripcion, id_barberia, estado, fecha_termino, id_suscripcion_externa, aviso_enviado")
+    .in("estado", ["prueba", "activa"])
+    .gte("fecha_termino", dia(-3)) // las vencidas hace más tiempo no se avisan
+    .lte("fecha_termino", dia(3));
+  if (error) {
+    console.error("[notificaciones] Error leyendo vencimientos:", error);
+    return 0;
+  }
+
+  let enviados = 0;
+  for (const s of filas ?? []) {
+    const aviso: AvisoSuscripcion | null = s.fecha_termino! < hoy ? "vencida" : s.id_suscripcion_externa ? null : "por_vencer";
+    const clave = `${aviso}:${s.fecha_termino}`;
+    if (!aviso || s.aviso_enviado === clave) continue;
+    // Reclamo condicional: un solo job gana aunque se solapen
+    const base = supabase.from("suscripcion").update({ aviso_enviado: clave }).eq("id_suscripcion", s.id_suscripcion);
+    const { data: reclamada } = await (s.aviso_enviado === null ? base.is("aviso_enviado", null) : base.eq("aviso_enviado", s.aviso_enviado)).select("id_suscripcion");
+    if (!reclamada?.length) continue;
+    if (await notificarSuscripcion(s.id_barberia, aviso)) enviados++;
+    else await supabase.from("suscripcion").update({ aviso_enviado: null }).eq("id_suscripcion", s.id_suscripcion);
+  }
+  return enviados;
+}
+
+/** Confirmación al dueño que registra una barbería (prueba de 14 días). */
+export async function notificarBarberiaRegistrada(correo: string, nombre: string, slug: string): Promise<void> {
+  const base = `${getSiteUrl()}/${slug}`;
+  const html = emailLayout(
+    `${nombre} ya está en ${PLATAFORMA.nombre}`,
+    `<p style="margin:0 0 16px">Tu barbería quedó registrada con 14 días de prueba. Para empezar:</p>
+     <ol style="margin:0 0 20px;padding-left:20px"><li>Agrega tus servicios y barberos.</li><li>Define tus horarios de atención.</li><li>Comparte tu página: ${escapeHtml(base)}</li></ol>
+     <p style="margin:0">${emailButton(`${base}/dashboard`, "Ir a mi panel")}</p>`,
+    PLATAFORMA.nombre,
+  );
+  await sendEmail({ to: correo, subject: `Tu barbería ${nombre} está lista`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
+}
+
+/** Al administrador que invitó: la persona aceptó. Solo si aceptó hace un momento y la sesión es la del invitado. */
+export async function notificarInvitacionAceptada(token: string, correoSesion: string): Promise<void> {
+  const supabase = createServiceRoleClient();
+  const { data: inv } = await supabase
+    .from("invitacion")
+    .select("id_barberia, correo, rol, estado, respondida_at, invitado_por")
+    .eq("token", token)
+    .maybeSingle();
+  // shortcut: ventana de 2 min en vez de una marca por invitación; evita reenvíos al repetir la llamada
+  if (!inv || inv.estado !== "aceptada" || !inv.invitado_por || inv.correo !== correoSesion.toLowerCase()) return;
+  if (!inv.respondida_at || Date.now() - new Date(inv.respondida_at).getTime() > 120_000) return;
+
+  const [barberia, { data: quien }] = await Promise.all([
+    getBarberiaById(supabase, inv.id_barberia),
+    supabase.from("usuario").select("email").eq("id_usuario", inv.invitado_por).is("deleted_at", null).maybeSingle(),
+  ]);
+  if (!barberia || !quien) return;
+  const html = emailLayout(
+    "Aceptaron tu invitación",
+    `<p style="margin:0 0 16px">${escapeHtml(inv.correo)} ya es parte del equipo de <strong>${escapeHtml(barberia.nombre)}</strong> como ${inv.rol === "admin" ? "administrador" : "barbero"}.</p>
+     <p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/usuarios`, "Ver equipo")}</p>`,
+    barberia.nombre,
+  );
+  await sendEmail({ to: quien.email, subject: `${inv.correo} aceptó unirse a ${barberia.nombre}`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
+}
+
+/** Aviso de seguridad al correo actual de la cuenta: cambio de contraseña o solicitud de nuevo correo. */
+export async function notificarSeguridad(correo: string, cambio: "clave" | "correo", nuevoCorreo?: string): Promise<void> {
+  const html = emailLayout(
+    cambio === "clave" ? "Cambiaste tu contraseña" : "Pediste cambiar tu correo",
+    `<p style="margin:0">${cambio === "clave"
+      ? "La contraseña de tu cuenta se acaba de cambiar."
+      : `Se pidió cambiar el correo de tu cuenta a <strong>${escapeHtml(nuevoCorreo)}</strong>.`}
+     Si no fuiste tú, recupera tu cuenta desde "¿Olvidaste tu contraseña?" y escríbenos a ${escapeHtml(PLATAFORMA.emailContacto)}.</p>`,
+    PLATAFORMA.nombre,
+  );
+  await sendEmail({ to: correo, subject: cambio === "clave" ? "Tu contraseña fue cambiada" : "Solicitud de cambio de correo", html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
 }
 
 /**

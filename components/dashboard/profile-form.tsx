@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { avisarCambioSeguridad } from "@/app/cuenta/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -50,6 +51,7 @@ export function ProfileForm({ userId, barberiaId, isProfesional, initialData }: 
         });
 
         if (emailError) throw emailError;
+        avisarCambioSeguridad("correo", formData.correo).catch(() => {});
       }
 
       // Update profesional table if user is a barber
