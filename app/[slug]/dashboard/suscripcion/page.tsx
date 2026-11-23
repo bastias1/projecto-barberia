@@ -6,14 +6,12 @@ import { requireStaff } from "@/lib/staff-context";
 import { getModulosCached } from "@/lib/barberia-server";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
-import { sincronizarCobros } from "@/lib/suscripcion";
+import { estadoSuscripcion, sincronizarCobros, ultimaSuscripcion } from "@/lib/suscripcion";
 import { caracteristicasPlan, getPlanes, MODULO_LABEL } from "@/lib/planes";
 import { formatCLP, formatFecha } from "@/lib/datetime";
-import { suscripcionVigente, tieneModulo, type ModuloCodigo } from "@/lib/modulos";
+import { tieneModulo, type ModuloCodigo } from "@/lib/modulos";
 
 export const dynamic = "force-dynamic";
-
-const hoy = () => new Date().toISOString().slice(0, 10);
 
 export default async function SuscripcionPage({ params }: { params: Promise<{ slug: string }> }) {
   const ctx = await requireStaff((await params).slug, { admin: true });
@@ -21,24 +19,11 @@ export default async function SuscripcionPage({ params }: { params: Promise<{ sl
   const supabase = await createClient();
 
   // Respaldo del webhook: registra los cobros de Mercado Pago que aún no estén en `pago`
-  const { data: conCobro } = await supabase
-    .from("suscripcion")
-    .select("id_suscripcion_externa")
-    .eq("id_barberia", idBarberia)
-    .not("id_suscripcion_externa", "is", null)
-    .order("id_suscripcion", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const conCobro = await ultimaSuscripcion(supabase, idBarberia, { conCobro: true });
   if (conCobro?.id_suscripcion_externa) await sincronizarCobros(createServiceRoleClient(), conCobro.id_suscripcion_externa);
 
-  const [{ data: sus }, planes, modulos, { data: pagos }, usos] = await Promise.all([
-    supabase
-      .from("suscripcion")
-      .select("id_suscripcion, id_plan, estado, fecha_inicio, fecha_termino, precio_pactado, id_suscripcion_externa")
-      .eq("id_barberia", idBarberia)
-      .order("id_suscripcion", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [sus, planes, modulos, { data: pagos }, usos] = await Promise.all([
+    ultimaSuscripcion(supabase, idBarberia),
     getPlanes(supabase),
     getModulosCached(idBarberia),
     supabase
@@ -56,21 +41,19 @@ export default async function SuscripcionPage({ params }: { params: Promise<{ sl
   ]);
 
   const plan = planes.find((p) => p.id_plan === sus?.id_plan);
-  const vigente = suscripcionVigente(modulos);
-  const vencida = !!sus?.fecha_termino && sus.fecha_termino < hoy();
-  const renovacionAutomatica = !!sus?.id_suscripcion_externa;
+  const { clave } = estadoSuscripcion(sus);
   const fecha = (f: string | null | undefined) => (f ? formatFecha(f, "d 'de' MMMM yyyy") : "");
 
   let estadoTexto = "Sin suscripción";
   let estadoBadge: "default" | "secondary" | "destructive" | "outline" = "outline";
   if (sus) {
-    if (!vigente || vencida || sus.estado === "vencida" || sus.estado === "cancelada") {
+    if (clave === "vencida") {
       estadoTexto = sus.estado === "prueba" ? `Prueba terminada el ${fecha(sus.fecha_termino)}` : "Vencida";
       estadoBadge = "destructive";
-    } else if (sus.estado === "prueba") {
+    } else if (clave === "prueba") {
       estadoTexto = `Prueba gratis hasta el ${fecha(sus.fecha_termino)}`;
       estadoBadge = "secondary";
-    } else if (renovacionAutomatica) {
+    } else if (clave === "activa_mp") {
       estadoTexto = sus.fecha_termino ? `Activa · se renueva antes del ${fecha(sus.fecha_termino)}` : "Activa · cobro mensual automático";
       estadoBadge = "default";
     } else {
@@ -145,7 +128,7 @@ export default async function SuscripcionPage({ params }: { params: Promise<{ sl
           <SuscripcionAcciones
             planes={planes.map((p) => ({ id_plan: p.id_plan, nombre: p.nombre, precio: p.precio_mensual, caracteristicas: caracteristicasPlan(p) }))}
             planActual={sus?.id_plan ?? null}
-            pagando={sus?.estado === "activa" && renovacionAutomatica && !vencida}
+            pagando={clave === "activa_mp"}
           />
         </CardContent>
       </Card>

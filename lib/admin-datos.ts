@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TZ } from "./barberia";
 import { addDays, fromZoned, todayIn } from "./datetime";
+import { estadoSuscripcion as clasificar, type ClaveEstado } from "./suscripcion";
 import { one, todasLasFilas } from "./utils";
 
 /* Consultas del panel de plataforma (/admin). Corren con la sesión del superadmin (RLS *_superadmin). */
 
-export type EstadoClave = "suspendida" | "vencida" | "prueba" | "activa_mp" | "cortesia" | "activa" | "sin";
+export type EstadoClave = ClaveEstado;
 
 export interface EstadoSuscripcion {
   clave: EstadoClave;
@@ -24,17 +25,21 @@ export interface SuscripcionResumen {
 
 const hoy = () => todayIn(DEFAULT_TZ);
 
-/** Estado legible de la suscripción de una barbería (la vigencia depende de la fecha, como en la base). */
+const PRESENTACION: Record<ClaveEstado, Pick<EstadoSuscripcion, "label" | "tono">> = {
+  suspendida: { label: "Suspendida", tono: "destructive" },
+  sin: { label: "Sin suscripción", tono: "outline" },
+  vencida: { label: "Vencida", tono: "destructive" },
+  prueba: { label: "En prueba", tono: "secondary" },
+  activa_mp: { label: "Activa (Mercado Pago)", tono: "default" },
+  cortesia: { label: "Activa (cortesía)", tono: "default" },
+  activa: { label: "Activa (sin vencimiento)", tono: "default" },
+};
+
+/** Estado de una barbería para el panel: la clasificación es de `lib/suscripcion.ts`; aquí solo el texto. */
 export function estadoSuscripcion(sus: SuscripcionResumen | null, barberiaActiva: boolean): EstadoSuscripcion {
-  if (!barberiaActiva) return { clave: "suspendida", label: "Suspendida", tono: "destructive" };
-  if (!sus) return { clave: "sin", label: "Sin suscripción", tono: "outline" };
-  const vencida = (sus.fecha_termino !== null && sus.fecha_termino < hoy()) || !["prueba", "activa"].includes(sus.estado);
-  if (vencida) return { clave: "vencida", label: sus.estado === "prueba" ? "Prueba vencida" : "Vencida", tono: "destructive" };
-  if (sus.estado === "prueba") return { clave: "prueba", label: "En prueba", tono: "secondary" };
-  if (sus.id_suscripcion_externa) return { clave: "activa_mp", label: "Activa (Mercado Pago)", tono: "default" };
-  return sus.fecha_termino
-    ? { clave: "cortesia", label: "Activa (cortesía)", tono: "default" }
-    : { clave: "activa", label: "Activa (sin vencimiento)", tono: "default" };
+  const { clave } = clasificar(sus, { barberiaActiva });
+  const label = clave === "vencida" && sus?.estado === "prueba" ? "Prueba vencida" : PRESENTACION[clave].label;
+  return { clave, label, tono: PRESENTACION[clave].tono };
 }
 
 export interface FilaBarberia {
