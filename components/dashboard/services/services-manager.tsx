@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import { Service, getServices, createService, deleteService, toggleBarberService, getServicesByBarber, archiveService, restoreService } from "@/lib/services/service-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Loader2, Search, Scissors, Archive, RotateCcw } from "lucide-react";
+import { Plus, Loader2, Search, Scissors } from "lucide-react";
+import { AccionesCatalogo, NoSePuedeEliminarDialog, SinResultados, StatCard } from "@/components/dashboard/catalogo-comun";
 import { toast } from "sonner";
 import { useBarberia } from "@/components/barberia-provider";
 import {
@@ -19,17 +20,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { DashboardTableSkeleton } from "@/components/dashboard/loading-skeletons";
 
@@ -57,11 +47,8 @@ export function ServicesManager({ barberId, canManageCatalog, isProfesional }: S
         duracion: ""
     });
 
-    // Cannot delete dialog state
-    const [cannotDeleteDialog, setCannotDeleteDialog] = useState<{ open: boolean; service: Service | null }>({
-        open: false,
-        service: null
-    });
+    // Servicio que la BD no dejó eliminar (tiene reservas): se ofrece archivarlo
+    const [noEliminable, setNoEliminable] = useState<Service | null>(null);
 
     useEffect(() => {
         loadData();
@@ -117,9 +104,7 @@ export function ServicesManager({ barberId, canManageCatalog, isProfesional }: S
             
             // Check if it's a foreign key constraint error
             if (errorMessage.includes("reservas") || errorMessage.includes("asociadas")) {
-                if (service) {
-                    setCannotDeleteDialog({ open: true, service });
-                }
+                if (service) setNoEliminable(service);
             } else {
                 toast.error(errorMessage);
             }
@@ -153,9 +138,9 @@ export function ServicesManager({ barberId, canManageCatalog, isProfesional }: S
     }
 
     async function handleArchiveFromDialog() {
-        if (cannotDeleteDialog.service) {
-            await handleArchiveService(cannotDeleteDialog.service.id);
-            setCannotDeleteDialog({ open: false, service: null });
+        if (noEliminable) {
+            await handleArchiveService(noEliminable.id);
+            setNoEliminable(null);
         }
     }
 
@@ -200,42 +185,10 @@ export function ServicesManager({ barberId, canManageCatalog, isProfesional }: S
         <div className="space-y-6">
             {/* Header Stats */}
             <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Mis Servicios</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{barberServiceIds.length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Servicios activos en tu perfil</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Total Catálogo</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{services.length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Servicios en el catálogo</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Activos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-green-600">{services.filter(s => s.activo !== false).length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Disponibles para reservar</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Archivados</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-orange-600">{services.filter(s => s.activo === false).length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Ocultos de reservas</p>
-                    </CardContent>
-                </Card>
+                <StatCard titulo="Mis Servicios" valor={barberServiceIds.length} nota="Servicios activos en tu perfil" />
+                <StatCard titulo="Total Catálogo" valor={services.length} nota="Servicios en el catálogo" />
+                <StatCard titulo="Activos" valor={services.filter(s => s.activo !== false).length} nota="Disponibles para reservar" className="text-green-600" />
+                <StatCard titulo="Archivados" valor={services.filter(s => s.activo === false).length} nota="Ocultos de reservas" className="text-orange-600" />
             </div>
 
             {/* Actions Bar */}
@@ -322,12 +275,7 @@ export function ServicesManager({ barberId, canManageCatalog, isProfesional }: S
                         </div>
                         <div className="divide-y">
                             {filteredServices.length === 0 ? (
-                                <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
-                                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                                        <Scissors className="h-6 w-6 text-muted-foreground" />
-                                    </div>
-                                    <p>No se encontraron servicios.</p>
-                                </div>
+                                <SinResultados icono={Scissors} texto="No se encontraron servicios." />
                             ) : (
                                 filteredServices.map((service) => (
                                     <div key={service.id} className={`grid grid-cols-12 gap-4 p-4 items-center hover:bg-muted/50 transition-colors group ${service.activo === false ? 'opacity-60 bg-muted/30' : ''}`}>
@@ -356,58 +304,17 @@ export function ServicesManager({ barberId, canManageCatalog, isProfesional }: S
                                         </div>
                                         {canManageCatalog && (
                                         <div className="col-span-12 sm:col-span-2 flex justify-end gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                            {service.activo === false ? (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
-                                                    onClick={() => handleRestoreService(service.id)}
-                                                    title="Restaurar servicio"
-                                                >
-                                                    <RotateCcw className="h-4 w-4" />
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-100"
-                                                    onClick={() => handleArchiveService(service.id)}
-                                                    title="Archivar servicio"
-                                                >
-                                                    <Archive className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                                        <AlertDialogDescription asChild>
-                                                            <div>
-                                                                <span className="block">Esta acción eliminará permanentemente el servicio <b>{service.nombre}</b>.</span>
-                                                                <span className="block mt-2"><strong>Nota:</strong> Si el servicio tiene reservas asociadas, no podrá ser eliminado. Usa "Archivar" en su lugar.</span>
-                                                            </div>
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            onClick={() => handleDeleteService(service.id)}
-                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                        >
-                                                            Eliminar
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                            <AccionesCatalogo
+                                                tipo="servicio"
+                                                archivado={service.activo === false}
+                                                onArchivar={() => handleArchiveService(service.id)}
+                                                onRestaurar={() => handleRestoreService(service.id)}
+                                                onEliminar={() => handleDeleteService(service.id)}
+                                                confirmacion={<>
+                                                    <span className="block">Esta acción eliminará permanentemente el servicio <b>{service.nombre}</b>.</span>
+                                                    <span className="block mt-2"><strong>Nota:</strong> Si el servicio tiene reservas asociadas, no podrá ser eliminado. Usa &quot;Archivar&quot; en su lugar.</span>
+                                                </>}
+                                            />
                                         </div>
                                         )}
                                     </div>
@@ -418,42 +325,16 @@ export function ServicesManager({ barberId, canManageCatalog, isProfesional }: S
                 </CardContent>
             </Card>
 
-            {/* Cannot Delete Dialog - Suggest Archive */}
-            <AlertDialog open={cannotDeleteDialog.open} onOpenChange={(open) => !open && setCannotDeleteDialog({ open: false, service: null })}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <Archive className="h-5 w-5 text-orange-500" />
-                            No se puede eliminar
-                        </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-3">
-                                <span className="block">
-                                    El servicio <b>{cannotDeleteDialog.service?.nombre}</b> no se puede eliminar porque tiene reservas asociadas.
-                                </span>
-                                <span className="block">
-                                    Para mantener el historial de reservas, te recomendamos <strong>archivar</strong> el servicio en su lugar. El servicio archivado:
-                                </span>
-                                <ul className="list-disc list-inside text-sm space-y-1 ml-2">
-                                    <li>No aparecerá en la página de reservas</li>
-                                    <li>Mantendrá el historial de citas</li>
-                                    <li>Podrás restaurarlo en cualquier momento</li>
-                                </ul>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleArchiveFromDialog}
-                            className="bg-orange-600 text-white hover:bg-orange-700"
-                        >
-                            <Archive className="h-4 w-4 mr-2" />
-                            Archivar servicio
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <NoSePuedeEliminarDialog
+                tipo="servicio"
+                nombre={noEliminable?.nombre}
+                motivo="reservas"
+                historial="historial de reservas"
+                dondeSale="la página de reservas"
+                mantiene="Mantendrá el historial de citas"
+                onArchivar={handleArchiveFromDialog}
+                onCerrar={() => setNoEliminable(null)}
+            />
         </div>
     );
 }

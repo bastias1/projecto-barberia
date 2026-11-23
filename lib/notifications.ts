@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
-import { getBarberiaById, getBarberiaBySlug, DEFAULT_TZ } from "./barberia";
+import { getBarberiaById, getBarberiaBySlug, DEFAULT_TZ, type Barberia } from "./barberia";
 import { PLATAFORMA } from "./plataforma";
 import { formatCLP, formatFecha, toZoned } from "./datetime";
 import { emailButton, emailDetalle, emailLayout, escapeHtml, sendEmail } from "./email";
@@ -16,6 +16,14 @@ interface Contacto {
   nombre: string;
   correo: string;
 }
+
+/** Remitente = la barbería (y las respuestas le llegan a ella). */
+const enviarDeBarberia = (b: Barberia, to: string, subject: string, html: string) =>
+  sendEmail({ to, subject, html, fromName: b.nombre, replyTo: b.email_contacto });
+
+/** Remitente = la plataforma. */
+const enviarDePlataforma = (to: string, subject: string, html: string) =>
+  sendEmail({ to, subject, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
 
 async function cargarReserva(idReserva: number) {
   const supabase = createServiceRoleClient();
@@ -66,6 +74,18 @@ async function cargarReserva(idReserva: number) {
   };
 }
 
+/** Tabla con los datos de la cita (`extra`: filas finales, p. ej. el total). */
+function detalleCita(info: NonNullable<Awaited<ReturnType<typeof cargarReserva>>>, extra: Array<[string, string]> = []): string {
+  return emailDetalle([
+    ["Servicio", info.servicio],
+    ["Barbero", info.barbero],
+    ["Fecha", formatFecha(info.fecha, "EEEE d 'de' MMMM")],
+    ["Hora", info.hora],
+    ...(info.sucursal ? [["Sucursal", `${info.sucursal.nombre} · ${info.sucursal.direccion}`] as [string, string]] : []),
+    ...extra,
+  ]);
+}
+
 /** Correo con los links de confirmar/cancelar, al crear una reserva. */
 export async function notificarReservaCreada(idReserva: number): Promise<void> {
   const info = await cargarReserva(idReserva);
@@ -78,20 +98,13 @@ export async function notificarReservaCreada(idReserva: number): Promise<void> {
   const html = emailLayout(
     "Recibimos tu reserva",
     `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, estos son los datos de tu cita:</p>
-     ${emailDetalle([
-       ["Servicio", info.servicio],
-       ["Barbero", info.barbero],
-       ["Fecha", formatFecha(info.fecha, "EEEE d 'de' MMMM")],
-       ["Hora", info.hora],
-       ...(info.sucursal ? [["Sucursal", `${info.sucursal.nombre} · ${info.sucursal.direccion}`] as [string, string]] : []),
-       ["Total", formatCLP(info.reserva.monto)],
-     ])}
+     ${detalleCita(info, [["Total", formatCLP(info.reserva.monto)]])}
      <p style="margin:0 0 12px">Por favor confirma tu asistencia:</p>
      <p style="margin:0">${emailButton(confirmar, "Confirmar cita", "#16a34a")}${emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora")}${emailButton(cancelar, "Cancelar cita", "#dc2626")}</p>`,
     barberia.nombre,
   );
 
-  const enviado = await sendEmail({ to: info.contacto.correo, subject: `Tu reserva en ${barberia.nombre}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  const enviado = await enviarDeBarberia(barberia, info.contacto.correo, `Tu reserva en ${barberia.nombre}`, html);
   if (!enviado) console.info(`[notificaciones] Links reserva ${idReserva}: confirmar=${confirmar} cancelar=${cancelar}`);
 }
 
@@ -105,26 +118,19 @@ export async function notificarCambioReserva(idReserva: number, cambio: "cancela
   const html = emailLayout(
     cancelada ? "Tu cita fue cancelada" : "Tu cita cambió de hora",
     `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, ${cancelada ? "cancelamos esta cita y el horario quedó libre:" : "estos son los nuevos datos de tu cita:"}</p>
-     ${emailDetalle([
-       ["Servicio", info.servicio],
-       ["Barbero", info.barbero],
-       ["Fecha", formatFecha(info.fecha, "EEEE d 'de' MMMM")],
-       ["Hora", info.hora],
-       ...(info.sucursal ? [["Sucursal", `${info.sucursal.nombre} · ${info.sucursal.direccion}`] as [string, string]] : []),
-     ])}
+     ${detalleCita(info)}
      <p style="margin:0">${cancelada
        ? emailButton(`${getSiteUrl()}/${barberia.slug}/agendar`, "Agendar otra cita")
        : emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora") + emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "#dc2626")}</p>`,
     barberia.nombre,
   );
 
-  await sendEmail({
-    to: info.contacto.correo,
-    subject: cancelada ? `Cita cancelada en ${barberia.nombre}` : `Nueva hora para tu cita en ${barberia.nombre}`,
+  await enviarDeBarberia(
+    barberia,
+    info.contacto.correo,
+    cancelada ? `Cita cancelada en ${barberia.nombre}` : `Nueva hora para tu cita en ${barberia.nombre}`,
     html,
-    fromName: barberia.nombre,
-    replyTo: barberia.email_contacto,
-  });
+  );
 }
 
 /** Correo con el link de reseña, cuando una reserva se marca como completada. */
@@ -150,7 +156,7 @@ export async function notificarResenaReserva(idReserva: number): Promise<void> {
     barberia.nombre,
   );
 
-  const enviado = await sendEmail({ to: info.contacto.correo, subject: `¿Qué te pareció tu visita a ${barberia.nombre}?`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  const enviado = await enviarDeBarberia(barberia, info.contacto.correo, `¿Qué te pareció tu visita a ${barberia.nombre}?`, html);
   if (!enviado) console.info(`[notificaciones] Link reseña reserva ${idReserva}: ${link}`);
 }
 
@@ -201,7 +207,7 @@ export async function notificarResenaPedido(idPedido: number): Promise<void> {
     barberia.nombre,
   );
 
-  const enviado = await sendEmail({ to: cliente.email, subject: `Califica tu pedido #${idPedido}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  const enviado = await enviarDeBarberia(barberia, cliente.email, `Califica tu pedido #${idPedido}`, html);
   if (!enviado) console.info(`[notificaciones] Link reseña pedido ${idPedido}: ${link}`);
 }
 
@@ -282,7 +288,7 @@ export async function notificarPedidoPagado(idPedido: number): Promise<void> {
      <p style="margin:0">Te avisaremos cuando esté listo.</p>`,
     barberia.nombre,
   );
-  await sendEmail({ to: cliente.email, subject: `Pago recibido · pedido #${idPedido}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  await enviarDeBarberia(barberia, cliente.email, `Pago recibido · pedido #${idPedido}`, html);
 }
 
 /** Aviso al comprador cuando el pedido queda listo para retirar o sale en camino. */
@@ -297,7 +303,7 @@ export async function notificarEstadoPedido(idPedido: number, estado: "listo_ret
     `<p style="margin:0">Hola ${escapeHtml(cliente.nombre)}, tu pedido #${idPedido} ${listo ? "ya puedes retirarlo en la barbería." : "fue enviado a tu dirección."}</p>`,
     barberia.nombre,
   );
-  await sendEmail({ to: cliente.email, subject: listo ? `Tu pedido #${idPedido} está listo` : `Tu pedido #${idPedido} va en camino`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  await enviarDeBarberia(barberia, cliente.email, listo ? `Tu pedido #${idPedido} está listo` : `Tu pedido #${idPedido} va en camino`, html);
 }
 
 const AVISOS_SUSCRIPCION = {
@@ -321,7 +327,7 @@ export async function notificarSuscripcion(idBarberia: string, aviso: AvisoSuscr
   );
   let enviado = false;
   for (const to of await correosAdmins(supabase, idBarberia)) {
-    enviado = (await sendEmail({ to, subject: `${a.titulo} · ${barberia.nombre}`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto })) || enviado;
+    enviado = (await enviarDePlataforma(to, `${a.titulo} · ${barberia.nombre}`, html)) || enviado;
   }
   return enviado;
 }
@@ -371,7 +377,7 @@ export async function notificarBarberiaRegistrada(correo: string, nombre: string
      <p style="margin:0">${emailButton(`${base}/dashboard`, "Ir a mi panel")}</p>`,
     PLATAFORMA.nombre,
   );
-  await sendEmail({ to: correo, subject: `Tu barbería ${nombre} está lista`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
+  await enviarDePlataforma(correo, `Tu barbería ${nombre} está lista`, html);
 }
 
 /** Al administrador que invitó: la persona aceptó. Solo si aceptó hace un momento y la sesión es la del invitado. */
@@ -397,7 +403,7 @@ export async function notificarInvitacionAceptada(token: string, correoSesion: s
      <p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/usuarios`, "Ver equipo")}</p>`,
     barberia.nombre,
   );
-  await sendEmail({ to: quien.email, subject: `${inv.correo} aceptó unirse a ${barberia.nombre}`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
+  await enviarDePlataforma(quien.email, `${inv.correo} aceptó unirse a ${barberia.nombre}`, html);
 }
 
 /** Aviso de seguridad al correo actual de la cuenta: cambio de contraseña o solicitud de nuevo correo. */
@@ -410,7 +416,7 @@ export async function notificarSeguridad(correo: string, cambio: "clave" | "corr
      Si no fuiste tú, recupera tu cuenta desde "¿Olvidaste tu contraseña?" y escríbenos a ${escapeHtml(PLATAFORMA.emailContacto)}.</p>`,
     PLATAFORMA.nombre,
   );
-  await sendEmail({ to: correo, subject: cambio === "clave" ? "Tu contraseña fue cambiada" : "Solicitud de cambio de correo", html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
+  await enviarDePlataforma(correo, cambio === "clave" ? "Tu contraseña fue cambiada" : "Solicitud de cambio de correo", html);
 }
 
 /**
@@ -438,7 +444,7 @@ export async function notificarBienvenida(
     PLATAFORMA.nombre,
   );
 
-  const enviado = await sendEmail({ to: user.email, subject: `Bienvenido a ${PLATAFORMA.nombre}`, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
+  const enviado = await enviarDePlataforma(user.email, `Bienvenido a ${PLATAFORMA.nombre}`, html);
   if (!enviado) return;
   // Si falla el marcador el próximo ingreso reenvía: aceptable frente a perder el aviso.
   const { error } = await supabase.auth.admin.updateUserById(user.id, { app_metadata: { ...user.app_metadata, bienvenida_enviada: true } });
@@ -477,17 +483,11 @@ async function enviarRecordatorio(idReserva: number): Promise<boolean> {
   const html = emailLayout(
     "Te esperamos pronto",
     `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, te recordamos tu cita:</p>
-     ${emailDetalle([
-       ["Servicio", info.servicio],
-       ["Barbero", info.barbero],
-       ["Fecha", formatFecha(info.fecha, "EEEE d 'de' MMMM")],
-       ["Hora", info.hora],
-       ...(info.sucursal ? [["Sucursal", `${info.sucursal.nombre} · ${info.sucursal.direccion}`] as [string, string]] : []),
-     ])}
+     ${detalleCita(info)}
      <p style="margin:0">${emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora")}${emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "#dc2626")}</p>`,
     barberia.nombre,
   );
-  return sendEmail({ to: info.contacto.correo, subject: `Recordatorio de tu cita en ${barberia.nombre}`, html, fromName: barberia.nombre, replyTo: barberia.email_contacto });
+  return enviarDeBarberia(barberia, info.contacto.correo, `Recordatorio de tu cita en ${barberia.nombre}`, html);
 }
 
 /** Correo de invitación al equipo de una barbería (link a /invitacion/<token>). Devuelve si se envió. */
@@ -528,13 +528,7 @@ export async function notificarInvitacion(idInvitacion: number): Promise<boolean
     `Recibes este correo porque ${barberia.nombre} te invitó a su equipo. Si no esperabas esta invitación, ignora este mensaje.`,
   );
 
-  const enviado = await sendEmail({
-    to: inv.correo,
-    subject: `${barberia.nombre} te invita a su equipo`,
-    html,
-    fromName: barberia.nombre,
-    replyTo: barberia.email_contacto,
-  });
+  const enviado = await enviarDeBarberia(barberia, inv.correo, `${barberia.nombre} te invita a su equipo`, html);
   if (!enviado) console.info(`[notificaciones] Link invitación ${idInvitacion} (${inv.correo}): ${link}`);
   return enviado;
 }

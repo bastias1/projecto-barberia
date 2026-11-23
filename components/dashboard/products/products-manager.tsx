@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { Product, getProducts, createProduct, updateProduct, deleteProduct, uploadProductImage, archiveProduct, restoreProduct, ingresarStock } from "@/lib/services/product-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Loader2, Search, Package, PackagePlus, AlertTriangle, Edit, Upload, Image as ImageIcon, Archive, RotateCcw } from "lucide-react";
+import { Plus, Loader2, Search, PackagePlus, AlertTriangle, Edit, Upload, Image as ImageIcon } from "lucide-react";
+import { AccionesCatalogo, NoSePuedeEliminarDialog, SinResultados, StatCard } from "@/components/dashboard/catalogo-comun";
 import { toast } from "sonner";
 import { useBarberia } from "@/components/barberia-provider";
 import {
@@ -18,17 +19,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
     Select,
     SelectContent,
@@ -57,11 +47,8 @@ export function ProductsManager() {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Cannot delete dialog state
-    const [cannotDeleteDialog, setCannotDeleteDialog] = useState<{ open: boolean; product: Product | null }>({
-        open: false,
-        product: null
-    });
+    // Producto que la BD no dejó eliminar (tiene ventas o reseñas): se ofrece archivarlo
+    const [noEliminable, setNoEliminable] = useState<Product | null>(null);
 
     // Ingreso de stock (HU-08)
     const [ingreso, setIngreso] = useState<{ product: Product; cantidad: string } | null>(null);
@@ -200,10 +187,7 @@ export function ProductsManager() {
             
             // Check if it's a foreign key constraint error
             if (errorMessage.includes("ventas") || errorMessage.includes("reseñas") || errorMessage.includes("asociadas")) {
-                // Show the cannot delete dialog with archive option
-                if (product) {
-                    setCannotDeleteDialog({ open: true, product });
-                }
+                if (product) setNoEliminable(product);
             } else {
                 toast.error(errorMessage);
             }
@@ -211,9 +195,9 @@ export function ProductsManager() {
     }
 
     async function handleArchiveFromDialog() {
-        if (cannotDeleteDialog.product) {
-            await handleArchiveProduct(cannotDeleteDialog.product.id);
-            setCannotDeleteDialog({ open: false, product: null });
+        if (noEliminable) {
+            await handleArchiveProduct(noEliminable.id);
+            setNoEliminable(null);
         }
     }
 
@@ -285,44 +269,10 @@ export function ProductsManager() {
         <div className="space-y-6">
             {/* Header Stats */}
             <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Total Productos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{products.length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">En el catálogo</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Activos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-green-600">{products.filter(p => p.activo !== false).length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Visibles en tienda</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Archivados</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-orange-600">{products.filter(p => p.activo === false).length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Ocultos de tienda</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-medium">Valor Inventario</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">
-                            ${products.reduce((acc, p) => acc + (p.precio * p.stock), 0).toLocaleString()}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">Estimado</p>
-                    </CardContent>
-                </Card>
+                <StatCard titulo="Total Productos" valor={products.length} nota="En el catálogo" />
+                <StatCard titulo="Activos" valor={products.filter(p => p.activo !== false).length} nota="Visibles en tienda" className="text-green-600" />
+                <StatCard titulo="Archivados" valor={products.filter(p => p.activo === false).length} nota="Ocultos de tienda" className="text-orange-600" />
+                <StatCard titulo="Valor Inventario" valor={`$${products.reduce((acc, p) => acc + (p.precio * p.stock), 0).toLocaleString()}`} nota="Estimado" />
             </div>
 
             {bajoStock.length > 0 && (
@@ -500,12 +450,7 @@ export function ProductsManager() {
                         </div>
                         <div className="divide-y">
                             {filteredProducts.length === 0 ? (
-                                <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
-                                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                                        <Package className="h-6 w-6 text-muted-foreground" />
-                                    </div>
-                                    <p>No se encontraron productos.</p>
-                                </div>
+                                <SinResultados texto="No se encontraron productos." />
                             ) : (
                                 filteredProducts.map((product) => (
                                     <div key={product.id} className={`grid grid-cols-12 gap-4 p-4 items-center hover:bg-muted/50 transition-colors group ${product.activo === false ? 'opacity-60 bg-muted/30' : ''}`}>
@@ -565,57 +510,18 @@ export function ProductsManager() {
                                             >
                                                 <Edit className="h-4 w-4" />
                                             </Button>
-                                            {product.activo === false ? (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
-                                                    onClick={() => handleRestoreProduct(product.id)}
-                                                    title="Restaurar producto"
-                                                >
-                                                    <RotateCcw className="h-4 w-4" />
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-100"
-                                                    onClick={() => handleArchiveProduct(product.id)}
-                                                    title="Archivar producto"
-                                                >
-                                                    <Archive className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Esta acción no se puede deshacer. Esto eliminará permanentemente el producto <b>{product.nombre}</b> de tu inventario.
-                                                            <br /><br />
-                                                            <strong>Nota:</strong> Si el producto tiene ventas asociadas, no podrá ser eliminado. Usa "Archivar" en su lugar.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            onClick={() => handleDeleteProduct(product.id)}
-                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                        >
-                                                            Eliminar
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                            <AccionesCatalogo
+                                                tipo="producto"
+                                                archivado={product.activo === false}
+                                                onArchivar={() => handleArchiveProduct(product.id)}
+                                                onRestaurar={() => handleRestoreProduct(product.id)}
+                                                onEliminar={() => handleDeleteProduct(product.id)}
+                                                confirmacion={<>
+                                                    Esta acción no se puede deshacer. Esto eliminará permanentemente el producto <b>{product.nombre}</b> de tu inventario.
+                                                    <br /><br />
+                                                    <strong>Nota:</strong> Si el producto tiene ventas asociadas, no podrá ser eliminado. Usa &quot;Archivar&quot; en su lugar.
+                                                </>}
+                                            />
                                         </div>
                                     </div>
                                 ))
@@ -657,42 +563,16 @@ export function ProductsManager() {
                 </DialogContent>
             </Dialog>
 
-            {/* Cannot Delete Dialog - Suggest Archive */}
-            <AlertDialog open={cannotDeleteDialog.open} onOpenChange={(open) => !open && setCannotDeleteDialog({ open: false, product: null })}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <Archive className="h-5 w-5 text-orange-500" />
-                            No se puede eliminar
-                        </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-3">
-                                <span className="block">
-                                    El producto <b>{cannotDeleteDialog.product?.nombre}</b> no se puede eliminar porque tiene ventas o reseñas asociadas.
-                                </span>
-                                <span className="block">
-                                    Para mantener el historial de ventas, te recomendamos <strong>archivar</strong> el producto en su lugar. El producto archivado:
-                                </span>
-                                <ul className="list-disc list-inside text-sm space-y-1 ml-2">
-                                    <li>No aparecerá en la tienda</li>
-                                    <li>Mantendrá el historial de ventas</li>
-                                    <li>Podrás restaurarlo en cualquier momento</li>
-                                </ul>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleArchiveFromDialog}
-                            className="bg-orange-600 text-white hover:bg-orange-700"
-                        >
-                            <Archive className="h-4 w-4 mr-2" />
-                            Archivar producto
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <NoSePuedeEliminarDialog
+                tipo="producto"
+                nombre={noEliminable?.nombre}
+                motivo="ventas o reseñas"
+                historial="historial de ventas"
+                dondeSale="la tienda"
+                mantiene="Mantendrá el historial de ventas"
+                onArchivar={handleArchiveFromDialog}
+                onCerrar={() => setNoEliminable(null)}
+            />
         </div>
     );
 }
