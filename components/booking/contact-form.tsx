@@ -1,22 +1,25 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import Link from "next/link";
+import { AccionesPaso } from "./acciones-paso";
+import { TituloPaso } from "./opcion-card";
+
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  aceptaPrivacidad: boolean;
+}
 
 interface ContactFormProps {
-  formData: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    aceptaPrivacidad: boolean;
-  };
-  onFormChange: (data: any) => void;
+  formData: FormData;
+  onFormChange: (data: FormData) => void;
   /** Datos de la cuenta con sesión (HU-02); null = sin sesión, solo invitado */
   cuenta?: { firstName: string; lastName: string; email: string; phone: string } | null;
   usarCuenta?: boolean;
@@ -28,116 +31,78 @@ interface ContactFormProps {
 export function ContactForm({ formData, onFormChange, cuenta, usarCuenta, onUsarCuentaChange, onBack, onSubmit }: ContactFormProps) {
   const conCuenta = !!cuenta && !!usarCuenta;
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Card className="border-2">
-        <CardHeader>
-          <CardTitle className="text-xl md:text-2xl">Información de Contacto</CardTitle>
-          <CardDescription className="text-sm">
-            {conCuenta ? "La reserva quedará a nombre de tu cuenta" : "Completa tus datos para confirmar la reserva"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            {cuenta && (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
-                {conCuenta ? (
-                  <div className="min-w-0">
-                    <p className="font-medium">{cuenta.firstName} {cuenta.lastName}</p>
-                    <p className="text-zinc-600 dark:text-zinc-400 break-all">{cuenta.email}{cuenta.phone && ` · ${cuenta.phone}`}</p>
-                  </div>
-                ) : (
-                  <p className="text-zinc-600 dark:text-zinc-400">Reservando con otros datos, sin usar tu cuenta.</p>
-                )}
-                <Button type="button" variant="ghost" size="sm" onClick={() => onUsarCuentaChange?.(!conCuenta)}>
-                  {conCuenta ? "Reservar con otros datos" : "Usar mi cuenta"}
-                </Button>
+    <div>
+      <TituloPaso
+        titulo="Tus datos"
+        ayuda={conCuenta ? "La reserva quedará a nombre de tu cuenta" : "Los usamos solo para confirmar tu reserva"}
+      />
+      <form onSubmit={onSubmit} className="space-y-4">
+        {cuenta && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-4 text-sm">
+            {conCuenta ? (
+              <div className="min-w-0">
+                <p className="font-semibold">{cuenta.firstName} {cuenta.lastName}</p>
+                <p className="break-all text-muted-foreground">{cuenta.email}{cuenta.phone && ` · ${cuenta.phone}`}</p>
               </div>
+            ) : (
+              <p className="text-muted-foreground">Reservando con otros datos, sin usar tu cuenta.</p>
             )}
+            <Button type="button" variant="outline" className="h-11" onClick={() => onUsarCuentaChange?.(!conCuenta)}>
+              {conCuenta ? "Usar otros datos" : "Usar mi cuenta"}
+            </Button>
+          </div>
+        )}
 
-            {!conCuenta && (<>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-sm md:text-base">Nombre *</Label>
-                <Input
-                  id="firstName"
-                  required
-                  value={formData.firstName}
-                  onChange={(e) => onFormChange({ ...formData, firstName: e.target.value })}
-                  placeholder="Juan"
-                  className="text-sm md:text-base"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-sm md:text-base">Apellido *</Label>
-                <Input
-                  id="lastName"
-                  required
-                  value={formData.lastName}
-                  onChange={(e) => onFormChange({ ...formData, lastName: e.target.value })}
-                  placeholder="Pérez"
-                  className="text-sm md:text-base"
-                />
-              </div>
-            </div>
-
+        {!conCuenta && (<>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm md:text-base">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => onFormChange({ ...formData, email: e.target.value })}
-                placeholder="juan@ejemplo.com"
-                className="text-sm md:text-base"
-              />
+              <Label htmlFor="firstName">Nombre *</Label>
+              <Input id="firstName" required autoComplete="given-name" value={formData.firstName}
+                onChange={(e) => onFormChange({ ...formData, firstName: e.target.value })} placeholder="Juan" className="h-12 text-base" />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm md:text-base">Teléfono (opcional)</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => onFormChange({ ...formData, phone: e.target.value })}
-                placeholder="+56 9 1234 5678"
-                className="text-sm md:text-base"
-              />
+              <Label htmlFor="lastName">Apellido *</Label>
+              <Input id="lastName" required autoComplete="family-name" value={formData.lastName}
+                onChange={(e) => onFormChange({ ...formData, lastName: e.target.value })} placeholder="Pérez" className="h-12 text-base" />
             </div>
+          </div>
 
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="aceptaPrivacidad"
-                checked={formData.aceptaPrivacidad}
-                onCheckedChange={(checked) => onFormChange({ ...formData, aceptaPrivacidad: checked === true })}
-                className="mt-0.5"
-              />
-              <Label htmlFor="aceptaPrivacidad" className="text-sm font-normal leading-snug text-zinc-600 dark:text-zinc-400">
-                <span>
-                  Acepto los{" "}
-                  <Link href="/terminos" target="_blank" className="underline underline-offset-4">términos</Link>
-                  {" "}y la{" "}
-                  <Link href="/privacidad" target="_blank" className="underline underline-offset-4">política de privacidad</Link>
-                  , y que la barbería use mis datos de contacto para gestionar esta reserva y enviarme avisos sobre ella.
-                </span>
-              </Label>
-            </div>
-            </>)}
+          <div className="space-y-2">
+            <Label htmlFor="email">Correo *</Label>
+            <Input id="email" type="email" required autoComplete="email" inputMode="email" value={formData.email}
+              onChange={(e) => onFormChange({ ...formData, email: e.target.value })} placeholder="juan@ejemplo.com" className="h-12 text-base" />
+          </div>
 
-            <div className="flex gap-2 md:gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={onBack} className="flex-1">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Atrás
-              </Button>
-              <Button type="submit" className="flex-1" disabled={!conCuenta && !formData.aceptaPrivacidad}>
-                <span className="hidden sm:inline">Confirmar Reserva</span>
-                <span className="sm:hidden">Confirmar</span>
-                <Check className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Teléfono (opcional)</Label>
+            <Input id="phone" type="tel" autoComplete="tel" inputMode="tel" value={formData.phone}
+              onChange={(e) => onFormChange({ ...formData, phone: e.target.value })} placeholder="+56 9 1234 5678" className="h-12 text-base" />
+          </div>
+
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
+            <Checkbox
+              id="aceptaPrivacidad"
+              checked={formData.aceptaPrivacidad}
+              onCheckedChange={(checked) => onFormChange({ ...formData, aceptaPrivacidad: checked === true })}
+              className="mt-0.5 size-5"
+            />
+            <Label htmlFor="aceptaPrivacidad" className="block text-sm font-normal leading-snug text-muted-foreground">
+              Acepto los{" "}
+              <Link href="/terminos" target="_blank" className="underline underline-offset-4">términos</Link>
+              {" "}y la{" "}
+              <Link href="/privacidad" target="_blank" className="underline underline-offset-4">política de privacidad</Link>
+              , y que la barbería use mis datos de contacto para gestionar esta reserva y enviarme avisos sobre ella.
+            </Label>
+          </div>
+        </>)}
+
+        <AccionesPaso onBack={onBack}>
+          <Button type="submit" disabled={!conCuenta && !formData.aceptaPrivacidad}>
+            Confirmar reserva
+            <Check className="size-4" aria-hidden="true" />
+          </Button>
+        </AccionesPaso>
+      </form>
     </div>
   );
 }

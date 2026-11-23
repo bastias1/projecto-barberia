@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const admin = await requireSuperadmin();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
+    <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <Link href="/admin" className="flex items-center gap-2 font-black tracking-tight">

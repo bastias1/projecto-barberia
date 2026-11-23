@@ -173,7 +173,7 @@ Shop orders are paid with **Checkout API via Orders API** (card form on the site
 - **UI language**: All user-facing text is in Spanish (es_CL).
 - **Toasts**: `sonner` (`<Toaster />` in root layout). Import `toast` from `"sonner"`.
 - **Accessibility**: each page marks its main content `<main id="contenido">` (target of the "Saltar al contenido" link in `app/layout.tsx`). Use `<Button asChild><Link/></Button>`, never a `<Button>` inside a `<Link>`. Every input needs a `<Label htmlFor>`.
-- **Dark mode**: `next-themes` with `ThemeProvider`. Background gradient pattern: `from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black`.
+- **Dark mode**: `next-themes` with `ThemeProvider`. Use the semantic tokens (`bg-background`, `text-muted-foreground`, `border-border`, `bg-brand`…) from `app/globals.css`, never paired `zinc-*`/`dark:` colors. Palette: white/neutral with a mint accent (`--brand`, used as a fill with dark text); dark mode is its own palette. Tenant pages (`/[slug]` home, `agendar`, `tienda`, `cart`, `checkout`) use the same tokens. Booking steps share `components/booking/{opcion-card,acciones-paso}.tsx` (sticky bottom action bar, select then Continuar); the store shell is `components/shop/tienda-shell.tsx`. Platform pages (`/`, `/barberias`, `/login`, `/signup`, `/registro`, `/cuenta`, legal) share `components/plataforma/` (header with mobile menu, footer, brand mark, product views). Titles use the `display` utility (Host Grotesk, medium, sentence case).
 - **Soft deletes**: Products and services use `activo: false` for archiving rather than hard deletes, to preserve sales/booking history. `getActive*` functions filter on `activo != false`.
 
 ### Environment Variables Required

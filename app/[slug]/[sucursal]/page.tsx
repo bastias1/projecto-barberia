@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Calendar, Clock, MapPin, Phone, Users } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ModeToggle } from "@/components/mode-toggle";
 import { createClient } from "@/utils/supabase/server";
@@ -56,98 +54,83 @@ export default async function SucursalPage({ params }: { params: Params }) {
   const telefono = sucursal.telefono || barberia.telefono;
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 w-full z-50 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href={`/${barberia.slug}`}>
-            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="truncate max-w-48">{barberia.nombre}</span>
-            </Button>
-          </Link>
-          <ModeToggle />
+    <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
+          <Button asChild variant="ghost" className="-ml-3 h-11 gap-2">
+            <Link href={`/${barberia.slug}`}>
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              <span className="max-w-[12rem] truncate">{barberia.nombre}</span>
+            </Link>
+          </Button>
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            {tieneModulo(modulos, "agenda") && (
+              <Button asChild className="h-11">
+                <Link href={agendarHref}>Reservar</Link>
+              </Button>
+            )}
+          </div>
         </div>
-      </nav>
+      </header>
 
-      <main id="contenido" className="relative z-10 pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
-        {/* Hero */}
-        <section className="flex flex-col items-center text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <main id="contenido" className="mx-auto max-w-5xl px-4 pb-16 pt-10 sm:px-6 md:pt-14">
+        <section className="mb-12">
           {barberia.logo_url && (
-            <div className="h-20 sm:h-24 mb-6 flex items-center justify-center">
-              <img
-                src={barberia.logo_url}
-                alt={`Logo ${barberia.nombre}`}
-                className={`max-h-full object-contain ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`}
-              />
+            <div className="mb-6">
+              {/* eslint-disable-next-line @next/next/no-img-element -- los logos pueden venir de cualquier host */}
+              <img src={barberia.logo_url} alt={`Logo ${barberia.nombre}`} className={`h-16 max-w-56 object-contain object-left ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`} />
               {barberia.logo_oscuro_url && (
-                <img src={barberia.logo_oscuro_url} alt={`Logo ${barberia.nombre}`} className="max-h-full object-contain hidden dark:block" />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={barberia.logo_oscuro_url} alt={`Logo ${barberia.nombre}`} className="hidden h-16 max-w-56 object-contain object-left dark:block" />
               )}
             </div>
           )}
-          <Badge variant="outline" className="mb-4 px-4 py-1 uppercase tracking-widest">
-            Sucursal
-          </Badge>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-3">{sucursal.nombre}</h1>
-          <p className="text-muted-foreground flex items-center gap-2 mb-8">
-            <MapPin className="h-4 w-4" />
+          <h1 className="display text-4xl sm:text-5xl">{sucursal.nombre}</h1>
+          <p className="mt-3 flex items-center gap-2 text-lg text-muted-foreground">
+            <MapPin className="size-4 shrink-0" aria-hidden="true" />
             {sucursal.direccion}, {sucursal.comuna}
           </p>
-          {tieneModulo(modulos, "agenda") ? (
-            <Link href={agendarHref}>
-              <Button size="lg" className="h-12 px-8 text-base gap-2">
-                <Calendar className="h-5 w-5" />
-                Agendar en {sucursal.nombre}
+          <div className="mt-8">
+            {tieneModulo(modulos, "agenda") ? (
+              <Button asChild size="lg" className="h-12 w-full px-6 text-base sm:w-auto">
+                <Link href={agendarHref}><Calendar className="size-4" aria-hidden="true" />Agendar en {sucursal.nombre}</Link>
               </Button>
-            </Link>
-          ) : (
-            <p className="text-sm text-muted-foreground">Reservas en línea no disponibles por ahora.</p>
-          )}
+            ) : (
+              <p className="text-muted-foreground">Reservas en línea no disponibles por ahora.</p>
+            )}
+          </div>
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-          {/* Horario + contacto */}
-          <div className="space-y-6">
-            <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50">
-              <CardContent className="p-6 flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-background shadow-sm">
-                  <Clock className="h-6 w-6 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="font-bold text-lg mb-1">Horario</h2>
-                  {horario.length === 0 ? (
-                    <p className="text-muted-foreground">Consulta disponibilidad al agendar</p>
-                  ) : (
-                    horario.map((tramo) => (
-                      <div key={tramo.dias}>
-                        <p className="text-muted-foreground">{tramo.dias}</p>
-                        <p className="font-medium text-lg">{tramo.horas}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+        <div className="mb-12 grid gap-6 lg:grid-cols-3">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <h2 className="mb-3 flex items-center gap-2 font-semibold"><Clock className="size-5" aria-hidden="true" />Horario</h2>
+              {horario.length === 0 ? (
+                <p className="text-muted-foreground">Consulta la disponibilidad al agendar.</p>
+              ) : (
+                <dl className="space-y-2">
+                  {horario.map((tramo) => (
+                    <div key={tramo.dias} className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">{tramo.dias}</dt>
+                      <dd className="tabular font-medium">{tramo.horas}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
 
             {telefono && (
-              <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50">
-                <CardContent className="p-6 flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-background shadow-sm">
-                    <Phone className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-lg mb-1">Contacto</h2>
-                    <a href={`tel:${telefono.replace(/\s/g, "")}`} className="text-muted-foreground hover:text-foreground">
-                      {telefono}
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="rounded-2xl border border-border bg-card p-6">
+                <h2 className="mb-3 flex items-center gap-2 font-semibold"><Phone className="size-5" aria-hidden="true" />Contacto</h2>
+                <a href={`tel:${telefono.replace(/\s/g, "")}`} className="inline-flex min-h-11 items-center underline underline-offset-4">
+                  {telefono}
+                </a>
+              </div>
             )}
           </div>
 
-          {/* Mapa */}
-          <Card className="lg:col-span-2 border-none bg-zinc-50 dark:bg-zinc-900/50 overflow-hidden min-h-[280px] relative">
+          <div className="relative min-h-72 overflow-hidden rounded-2xl border border-border lg:col-span-2">
             <iframe
               title={`Ubicación de ${sucursal.nombre} en Google Maps`}
               src={mapaEmbedUrl(`${sucursal.direccion}, ${sucursal.comuna}, Chile`)}
@@ -158,51 +141,41 @@ export default async function SucursalPage({ params }: { params: Params }) {
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
-          </Card>
+          </div>
         </div>
 
-        {/* Barberos */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold flex items-center gap-2 mb-6">
-            <Users className="h-5 w-5" />
-            Nuestro equipo en {sucursal.nombre}
-          </h2>
+          <h2 className="display mb-6 text-3xl">Equipo en {sucursal.nombre}</h2>
           {barberos.length === 0 ? (
             <p className="text-muted-foreground">Pronto tendremos barberos disponibles en esta sucursal.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {barberos.map((b) => (
-                <Card key={b.id_profesional} className="border-zinc-200 dark:border-zinc-800">
-                  <CardContent className="p-5 flex items-center gap-4">
-                    <Avatar className="h-14 w-14">
-                      <AvatarImage src={b.profile_image || undefined} alt={b.nombre_visible} />
-                      <AvatarFallback className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold">
-                        {b.nombre_visible.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="font-semibold truncate">{b.nombre_visible}</p>
-                      {b.especialidad && <p className="text-sm text-muted-foreground truncate">{b.especialidad}</p>}
-                    </div>
-                  </CardContent>
-                </Card>
+                <div key={b.id_profesional} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
+                  <Avatar className="size-14">
+                    <AvatarImage src={b.profile_image || undefined} alt="" />
+                    <AvatarFallback className="bg-muted font-semibold text-foreground">
+                      {b.nombre_visible.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{b.nombre_visible}</p>
+                    {b.especialidad && <p className="truncate text-sm text-muted-foreground">{b.especialidad}</p>}
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </section>
 
-        {/* Otras sucursales */}
         {otras.length > 0 && (
-          <section className="border-t pt-8">
-            <h2 className="text-lg font-semibold mb-4">Otras sucursales de {barberia.nombre}</h2>
+          <section className="border-t border-border pt-8">
+            <h2 className="mb-4 text-lg font-semibold">Otras sucursales de {barberia.nombre}</h2>
             <div className="flex flex-wrap gap-3">
               {otras.map((s) => (
-                <Link key={s.id_sucursal} href={`/${barberia.slug}/${s.slug}`}>
-                  <Button variant="outline" className="gap-2">
-                    <MapPin className="h-4 w-4" />
-                    {s.nombre}
-                  </Button>
-                </Link>
+                <Button key={s.id_sucursal} asChild variant="outline" className="h-11 gap-2">
+                  <Link href={`/${barberia.slug}/${s.slug}`}><MapPin className="size-4" aria-hidden="true" />{s.nombre}</Link>
+                </Button>
               ))}
             </div>
           </section>

@@ -46,7 +46,7 @@ export function ReviewsCarousel() {
     return (
         <div className="w-full relative">
             {reviews.length === 0 ? (
-                <div className="text-center p-8 text-muted-foreground bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
+                <div className="text-center p-8 text-muted-foreground rounded-xl border border-dashed border-border">
                     <p>Aún no hay reseñas.</p>
                 </div>
             ) : (

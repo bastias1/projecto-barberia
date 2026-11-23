@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ModeToggle } from "@/components/mode-toggle";
-import { Scissors, Loader2, ArrowLeft } from "lucide-react";
+import { HeaderPlataforma } from "@/components/plataforma/header";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { getBarberiaBySlug } from "@/lib/barberia";
@@ -163,31 +163,14 @@ function SignupForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center p-4 py-8">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ModeToggle />
-      </div>
-
-      {/* Back Button */}
-      <div className="fixed top-4 left-4 z-50">
-        <Link href={loginHref}>
-          <Button variant="ghost" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Volver al Login</span>
-            <span className="sm:hidden">Volver</span>
-          </Button>
-        </Link>
-      </div>
-
+    <div className="min-h-dvh bg-background text-foreground flex flex-col">
+      <HeaderPlataforma simple />
+      <div className="flex flex-1 items-center justify-center p-4 py-8">
       <div className="w-full max-w-md">
-        <Card className="border-2 shadow-2xl">
+        <Card>
           <CardHeader className="text-center space-y-4 pb-6">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-              <Scissors className="h-8 w-8 text-white" />
-            </div>
             <div>
-              <CardTitle className="text-2xl md:text-3xl font-bold">
+              <CardTitle className="display text-3xl">
                 Crear Cuenta
               </CardTitle>
               <CardDescription className="text-sm mt-2">
@@ -330,13 +313,14 @@ function SignupForm() {
 
               <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 pt-2">
                 <p>¿Ya tienes una cuenta?</p>
-                <Link href={loginHref} className="text-blue-600 dark:text-blue-400 hover:underline">
+                <Link href={loginHref} className="font-semibold underline underline-offset-4">
                   Inicia sesión aquí
                 </Link>
               </div>
             </form>
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );

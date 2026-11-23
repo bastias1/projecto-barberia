@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -37,6 +36,15 @@ interface BookingConfirmationProps {
   onNewBooking: () => void;
 }
 
+function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-4 py-2.5 text-sm sm:text-base">
+      <dt className="text-muted-foreground">{etiqueta}</dt>
+      <dd className="text-right font-medium">{children}</dd>
+    </div>
+  );
+}
+
 export function BookingConfirmation({
   selectedBarber,
   selectedService,
@@ -49,84 +57,36 @@ export function BookingConfirmation({
   const href = useBarberiaHref();
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Card className="border-2 border-green-500">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-14 h-14 md:w-16 md:h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
-            <Check className="h-7 w-7 md:h-8 md:w-8 text-white" />
-          </div>
-          <CardTitle className="text-xl md:text-2xl">¡Reserva Confirmada!</CardTitle>
-          <CardDescription className="text-sm">Tu cita ha sido agendada exitosamente</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-zinc-100 dark:bg-zinc-800 p-4 md:p-6 rounded-lg space-y-2 md:space-y-3">
-            {sucursal && (
-              <div className="flex justify-between gap-4 text-sm md:text-base">
-                <span className="text-zinc-600 dark:text-zinc-400">Sucursal:</span>
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">
-                  {sucursal.nombre}
-                  <span className="block text-xs font-normal text-zinc-500">{sucursal.direccion}, {sucursal.comuna}</span>
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between text-sm md:text-base">
-              <span className="text-zinc-600 dark:text-zinc-400">Barbero:</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">{selectedBarber.nombre || "Barbero"}</span>
-            </div>
-            <div className="flex justify-between text-sm md:text-base">
-              <span className="text-zinc-600 dark:text-zinc-400">Servicio:</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">{selectedService.nombre}</span>
-            </div>
-            <div className="flex justify-between text-sm md:text-base">
-              <span className="text-zinc-600 dark:text-zinc-400">Fecha:</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">
-                {format(selectedDate, "PPP", { locale: es })}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm md:text-base">
-              <span className="text-zinc-600 dark:text-zinc-400">Hora:</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">{selectedTime}</span>
-            </div>
-            <div className="flex justify-between text-sm md:text-base">
-              <span className="text-zinc-600 dark:text-zinc-400">Cliente:</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">
-                {formData.firstName} {formData.lastName}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm md:text-base">
-              <span className="text-zinc-600 dark:text-zinc-400">Email:</span>
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-right break-all">{formData.email}</span>
-            </div>
-            {formData.phone && (
-              <div className="flex justify-between text-sm md:text-base">
-                <span className="text-zinc-600 dark:text-zinc-400">Teléfono:</span>
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formData.phone}</span>
-              </div>
-            )}
-            <div className="pt-3 border-t border-zinc-300 dark:border-zinc-700 flex justify-between text-base md:text-lg">
-              <span className="font-bold text-zinc-900 dark:text-zinc-100">Total:</span>
-              <span className="font-bold text-blue-600 dark:text-blue-400">
-                ${selectedService.precio.toLocaleString()}
-              </span>
-            </div>
-          </div>
+    <div role="status">
+      <div className="mb-6 text-center">
+        <span className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-brand text-brand-foreground">
+          <Check className="size-7" aria-hidden="true" />
+        </span>
+        <h2 className="display text-3xl">Reserva confirmada</h2>
+        <p className="mt-2 text-muted-foreground">Te enviamos un correo a <span className="break-all text-foreground">{formData.email}</span> con los links para confirmar o cancelar.</p>
+      </div>
 
-          <p className="text-center text-xs md:text-sm text-zinc-600 dark:text-zinc-400 px-2">
-            Te hemos enviado un correo de confirmación a {formData.email}
-          </p>
+      <dl className="divide-y divide-border rounded-xl border border-border bg-card px-4">
+        {sucursal && (
+          <Fila etiqueta="Sucursal">
+            {sucursal.nombre}
+            <span className="block text-sm font-normal text-muted-foreground">{sucursal.direccion}, {sucursal.comuna}</span>
+          </Fila>
+        )}
+        <Fila etiqueta="Barbero">{selectedBarber.nombre || "Barbero"}</Fila>
+        <Fila etiqueta="Servicio">{selectedService.nombre}</Fila>
+        <Fila etiqueta="Fecha">{format(selectedDate, "PPP", { locale: es })}</Fila>
+        <Fila etiqueta="Hora"><span className="tabular">{selectedTime}</span></Fila>
+        <Fila etiqueta="A nombre de">{formData.firstName} {formData.lastName}</Fila>
+        <Fila etiqueta="Total"><span className="tabular text-lg font-semibold">${selectedService.precio.toLocaleString("es-CL")}</span></Fila>
+      </dl>
 
-          <div className="flex gap-2 md:gap-3">
-            <Link href={href()} className="flex-1">
-              <Button variant="outline" className="w-full text-sm md:text-base">
-                Volver al Inicio
-              </Button>
-            </Link>
-            <Button onClick={onNewBooking} className="flex-1 text-sm md:text-base">
-              Nueva Reserva
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Button asChild variant="outline" className="h-12 flex-1">
+          <Link href={href()}>Volver al inicio</Link>
+        </Button>
+        <Button onClick={onNewBooking} className="h-12 flex-1">Hacer otra reserva</Button>
+      </div>
     </div>
   );
 }

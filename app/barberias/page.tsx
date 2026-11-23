@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ModeToggle } from "@/components/mode-toggle";
-import { LegalLinks } from "@/components/legal-links";
+import { HeaderPlataforma } from "@/components/plataforma/header";
+import { FooterPlataforma } from "@/components/plataforma/footer";
 import { PLATAFORMA } from "@/lib/plataforma";
 
 export const metadata: Metadata = {
@@ -57,30 +57,22 @@ export default async function BarberiasPage({ searchParams }: { searchParams: Pr
   const lista = sinCoincidencias ? enRegion : encontradas;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black">
-      <header className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-black text-xl tracking-tight">
-          <span className="h-8 w-8 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center">
-            <Scissors className="h-4 w-4 text-white dark:text-zinc-900" />
-          </span>
-          {PLATAFORMA.nombre}
-        </Link>
-        <ModeToggle />
-      </header>
+    <div className="min-h-screen bg-background text-foreground">
+      <HeaderPlataforma />
 
-      <main id="contenido" className="max-w-5xl mx-auto px-4 pb-16">
-        <h1 className="text-3xl md:text-4xl font-bold mt-6 mb-2">Encuentra tu barbería</h1>
-        <p className="text-muted-foreground mb-6">Busca por nombre o comuna y reserva en línea.</p>
+      <main id="contenido" className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-14">
+        <h1 className="display text-4xl sm:text-5xl md:text-6xl mb-3">Encuentra tu barbería</h1>
+        <p className="text-lg mb-8">Busca por nombre o comuna y reserva en línea.</p>
 
         <form action="/barberias" role="search" className="grid gap-3 sm:grid-cols-[1fr_14rem_auto] sm:items-end mb-8">
           <div className="space-y-2">
             <Label htmlFor="q">Nombre o comuna</Label>
-            <Input id="q" name="q" type="search" defaultValue={q} placeholder="Ej. Valdivia" />
+            <Input id="q" name="q" type="search" defaultValue={q} placeholder="Ej. Valdivia" className="h-11 border border-border bg-card" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="region">Región</Label>
             <Select name="region" defaultValue={regiones.includes(region) ? region : TODAS}>
-              <SelectTrigger id="region" className="w-full">
+              <SelectTrigger id="region" className="h-11 w-full border border-border bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -89,13 +81,13 @@ export default async function BarberiasPage({ searchParams }: { searchParams: Pr
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" className="gap-2">
+          <Button type="submit" className="h-11 gap-2 px-6">
             <Search className="h-4 w-4" />
             Buscar
           </Button>
         </form>
 
-        <div role="status" className="mb-4 text-sm text-muted-foreground">
+        <div role="status" className="mb-4 text-sm font-medium">
           {sinCoincidencias
             ? lista.length > 0
               ? `No encontramos barberías${q ? ` para "${q}"` : ""}. Estas son las barberías disponibles${region === TODAS ? "" : ` en ${region}`}:`
@@ -109,9 +101,9 @@ export default async function BarberiasPage({ searchParams }: { searchParams: Pr
             return (
               <li key={b.slug}>
                 <Link href={`/${b.slug}`} className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Card className="h-full hover:shadow-lg transition-shadow">
+                  <Card className="h-full border border-border transition-colors hover:bg-accent">
                     <CardContent className="p-5 flex items-start gap-4">
-                      <span className="h-12 w-12 shrink-0 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
+                      <span className="h-12 w-12 shrink-0 bg-muted flex items-center justify-center overflow-hidden">
                         {b.logo_url
                           // eslint-disable-next-line @next/next/no-img-element -- los logos pueden venir de cualquier host
                           ? <img src={b.logo_url} alt="" className="h-full w-full object-contain" />
@@ -121,7 +113,7 @@ export default async function BarberiasPage({ searchParams }: { searchParams: Pr
                         <span className="block font-semibold">{b.nombre}</span>
                         {b.eslogan && <span className="block text-sm text-muted-foreground line-clamp-2">{b.eslogan}</span>}
                         {comunas.length > 0 && (
-                          <span className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+                          <span className="mt-2 flex items-center gap-1 text-sm">
                             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                             {comunas.join(", ")}
                           </span>
@@ -136,9 +128,7 @@ export default async function BarberiasPage({ searchParams }: { searchParams: Pr
         </ul>
       </main>
 
-      <footer className="max-w-5xl mx-auto px-4 pb-8 text-sm text-muted-foreground">
-        <LegalLinks />
-      </footer>
+      <FooterPlataforma />
     </div>
   );
 }

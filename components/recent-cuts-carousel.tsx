@@ -13,7 +13,7 @@ export function RecentCutsCarousel({ imagenes }: { imagenes: string[] }) {
   if (imagenes.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-zinc-500 dark:text-zinc-400">No hay cortes disponibles</p>
+        <p className="text-muted-foreground">No hay cortes disponibles</p>
       </div>
     );
   }
@@ -27,7 +27,7 @@ export function RecentCutsCarousel({ imagenes }: { imagenes: string[] }) {
         <CarouselContent>
           {imagenes.map((src, index) => (
             <CarouselItem key={src}>
-              <div className="w-full aspect-square rounded-lg overflow-hidden border-2 border-zinc-200 dark:border-zinc-800 shadow-lg">
+              <div className="w-full aspect-square rounded-lg overflow-hidden border border-border">
                 <img
                   src={src}
                   alt={`Corte reciente ${index + 1}`}

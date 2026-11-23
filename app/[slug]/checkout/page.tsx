@@ -180,13 +180,13 @@ export default function CheckoutPage() {
     <main id="contenido" className="mx-auto w-full max-w-4xl">
       <Link
         href={`/${slug}/cart`}
-        className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors mb-6"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
       >
         <ArrowLeft className="h-4 w-4" />
         <span>Volver al carrito</span>
       </Link>
 
-      <h1 className="mb-8 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+      <h1 className="display mb-8 text-3xl sm:text-4xl">
         Checkout
       </h1>
 
@@ -206,7 +206,7 @@ export default function CheckoutPage() {
                   <RadioGroupItem value="retiro" id="retiro" className="peer sr-only" />
                   <Label
                     htmlFor="retiro"
-                    className="flex flex-col items-center justify-between rounded-xl border-2 border-zinc-200 bg-transparent p-4 hover:bg-zinc-100 hover:text-zinc-900 peer-data-[state=checked]:border-zinc-900 peer-data-[state=checked]:bg-zinc-50 [&:has([data-state=checked])]:border-zinc-900 dark:border-zinc-800 dark:hover:bg-zinc-800 dark:peer-data-[state=checked]:border-zinc-100 dark:peer-data-[state=checked]:bg-zinc-900 cursor-pointer"
+                    className="flex min-h-20 flex-col items-center justify-between rounded-xl border border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
                   >
                     <Store className="mb-3 h-6 w-6" />
                     Retiro en Tienda
@@ -216,7 +216,7 @@ export default function CheckoutPage() {
                   <RadioGroupItem value="despacho" id="despacho" className="peer sr-only" />
                   <Label
                     htmlFor="despacho"
-                    className="flex flex-col items-center justify-between rounded-xl border-2 border-zinc-200 bg-transparent p-4 hover:bg-zinc-100 hover:text-zinc-900 peer-data-[state=checked]:border-zinc-900 peer-data-[state=checked]:bg-zinc-50 [&:has([data-state=checked])]:border-zinc-900 dark:border-zinc-800 dark:hover:bg-zinc-800 dark:peer-data-[state=checked]:border-zinc-100 dark:peer-data-[state=checked]:bg-zinc-900 cursor-pointer"
+                    className="flex min-h-20 flex-col items-center justify-between rounded-xl border border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
                   >
                     <Truck className="mb-3 h-6 w-6" />
                     Despacho a Domicilio
@@ -243,7 +243,7 @@ export default function CheckoutPage() {
                         <RadioGroupItem value={addr.id} id={addr.id} />
                         <Label htmlFor={addr.id} className="flex-1 cursor-pointer">
                           <div className="font-medium">{addr.calle}</div>
-                          <div className="text-sm text-zinc-500">{addr.comuna}, {addr.ciudad}</div>
+                          <div className="text-sm text-muted-foreground">{addr.comuna}, {addr.ciudad}</div>
                         </Label>
                       </div>
                     ))}
@@ -255,7 +255,7 @@ export default function CheckoutPage() {
                     + Agregar Nueva Dirección
                   </Button>
                 ) : (
-                  <div className="space-y-4 border p-4 rounded-lg bg-zinc-50 dark:bg-zinc-900">
+                  <div className="space-y-4 border border-border p-4 rounded-xl bg-muted/50">
                     <div className="grid gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="direccion-calle">Calle y Número</Label>
@@ -317,7 +317,7 @@ export default function CheckoutPage() {
               <div className="space-y-3 border-b pb-4">
                 {cart.map((item) => (
                   <div key={item.id} className="flex gap-3">
-                    <div className="relative h-16 w-16 rounded-md overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0">
+                    <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
                       <Image
                         src={item.image || '/placeholder.svg'}
                         alt={item.name}

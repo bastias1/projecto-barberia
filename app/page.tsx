@@ -1,67 +1,40 @@
 import Link from "next/link";
+import { ArrowRight, BarChart3, CalendarCheck, Check, Clock, Mail, Star, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ModeToggle } from "@/components/mode-toggle";
-import { LegalLinks } from "@/components/legal-links";
-import {
-  BarChart3, Calendar, Check, Clock, Globe, LogIn, Mail, ShoppingBag, Scissors, Star, Users,
-} from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { caracteristicasPlan, DIAS_PRUEBA, getPlanes } from "@/lib/planes";
 import { formatCLP } from "@/lib/datetime";
 import { PLATAFORMA } from "@/lib/plataforma";
 import { resolverAcceso } from "@/lib/acceso";
+import { HeaderPlataforma } from "@/components/plataforma/header";
+import { FooterPlataforma } from "@/components/plataforma/footer";
+import { VistaAgenda, VistaPagina, VistaReserva, VistaTienda } from "@/components/plataforma/pantallas";
 
-const funcionalidades = [
-  {
-    icon: Calendar,
-    titulo: "Agenda online 24/7",
-    texto: "Tus clientes eligen barbero, servicio y hora desde el celular. Sin llamadas ni mensajes.",
-  },
-  {
-    icon: Globe,
-    titulo: "Tu página propia",
-    texto: "Una página con tu logo, galería de trabajos, horario, ubicación y opiniones de clientes.",
-  },
-  {
-    icon: Mail,
-    titulo: "Confirmaciones por correo",
-    texto: "Cada reserva llega con links para que el cliente la confirme o la cancele con un clic.",
-  },
-  {
-    icon: Star,
-    titulo: "Reseñas verificadas",
-    texto: "Después de cada cita o compra el cliente recibe un link para calificar. Solo opinan clientes reales.",
-  },
-  {
-    icon: ShoppingBag,
-    titulo: "Tienda en línea",
-    texto: "Vende ceras, aceites y packs con pago en Mercado Pago, retiro en local o despacho.",
-  },
-  {
-    icon: Users,
-    titulo: "Equipo y sucursales",
-    texto: "Cada barbero gestiona su horario y servicios. Tú administras usuarios, productos y pedidos.",
-  },
-  {
-    icon: Clock,
-    titulo: "Horarios y bloqueos",
-    texto: "Define turnos por sucursal y bloquea vacaciones o feriados. La agenda nunca se cruza.",
-  },
-  {
-    icon: BarChart3,
-    titulo: "Clientes y estadísticas",
-    texto: "Historial por cliente, asistencia, ingresos del mes y bloqueo de clientes que no llegan.",
-  },
+const DETALLES = [
+  { icon: Mail, titulo: "Confirmación por correo", texto: "Cada reserva llega con links para confirmar o cancelar con un clic." },
+  { icon: Star, titulo: "Reseñas verificadas", texto: "Solo opinan clientes que ya tuvieron su cita o recibieron su compra." },
+  { icon: Users, titulo: "Equipo y sucursales", texto: "Cada barbero gestiona su horario; tú administras usuarios, productos y pedidos." },
+  { icon: Clock, titulo: "Horarios y bloqueos", texto: "Turnos por sucursal, vacaciones y feriados. La agenda nunca se cruza." },
+  { icon: BarChart3, titulo: "Clientes y estadísticas", texto: "Historial, asistencia, ingresos del mes y bloqueo de clientes que no llegan." },
+  { icon: CalendarCheck, titulo: "Agenda en tiempo real", texto: "Cuando llega o se cancela una reserva, tu agenda se actualiza sola." },
 ];
 
-const pasos = [
-  { numero: "1", titulo: "Crea tu cuenta", texto: "Regístrate con tu correo en un minuto." },
-  { numero: "2", titulo: "Registra tu barbería", texto: "Elige tu plan, tu dirección web y tu primera sucursal." },
-  { numero: "3", titulo: "Comparte tu link", texto: "Agrega a tu equipo, define horarios y empieza a recibir reservas." },
+const PASOS = [
+  { titulo: "Crea tu cuenta", texto: "Con tu correo, en un minuto." },
+  { titulo: "Registra tu barbería", texto: "Elige tu plan, tu dirección web y tu primera sucursal." },
+  { titulo: "Comparte tu link", texto: "Suma a tu equipo, define horarios y empieza a recibir reservas." },
 ];
+
+function Seccion({ id, titulo, children, className = "" }: { id?: string; titulo?: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section id={id} className={`scroll-mt-20 ${className}`}>
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-24">
+        {titulo && <h2 className="display mb-10 max-w-3xl text-3xl sm:text-4xl md:mb-14 md:text-5xl">{titulo}</h2>}
+        {children}
+      </div>
+    </section>
+  );
+}
 
 export default async function PlataformaHome() {
   const supabase = await createClient();
@@ -72,220 +45,165 @@ export default async function PlataformaHome() {
   const destacado = planes.length >= 3 ? planes[1].id_plan : null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden selection:bg-primary/20">
+    <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
+      <HeaderPlataforma miPanel={miPanel} />
 
-      {/* Background Elements */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl opacity-50 mix-blend-multiply dark:mix-blend-screen" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl opacity-50 mix-blend-multiply dark:mix-blend-screen" />
-      </div>
-
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 w-full z-50 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2 font-black text-xl tracking-tight">
-            <span className="h-8 w-8 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center">
-              <Scissors className="h-4 w-4 text-white dark:text-zinc-900" />
-            </span>
-            {PLATAFORMA.nombre}
-          </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#funcionalidades" className="hover:text-foreground transition-colors">Funcionalidades</a>
-            <a href="#como-funciona" className="hover:text-foreground transition-colors">Cómo funciona</a>
-            <a href="#planes" className="hover:text-foreground transition-colors">Planes</a>
-            <Link href="/barberias" className="hover:text-foreground transition-colors">Buscar barberías</Link>
-          </div>
-          <div className="flex items-center gap-2">
-            <ModeToggle />
-            <Button variant="ghost" size="sm" className="gap-2" asChild>
-              <Link href={miPanel ?? "/login"}>
-                <LogIn className="h-4 w-4" />
-                <span className="hidden sm:inline">{miPanel ? "Mi panel" : "Iniciar Sesión"}</span>
-              </Link>
-            </Button>
-            <Button size="sm" className="hidden sm:inline-flex" asChild>
-              <Link href="/registro">Registra tu barbería</Link>
-            </Button>
-          </div>
-        </div>
-      </nav>
-
-      <main id="contenido" className="relative z-10 pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-
-        {/* Hero Section */}
-        <section className="flex flex-col items-center text-center mb-24 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          <Badge variant="outline" className="mb-6 px-6 py-1.5 text-sm uppercase tracking-widest border-primary/20 bg-primary/5">
-            Software para barberías
-          </Badge>
-          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight mb-6 max-w-4xl bg-clip-text text-transparent bg-gradient-to-r from-zinc-900 via-zinc-700 to-zinc-900 dark:from-white dark:via-zinc-400 dark:to-white">
-            Tu barbería, con agenda y tienda en línea.
-          </h1>
-          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-light mb-10">
-            {PLATAFORMA.nombre} le da a tu barbería su propia página para recibir reservas,
-            vender productos y conocer a tus clientes. Sin instalar nada.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base" asChild>
-              <Link href="/registro">
-                Prueba gratis {DIAS_PRUEBA} días
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base" asChild>
-              <a href="#planes">Ver planes</a>
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">Sin tarjeta de crédito para empezar.</p>
-          <p className="text-sm text-muted-foreground mt-6">
-            ¿Buscas dónde cortarte el pelo?{" "}
-            <Link href="/barberias" className="underline underline-offset-4 hover:text-foreground">Encuentra tu barbería</Link>
-          </p>
-        </section>
-
-        {/* Features */}
-        <section id="funcionalidades" className="mb-24 scroll-mt-24">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">Todo lo que tu barbería necesita</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Desde la primera reserva hasta la reseña del cliente, en un solo lugar.
+      <main id="contenido">
+        {/* Portada */}
+        <section className="mx-auto grid max-w-6xl gap-12 px-4 pb-16 pt-12 sm:px-6 md:pt-20 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16 lg:pb-24">
+          <div className="enter">
+            <h1 className="display text-[2.6rem] sm:text-6xl lg:text-[4.25rem]">
+              Agenda online, tienda y página propia para tu barbería
+            </h1>
+            <p className="mt-6 max-w-xl text-lg text-muted-foreground sm:text-xl">
+              Tus clientes reservan desde el celular, compran tus productos y dejan su reseña. Tú ves todo en un panel, sin instalar nada.
             </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {funcionalidades.map((f) => (
-              <Card key={f.titulo} className="border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
-                    <f.icon className="h-6 w-6 text-zinc-900 dark:text-white" />
-                  </div>
-                  <h3 className="font-bold mb-2">{f.titulo}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{f.texto}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section id="como-funciona" className="mb-24 scroll-mt-24">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">Empieza en minutos</h2>
-            <p className="text-muted-foreground">Tu barbería queda en <span className="font-mono text-foreground">/{"<tu-barberia>"}</span>, lista para compartir.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {pasos.map((p) => (
-              <div key={p.numero} className="text-center p-6">
-                <div className="w-12 h-12 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 flex items-center justify-center text-xl font-black mx-auto mb-4">
-                  {p.numero}
-                </div>
-                <h3 className="font-bold text-lg mb-2">{p.titulo}</h3>
-                <p className="text-sm text-muted-foreground">{p.texto}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Barbers */}
-        <section className="mb-24">
-          <Card className="border-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent">
-            <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
-              <div className="flex flex-col md:flex-row items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                  <Scissors className="h-7 w-7" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold mb-1">¿Eres barbero?</h2>
-                  <p className="text-muted-foreground max-w-xl">
-                    Crea tu cuenta gratis. Cuando la barbería donde trabajas te invite con tu correo,
-                    aceptas la invitación y tendrás tu agenda, tus clientes y tus horarios listos.
-                  </p>
-                </div>
-              </div>
-              <Button size="lg" variant="outline" className="h-12 px-8" asChild>
-                <Link href="/signup?next=/cuenta">Crear mi cuenta de barbero</Link>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg" className="h-12 w-full px-6 text-base sm:w-auto">
+                <Link href="/registro">Prueba gratis {DIAS_PRUEBA} días <ArrowRight className="size-4" aria-hidden="true" /></Link>
               </Button>
-            </CardContent>
-          </Card>
+              <Button asChild size="lg" variant="outline" className="h-12 w-full px-6 text-base sm:w-auto">
+                <a href="#planes">Ver planes</a>
+              </Button>
+            </div>
+            <p className="mt-4 text-sm text-muted-foreground">Sin tarjeta de crédito para empezar.</p>
+          </div>
+          <div className="enter [animation-delay:120ms]">
+            <VistaAgenda />
+          </div>
         </section>
 
-        {/* Pricing */}
-        <section id="planes" className="mb-24 scroll-mt-24">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">Planes simples, sin letra chica</h2>
-            <p className="text-muted-foreground">
-              Todos los planes incluyen {DIAS_PRUEBA} días de prueba sin tarjeta. Precios mensuales en pesos chilenos [COMPLETAR: IVA incluido o + IVA].
-              Cancelas cuando quieras desde tu panel.
-            </p>
+        {/* Reserva del cliente */}
+        <Seccion id="producto" className="border-t border-border bg-muted/40">
+          <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
+            <div>
+              <h2 className="display text-3xl sm:text-4xl md:text-5xl">Tus clientes reservan en menos de un minuto</h2>
+              <p className="mt-5 max-w-lg text-lg text-muted-foreground">
+                Eligen sucursal, barbero, servicio y hora desde el celular, sin crear cuenta y sin escribirte por WhatsApp. Recibes la reserva en tu agenda al instante.
+              </p>
+              <Button asChild variant="outline" className="mt-7 h-11">
+                <Link href="/barberias">Ver barberías en {PLATAFORMA.nombre}</Link>
+              </Button>
+            </div>
+            <VistaReserva />
           </div>
+        </Seccion>
+
+        {/* Página propia y tienda */}
+        <Seccion titulo="Tu página propia y tu tienda, con tu marca">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-4">
+              <VistaPagina />
+              <p className="max-w-md text-muted-foreground">Logo, galería de trabajos, horarios, ubicación y opiniones, en una dirección fácil de compartir.</p>
+            </div>
+            <div className="space-y-4">
+              <VistaTienda />
+              <p className="max-w-md text-muted-foreground">Vende ceras, aceites y packs con pago en Mercado Pago, retiro en el local o despacho.</p>
+            </div>
+          </div>
+        </Seccion>
+
+        {/* Detalles */}
+        <Seccion titulo="Todo lo demás que tu barbería necesita" className="border-t border-border">
+          <ul className="grid gap-x-12 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            {DETALLES.map((d) => (
+              <li key={d.titulo} className="flex gap-4">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent text-foreground"><d.icon className="size-5" aria-hidden="true" /></span>
+                <div>
+                  <h3 className="font-semibold">{d.titulo}</h3>
+                  <p className="mt-1 text-muted-foreground">{d.texto}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Seccion>
+
+        <Seccion id="como-funciona" titulo="Empieza en minutos" className="border-t border-border bg-muted/40">
+          <ol className="grid gap-8 md:grid-cols-3">
+            {PASOS.map((p, i) => (
+              <li key={p.titulo} className="border-t border-foreground/20 pt-5">
+                <p className="tabular text-sm text-muted-foreground">Paso {i + 1}</p>
+                <h3 className="display mt-2 text-2xl">{p.titulo}</h3>
+                <p className="mt-2 text-muted-foreground">{p.texto}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-10 text-muted-foreground">
+            Tu barbería queda en <span className="font-mono text-foreground">{PLATAFORMA.nombre.toLowerCase()}.app/tu-barberia</span>, lista para compartir.
+          </p>
+        </Seccion>
+
+        {/* Barberos */}
+        <Seccion>
+          <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-8 md:flex-row md:items-center md:justify-between md:p-12">
+            <div className="max-w-2xl">
+              <h2 className="display text-3xl sm:text-4xl">¿Eres barbero?</h2>
+              <p className="mt-3 text-lg text-muted-foreground">
+                Crea tu cuenta gratis. Cuando la barbería donde trabajas te invite con tu correo, aceptas la invitación y tendrás tu agenda, tus clientes y tus horarios listos.
+              </p>
+            </div>
+            <Button asChild size="lg" variant="outline" className="h-12 w-full shrink-0 px-6 text-base md:w-auto">
+              <Link href="/signup?next=/cuenta">Crear mi cuenta de barbero</Link>
+            </Button>
+          </div>
+        </Seccion>
+
+        <Seccion id="planes" titulo="Planes simples, en pesos chilenos" className="border-t border-border">
+          <p className="-mt-6 mb-10 max-w-2xl text-lg text-muted-foreground md:-mt-8">
+            Todos los planes incluyen {DIAS_PRUEBA} días de prueba sin tarjeta. Cancelas cuando quieras desde tu panel.
+          </p>
           {planes.length === 0 ? (
-            <p className="text-center text-muted-foreground">Los planes no están disponibles en este momento.</p>
+            <p className="text-muted-foreground">Los planes no están disponibles en este momento.</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
+            <div className="grid gap-5 md:grid-cols-3">
               {planes.map((plan) => {
                 const esDestacado = plan.id_plan === destacado;
                 return (
-                  <Card
+                  <article
                     key={plan.id_plan}
-                    className={`relative flex flex-col ${esDestacado ? "border-2 border-zinc-900 dark:border-white shadow-2xl md:-translate-y-2" : "border-zinc-200 dark:border-zinc-800"}`}
+                    className={`lift flex flex-col rounded-2xl border p-6 ${esDestacado ? "border-primary bg-accent/60 dark:bg-accent" : "border-border bg-card"}`}
                   >
-                    {esDestacado && (
-                      <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 px-4">Recomendado</Badge>
-                    )}
-                    <CardHeader>
-                      <CardTitle className="text-2xl">{plan.nombre}</CardTitle>
-                      <CardDescription>{plan.descripcion}</CardDescription>
-                      <div className="pt-4">
-                        <span className="text-4xl font-black">{formatCLP(plan.precio_mensual)}</span>
-                        <span className="text-muted-foreground"> /mes</span>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col">
-                      <ul className="space-y-3 mb-8 flex-1">
-                        {caracteristicasPlan(plan).map((c) => (
-                          <li key={c} className="flex items-start gap-2 text-sm">
-                            <Check className="h-4 w-4 mt-0.5 text-green-600 dark:text-green-400 shrink-0" />
-                            {c}
-                          </li>
-                        ))}
-                      </ul>
-                      <Button className="w-full" variant={esDestacado ? "default" : "outline"} asChild>
-                        <Link href={`/registro?plan=${plan.id_plan}`}>
-                          Empezar con {plan.nombre}
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="display text-2xl">{plan.nombre}</h3>
+                      {esDestacado && <span className="rounded-full bg-brand px-2.5 py-1 text-xs font-medium text-brand-foreground">Más elegido</span>}
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{plan.descripcion}</p>
+                    <p className="mt-6">
+                      <span className="display tabular text-4xl">{formatCLP(plan.precio_mensual)}</span>
+                      <span className="text-sm text-muted-foreground"> /mes</span>
+                    </p>
+                    <ul className="mt-6 flex-1 space-y-2.5 border-t border-border pt-5 text-sm">
+                      {caracteristicasPlan(plan).map((c) => (
+                        <li key={c} className="flex items-start gap-2">
+                          <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button asChild className="mt-8 h-11 w-full" variant={esDestacado ? "default" : "outline"}>
+                      <Link href={`/registro?plan=${plan.id_plan}`}>Empezar con {plan.nombre}</Link>
+                    </Button>
+                  </article>
                 );
               })}
             </div>
           )}
-        </section>
+        </Seccion>
 
-        {/* Final CTA */}
-        <section className="mb-20">
-          <Card className="border-none bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 overflow-hidden">
-            <CardContent className="p-8 sm:p-12 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-bold mb-2">¿Listo para llenar tu agenda?</h2>
-                <p className="opacity-80">Registra tu barbería hoy y recibe tu primera reserva en línea.</p>
-              </div>
-              <Button size="lg" variant="secondary" className="h-12 px-8 text-base" asChild>
-                <Link href="/registro">
-                  Registra tu barbería
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
-
-        <Separator className="my-12" />
-
-        <footer className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-8 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} {PLATAFORMA.nombre}. {PLATAFORMA.descripcion}.</p>
-          <LegalLinks />
-          <a href={`mailto:${PLATAFORMA.emailContacto}`} className="hover:text-foreground transition-colors">
-            {PLATAFORMA.emailContacto}
-          </a>
-        </footer>
+        <Seccion className="border-t border-border">
+          <div className="flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="display text-3xl sm:text-4xl md:text-5xl">¿Listo para llenar tu agenda?</h2>
+              <p className="mt-3 text-lg text-muted-foreground">Registra tu barbería hoy y recibe tu primera reserva en línea.</p>
+            </div>
+            <Button asChild size="lg" className="h-12 w-full shrink-0 px-6 text-base md:w-auto">
+              <Link href="/registro">Registra tu barbería <ArrowRight className="size-4" aria-hidden="true" /></Link>
+            </Button>
+          </div>
+        </Seccion>
       </main>
+
+      <FooterPlataforma />
     </div>
   );
 }

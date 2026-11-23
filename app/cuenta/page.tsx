@@ -1,18 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, KeyRound, Mail, Scissors, Store } from "lucide-react";
+import { KeyRound, Mail, Scissors, Store } from "lucide-react";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ModeToggle } from "@/components/mode-toggle";
+import { HeaderPlataforma } from "@/components/plataforma/header";
 import { ResponderInvitacion } from "@/components/cuenta/responder-invitacion";
 import { CerrarSesion } from "@/components/cuenta/cerrar-sesion";
 import { createClient } from "@/utils/supabase/server";
 import { resolverAcceso } from "@/lib/acceso";
 import { ROL_LABEL } from "@/lib/roles";
 import { one } from "@/lib/utils";
-import { PLATAFORMA } from "@/lib/plataforma";
 
 export const dynamic = "force-dynamic";
 
@@ -38,26 +37,18 @@ export default async function CuentaPage() {
   const cliente = membresias.filter((m) => m.rol === "cliente");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black p-4 py-8">
+    <div className="min-h-dvh bg-background text-foreground">
+      <HeaderPlataforma simple />
+      <div className="p-4 py-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <Link href="/">
-            <Button variant="ghost" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              {PLATAFORMA.nombre}
-            </Button>
-          </Link>
-          <ModeToggle />
-        </div>
-
         <div>
-          <h1 className="text-3xl font-bold">Hola, {usuario?.nombre ?? user.email?.split("@")[0]}</h1>
+          <h1 className="display text-4xl break-words">Hola, {usuario?.nombre ?? user.email?.split("@")[0]}</h1>
           <p className="text-muted-foreground">{user.email}</p>
         </div>
 
         {superadmin && (
           <Link href="/admin" className="block">
-            <Card className="border-2 border-primary hover:shadow-md transition-shadow">
+            <Card className="border border-primary hover:shadow-md transition-shadow">
               <CardContent className="p-4 flex items-center justify-between">
                 <span className="font-semibold">Panel de la plataforma</span>
                 <Button size="sm">Abrir</Button>
@@ -67,7 +58,7 @@ export default async function CuentaPage() {
         )}
 
         {/* Invitaciones */}
-        <Card className={invitaciones?.length ? "border-2 border-primary" : ""}>
+        <Card className={invitaciones?.length ? "border border-primary" : ""}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" />Invitaciones</CardTitle>
             <CardDescription>Las barberías te invitan con este correo. Al aceptar, entras a su equipo.</CardDescription>
@@ -155,6 +146,7 @@ export default async function CuentaPage() {
         <div className="text-center">
           <CerrarSesion />
         </div>
+      </div>
       </div>
     </div>
   );

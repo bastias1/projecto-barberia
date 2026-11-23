@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -10,6 +10,7 @@ import { DateTimeSelection } from "@/components/booking/date-time-selection";
 import { ContactForm } from "@/components/booking/contact-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { ProgressSteps } from "@/components/booking/progress-steps";
+import { AccionesPaso } from "@/components/booking/acciones-paso";
 import { SucursalSelection } from "@/components/booking/sucursal-selection";
 import { getBarberos, Barbero } from "@/lib/services/barber-service";
 import { getServicesByBarber, Service } from "@/lib/services/service-service";
@@ -22,7 +23,9 @@ import { useBarberia } from "@/components/barberia-provider";
 import { BlockedClientModal } from "@/components/booking/blocked-client-modal";
 import { RequiereModulo } from "@/components/requiere-modulo";
 import Link from "next/link";
-import { ArrowLeft, Loader2, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Loader2, MapPin } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { toast } from "sonner";
 
 export default function AgendarPage() {
@@ -61,6 +64,8 @@ function Agendar() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
   const [proximaFecha, setProximaFecha] = useState<Date | null | "buscando">(null);
+  const [cargandoHorarios, setCargandoHorarios] = useState(false);
+  const ultimaConsulta = useRef("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -164,18 +169,32 @@ function Agendar() {
     let vigente = true; // descarta respuestas de una fecha que ya no está elegida
     async function fetchAvailableSlots() {
       if (selectedDate && selectedBarber && selectedService && selectedSucursal) {
-        const slots = await getAvailableTimeSlots(idBarberia, selectedDate, selectedBarber.id, selectedService.duracion, selectedSucursal.id_sucursal);
-        if (!vigente) return;
-        setAvailableTimeSlots(slots);
-        // Reset selected time if it's no longer available
-        if (selectedTime && !slots.some((s) => s.hora === selectedTime)) {
-          setSelectedTime("");
+        // El efecto también corre al elegir la hora: el esqueleto solo se muestra al cambiar la consulta
+        const consulta = `${localDateString(selectedDate)}|${selectedBarber.id}|${selectedService.id}|${selectedSucursal.id_sucursal}`;
+        if (consulta !== ultimaConsulta.current) setCargandoHorarios(true);
+        try {
+          const slots = await getAvailableTimeSlots(idBarberia, selectedDate, selectedBarber.id, selectedService.duracion, selectedSucursal.id_sucursal);
+          if (!vigente) return;
+          ultimaConsulta.current = consulta;
+          setAvailableTimeSlots(slots);
+          // Reset selected time if it's no longer available
+          if (selectedTime && !slots.some((s) => s.hora === selectedTime)) {
+            setSelectedTime("");
+          }
+          setCargandoHorarios(false);
+          // HU-02: sin horarios ese día, se busca la fecha libre más próxima
+          if (slots.length > 0) return setProximaFecha(null);
+          setProximaFecha("buscando");
+          const proxima = await getProximaFechaDisponible(idBarberia, selectedDate, selectedBarber.id, selectedService.duracion, selectedSucursal.id_sucursal);
+          if (vigente) setProximaFecha(proxima);
+        } catch (error) {
+          console.error("Error loading time slots:", error);
+          if (!vigente) return;
+          setCargandoHorarios(false);
+          setAvailableTimeSlots([]);
+          setProximaFecha(null);
+          toast.error("No se pudieron cargar los horarios. Intenta con otra fecha.");
         }
-        // HU-02: sin horarios ese día, se busca la fecha libre más próxima
-        if (slots.length > 0) return setProximaFecha(null);
-        setProximaFecha("buscando");
-        const proxima = await getProximaFechaDisponible(idBarberia, selectedDate, selectedBarber.id, selectedService.duracion, selectedSucursal.id_sucursal);
-        if (vigente) setProximaFecha(proxima);
       }
     }
     fetchAvailableSlots();
@@ -192,18 +211,18 @@ function Agendar() {
       setAvailableTimeSlots([]);
     }
     setSelectedSucursal(sucursal);
-    setStep(1);
   };
 
   const handleBarberSelect = (barber: Barbero) => {
+    if (barber.id !== selectedBarber?.id) {
+      setSelectedService(null); // Reset service when barber changes
+      setSelectedTime("");
+    }
     setSelectedBarber(barber);
-    setSelectedService(null); // Reset service when barber changes
-    setStep(2);
   };
 
   const handleServiceSelect = (service: Service) => {
     setSelectedService(service);
-    setStep(3);
   };
 
   const handleDateTimeSubmit = () => {
@@ -271,10 +290,10 @@ function Agendar() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-zinc-600 dark:text-zinc-400">Cargando...</p>
+      <div className="min-h-dvh bg-background flex items-center justify-center">
+        <div className="text-center" role="status">
+          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground mx-auto mb-4" aria-hidden="true" />
+          <p className="text-muted-foreground">Cargando...</p>
         </div>
       </div>
     );
@@ -282,88 +301,91 @@ function Agendar() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">⚠️</span>
-          </div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Error</h2>
-          <p className="text-zinc-600 dark:text-zinc-400 mb-6">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Reintentar
-          </Button>
+      <div className="min-h-dvh bg-background flex items-center justify-center p-4">
+        <div className="text-center max-w-md" role="alert">
+          <span className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-destructive/10 text-destructive">
+            <AlertTriangle className="size-7" aria-hidden="true" />
+          </span>
+          <h2 className="display text-2xl mb-2">No pudimos cargar la reserva</h2>
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <Button className="h-12 px-6" onClick={() => window.location.reload()}>Reintentar</Button>
         </div>
       </div>
     );
   }
 
+  const enResumen = step >= 2 && step <= 4;
+  const resumen = [
+    selectedBarber?.nombre,
+    step >= 3 ? selectedService?.nombre : null,
+    step >= 4 && selectedDate && selectedTime ? `${format(selectedDate, "d MMM", { locale: es })} ${selectedTime}` : null,
+  ].filter(Boolean).join(" · ");
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 dark:from-zinc-950 dark:via-zinc-900 dark:to-black p-4 py-8">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ModeToggle />
-      </div>
-
-      {/* Back Button */}
-      <div className="max-w-4xl mx-auto mb-4 md:mb-6">
-        <Link href={`/${barberia.slug}`}>
-          <Button variant="ghost" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Volver a {barberia.nombre}</span>
-            <span className="sm:hidden">Volver</span>
+    <div className="min-h-dvh bg-background">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-2 px-4">
+          <Button asChild variant="ghost" className="-ml-3 h-11 gap-2">
+            <Link href={`/${barberia.slug}`}>
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              <span className="max-w-[12rem] truncate">{barberia.nombre}</span>
+            </Link>
           </Button>
-        </Link>
-      </div>
-
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-            Agendar Cita
-          </h1>
-          <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 px-4">
-            Reserva tu cita en 4 simples pasos
-          </p>
+          <ModeToggle />
         </div>
+      </header>
 
-        {/* Progress Steps */}
-        <ProgressSteps currentStep={step} conSucursal={sucursales.length > 1} />
+      <main id="contenido" className="mx-auto max-w-2xl px-4 pb-28 pt-6">
+        {step <= 4 && (
+          <>
+            <h1 className="display mb-5 text-3xl sm:text-4xl">Agendar cita</h1>
+            <ProgressSteps currentStep={step} conSucursal={sucursales.length > 1} />
+          </>
+        )}
 
-        {/* Sucursal elegida (se puede cambiar mientras no se confirme la reserva) */}
-        {selectedSucursal && sucursales.length > 1 && step >= 1 && step <= 4 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4 p-3 rounded-lg border bg-white/60 dark:bg-zinc-900/60">
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="h-4 w-4 text-zinc-500" />
-              <span className="font-medium">{selectedSucursal.nombre}</span>
-              <span className="text-zinc-500 hidden sm:inline">· {selectedSucursal.direccion}, {selectedSucursal.comuna}</span>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setStep(0)}>Cambiar sucursal</Button>
+        {/* Lo elegido hasta ahora */}
+        {enResumen && (
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm">
+            <p className="min-w-0 truncate"><span className="text-muted-foreground">{selectedSucursal && sucursales.length > 1 ? `${selectedSucursal.nombre} · ` : ""}</span><span className="font-medium">{resumen}</span></p>
+            {selectedSucursal && sucursales.length > 1 && (
+              <Button variant="ghost" className="-mr-2 h-11 shrink-0 gap-1 px-2" onClick={() => setStep(0)}><MapPin className="size-4" aria-hidden="true" />Cambiar</Button>
+            )}
           </div>
         )}
 
         {/* Step Components */}
         {step === 0 && (
           sucursales.length === 0 ? (
-            <p className="text-center text-zinc-600 dark:text-zinc-400 py-12">
+            <p className="text-center text-muted-foreground py-12">
               Esta barbería aún no tiene sucursales disponibles para reservar.
             </p>
           ) : (
-            <SucursalSelection sucursales={sucursales} selected={selectedSucursal} onSelect={handleSucursalSelect} />
+            <>
+              <SucursalSelection sucursales={sucursales} selected={selectedSucursal} onSelect={handleSucursalSelect} />
+              <AccionesPaso>
+                <Button disabled={!selectedSucursal} onClick={() => setStep(1)}>Continuar<ArrowRight className="size-4" aria-hidden="true" /></Button>
+              </AccionesPaso>
+            </>
           )
         )}
 
         {step === 1 && (
           loadingBarbers ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" aria-hidden="true" />
               <p className="text-muted-foreground">Cargando barberos...</p>
             </div>
           ) : (
-            <BarberSelection
-              barbers={barbers}
-              selectedBarber={selectedBarber}
-              onBarberSelect={handleBarberSelect}
-            />
+            <>
+              <BarberSelection
+                barbers={barbers}
+                selectedBarber={selectedBarber}
+                onBarberSelect={handleBarberSelect}
+              />
+              <AccionesPaso onBack={sucursales.length > 1 ? () => setStep(0) : undefined}>
+                <Button disabled={!selectedBarber} onClick={() => setStep(2)}>Continuar<ArrowRight className="size-4" aria-hidden="true" /></Button>
+              </AccionesPaso>
+            </>
           )
         )}
 
@@ -371,16 +393,20 @@ function Agendar() {
           <>
             {loadingServices ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" aria-hidden="true" />
                 <p className="text-muted-foreground">Cargando servicios...</p>
               </div>
             ) : (
-              <ServiceSelection
-                services={services}
-                selectedService={selectedService}
-                onServiceSelect={handleServiceSelect}
-                onBack={() => setStep(1)}
-              />
+              <>
+                <ServiceSelection
+                  services={services}
+                  selectedService={selectedService}
+                  onServiceSelect={handleServiceSelect}
+                />
+                <AccionesPaso onBack={() => setStep(1)}>
+                  <Button disabled={!selectedService} onClick={() => setStep(3)}>Continuar<ArrowRight className="size-4" aria-hidden="true" /></Button>
+                </AccionesPaso>
+              </>
             )}
           </>
         )}
@@ -392,6 +418,7 @@ function Agendar() {
             selectedTime={selectedTime}
             timeSlots={availableTimeSlots.map((s) => s.hora)}
             proximaFecha={proximaFecha}
+            cargandoHorarios={cargandoHorarios}
             onDateSelect={setSelectedDate}
             onTimeSelect={setSelectedTime}
             onBack={() => setStep(2)}
@@ -422,7 +449,7 @@ function Agendar() {
             onNewBooking={resetBooking}
           />
         )}
-      </div>
+      </main>
 
       {/* Blocked client modal */}
       <BlockedClientModal
@@ -435,10 +462,10 @@ function Agendar() {
 
       {/* Submitting Overlay */}
       {submitting && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-lg shadow-xl text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
-            <p className="text-zinc-900 dark:text-zinc-100 font-semibold">Creando tu reserva...</p>
+        <div role="status" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card text-card-foreground p-8 rounded-xl shadow-xl text-center">
+            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground mx-auto mb-4" aria-hidden="true" />
+            <p className="font-semibold">Creando tu reserva...</p>
           </div>
         </div>
       )}
