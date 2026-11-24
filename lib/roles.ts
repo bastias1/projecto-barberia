@@ -23,6 +23,11 @@ export function isStaffRol(rol: RolApp | null | undefined): boolean {
   return rol === "admin" || rol === "profesional";
 }
 
+/** Atiende clientes (tiene agenda): un barbero siempre; un admin solo si lo activa. */
+export function tieneAgenda(rol: RolApp, atiende?: boolean): boolean {
+  return rol === "profesional" || (rol === "admin" && !!atiende);
+}
+
 export function isAdminRol(rol: RolApp | null | undefined): boolean {
   return rol === "admin";
 }

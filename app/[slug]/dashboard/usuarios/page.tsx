@@ -43,6 +43,7 @@ export default async function EquipoPage({ params }: { params: Promise<{ slug: s
       profile_image: u.profile_image,
       rol,
       especialidad: fichas.get(u.id_usuario)?.especialidad ?? null,
+      atiende: !!fichas.get(u.id_usuario)?.activo,
     }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
@@ -31,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createClient } from "@/utils/supabase/client";
-import { ROL_LABEL } from "@/lib/roles";
+import { ROL_LABEL, tieneAgenda } from "@/lib/roles";
 import { useBarberia } from "@/components/barberia-provider";
 import { cancelarInvitacion, invitarMiembro, reenviarInvitacion } from "@/app/[slug]/dashboard/usuarios/actions";
 
@@ -42,6 +43,8 @@ export interface Miembro {
   profile_image: string | null;
   rol: "admin" | "profesional";
   especialidad: string | null;
+  /** Tiene ficha de barbero activa (agenda): un admin puede atender además de administrar. */
+  atiende: boolean;
 }
 
 export interface Invitacion {
@@ -73,7 +76,7 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
   const [invitando, setInvitando] = useState(false);
   const [pendiente, setPendiente] = useState<number | null>(null);
   const [editando, setEditando] = useState<Miembro | null>(null);
-  const [formEdicion, setFormEdicion] = useState({ rol: "profesional", especialidad: "" });
+  const [formEdicion, setFormEdicion] = useState({ rol: "profesional", especialidad: "", atiende: false });
   const [guardando, setGuardando] = useState(false);
   const [quitar, setQuitar] = useState<Miembro | null>(null);
 
@@ -129,7 +132,7 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
 
   const abrirEdicion = (m: Miembro) => {
     setEditando(m);
-    setFormEdicion({ rol: m.rol, especialidad: m.especialidad ?? "" });
+    setFormEdicion({ rol: m.rol, especialidad: m.especialidad ?? "", atiende: m.atiende });
   };
 
   const handleGuardarEdicion = async (e: React.FormEvent) => {
@@ -140,7 +143,7 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
       const response = await fetch(`/api/admin/update-user?barberia=${barberia.slug}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: editando.id, rol: formEdicion.rol, especialidad: formEdicion.especialidad }),
+        body: JSON.stringify({ userId: editando.id, rol: formEdicion.rol, especialidad: formEdicion.especialidad, atiende: formEdicion.atiende }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -297,6 +300,7 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={m.rol === "admin" ? "default" : "secondary"}>{ROL_LABEL[m.rol]}</Badge>
+                {m.rol === "admin" && m.atiende &&<Badge variant="secondary">{ROL_LABEL.profesional}</Badge>}
                 <Button size="icon" variant="ghost" onClick={() => abrirEdicion(m)} aria-label={`Editar a ${m.nombre}`}>
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -334,7 +338,16 @@ export function TeamManagement({ currentUserId, miembros, invitaciones, suscripc
               </Select>
               {editando?.id === currentUserId && <p className="text-xs text-muted-foreground">No puedes cambiar tu propio rol.</p>}
             </div>
-            {formEdicion.rol === "profesional" && (
+            {formEdicion.rol === "admin" && (
+              <label className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+                <span>
+                  <span className="font-medium">También atiende clientes</span>
+                  <span className="block text-xs text-muted-foreground">Tiene agenda propia y aparece al reservar. Cuenta para el máximo de barberos de tu plan.</span>
+                </span>
+                <Switch checked={formEdicion.atiende} onCheckedChange={(v) => setFormEdicion({ ...formEdicion, atiende: v })} />
+              </label>
+            )}
+            {tieneAgenda(formEdicion.rol as Miembro["rol"], formEdicion.atiende) && (
               <div className="space-y-2">
                 <Label htmlFor="especialidad">Especialidad</Label>
                 <Input
