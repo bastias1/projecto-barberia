@@ -4,6 +4,8 @@ import { getBarberiaBySlug } from "@/lib/barberia";
 import { Order } from "mercadopago";
 import { crearOrder, estadoPagoDesdeOrder, mensajeRechazo, mercadoPagoClient, registrarPagoOrder } from "@/lib/pagos";
 import { SinMercadoPago, tokenBarberia } from "@/lib/mercadopago-barberia";
+import { armarOrden } from "@/lib/orden-mp";
+import { one } from "@/lib/utils";
 
 const TIPOS_TARJETA = ["credit_card", "debit_card", "prepaid_card"];
 
@@ -88,20 +90,33 @@ export async function POST(request: Request) {
         const email = process.env.MERCADOPAGO_TEST_PAYER_EMAIL || user.email;
 
         // La clave liga el intento al pedido y al token: dos solicitudes simultáneas con el mismo token no crean dos orders
-        const resultado = await crearOrder(accessToken, {
-            type: 'online',
-            processing_mode: 'automatic',
-            external_reference: String(pedido.id_pedido),
-            description: `Pedido #${pedido.id_pedido} - ${barberia.nombre}`,
-            total_amount: monto,
-            payer: { email },
-            transactions: {
-                payments: [{
-                    amount: monto,
-                    payment_method: { id: paymentMethodId, type: tipo, token, installments: 1 },
-                }],
+        // Más datos del comprador y de la compra mejoran la aprobación (y la calidad de la integración)
+        const [{ data: lineas }, { data: comprador }] = await Promise.all([
+            supabase.from('detalle_pedido')
+                .select('id_producto, cantidad, precio_unitario, producto:producto!detalle_pedido_producto_fkey (nombre)')
+                .eq('id_barberia', barberia.id_barberia).eq('id_pedido', pedido.id_pedido),
+            supabase.from('usuario').select('nombre, apellido, created_at').eq('id_usuario', user.id).maybeSingle(),
+        ]);
+        const deviceId = typeof body.deviceId === 'string' && body.deviceId.length <= 200 ? body.deviceId : undefined;
+
+        const resultado = await crearOrder(accessToken, armarOrden({
+            idPedido: pedido.id_pedido,
+            monto,
+            barberia: barberia.nombre,
+            email,
+            comprador: {
+                nombre: comprador?.nombre || user.email?.split('@')[0] || 'Cliente',
+                apellido: comprador?.apellido ?? null,
+                registradoEn: comprador?.created_at ?? null,
             },
-        }, `pedido-${pedido.id_pedido}-${token}`);
+            items: (lineas ?? []).map((l) => ({
+                idProducto: l.id_producto,
+                nombre: one<{ nombre: string }>(l.producto)?.nombre ?? `Producto ${l.id_producto}`,
+                cantidad: l.cantidad,
+                precioUnitario: Number(l.precio_unitario),
+            })),
+            pago: { metodoId: paymentMethodId, tipo, token },
+        }), `pedido-${pedido.id_pedido}-${token}`, deviceId);
 
         // 402: la order se creó pero el pago falló; viene en `data` y se registra igual
         const order = resultado.order;

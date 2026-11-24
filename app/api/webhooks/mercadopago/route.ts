@@ -50,6 +50,13 @@ export async function POST(request: Request) {
 
         const { type, data } = body;
 
+        // Vinculaciones y desvinculaciones OAuth (tópico mp-connect). No encontré su formato en la documentación:
+        // por ahora solo se registra para verlo; desconectar a una barbería por una suposición sería peor que no hacerlo.
+        if (type === 'mp-connect') {
+            console.log('Webhook mp-connect:', JSON.stringify({ action: body.action, user_id: body.user_id, id: data?.id }));
+            return new Response(null, { status: 200 });
+        }
+
         // Suscripción de la barbería: autorización del cobro mensual y cada cobro
         if (type === 'subscription_preapproval' || type === 'subscription_authorized_payment') {
             const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
