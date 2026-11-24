@@ -148,6 +148,39 @@ export async function guardarPlan(input: PlanInput): Promise<Resultado & { idPla
   return { success: true, idPlan: plan.id_plan };
 }
 
+/** Archivar = deja de ofrecerse (portada y Suscripción); quienes ya lo tienen lo conservan con su precio pactado. */
+export async function archivarPlan(input: { idPlan: number; activo: boolean }): Promise<Resultado> {
+  const admin = await getSuperadmin();
+  if (!admin) return SIN_PERMISO;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("plan_suscripcion").update({ activo: input.activo }).eq("id_plan", input.idPlan).select("nombre").maybeSingle();
+  if (error || !data) return { success: false, error: error?.message ?? "Plan no encontrado" };
+
+  await registrarAccion(supabase, admin, input.activo ? "reactivar_plan" : "archivar_plan", "plan", input.idPlan, { nombre: data.nombre });
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
+const PLAN_EN_USO = "El plan tiene suscripciones (vigentes o en el historial). Archívalo en vez de eliminarlo.";
+
+/** Eliminar solo si ninguna suscripción lo usó nunca (la FK no tiene cascada: se perdería el historial). */
+export async function eliminarPlan(input: { idPlan: number }): Promise<Resultado> {
+  const admin = await getSuperadmin();
+  if (!admin) return SIN_PERMISO;
+  const supabase = await createClient();
+
+  const { count } = await supabase.from("suscripcion").select("id_suscripcion", { count: "exact", head: true }).eq("id_plan", input.idPlan);
+  if (count) return { success: false, error: PLAN_EN_USO };
+
+  const { data, error } = await supabase.from("plan_suscripcion").delete().eq("id_plan", input.idPlan).select("nombre, precio_mensual").maybeSingle();
+  if (error) return { success: false, error: error.code === "23503" ? PLAN_EN_USO : error.message };
+  if (!data) return { success: false, error: "Plan no encontrado" };
+
+  await registrarAccion(supabase, admin, "eliminar_plan", "plan", input.idPlan, { nombre: data.nombre, precio: data.precio_mensual });
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
 // ------------------------------------------------------------------ usuarios
 
 /** Dar o quitar rol de administrador de plataforma (usuario.rol no es editable por RLS: service role). */

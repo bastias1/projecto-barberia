@@ -2,6 +2,8 @@ import { Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlanEditor } from "@/components/admin/plan-editor";
+import { PlanAcciones } from "@/components/admin/plan-acciones";
+import { todasLasFilas } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/server";
 import { caracteristicasPlan, getPlanes } from "@/lib/planes";
 import { getBarberiasAdmin } from "@/lib/admin-datos";
@@ -9,7 +11,14 @@ import { formatCLP } from "@/lib/datetime";
 
 export default async function AdminPlanes() {
   const supabase = await createClient();
-  const [planes, barberias] = await Promise.all([getPlanes(supabase, { incluirInactivos: true }), getBarberiasAdmin(supabase)]);
+  const [planes, barberias, { data: historial }] = await Promise.all([
+    getPlanes(supabase, { incluirInactivos: true }),
+    getBarberiasAdmin(supabase),
+    // Todas las suscripciones (también las pasadas): un plan con historial no se puede eliminar
+    todasLasFilas<{ id_plan: number }>(() => supabase.from("suscripcion").select("id_plan").order("id_suscripcion")),
+  ]);
+  const totalPorPlan = new Map<number, number>();
+  for (const s of historial) totalPorPlan.set(s.id_plan, (totalPorPlan.get(s.id_plan) ?? 0) + 1);
 
   // Barberías vigentes (no suspendidas ni vencidas) por plan
   const usoPorPlan = new Map<number, number>();
@@ -57,6 +66,7 @@ export default async function AdminPlanes() {
               <p className="text-sm text-muted-foreground border-t pt-3">
                 {usoPorPlan.get(p.id_plan) ?? 0} barberías vigentes en este plan
               </p>
+              <PlanAcciones idPlan={p.id_plan} nombre={p.nombre} activo={p.activo} enUso={totalPorPlan.get(p.id_plan) ?? 0} />
             </CardContent>
           </Card>
         ))}
