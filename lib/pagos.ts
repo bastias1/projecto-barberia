@@ -146,11 +146,24 @@ async function buscarPedido(supabase: SupabaseClient, ref: string, origen: strin
   return data;
 }
 
-/** Registra el pago de una order de la tienda (Orders API). */
-export async function registrarPagoOrder(supabase: SupabaseClient, order: OrderResponse): Promise<EstadoPago | null> {
+/**
+ * Registra el pago de una order de la tienda (Orders API).
+ * `idBarberiaEsperada`: la barbería de cuyo token se leyó la order; si el pedido es de otra, no se registra
+ * (el cuerpo del webhook no va firmado, así que el vendedor que informa no es de fiar por sí solo).
+ */
+export async function registrarPagoOrder(supabase: SupabaseClient, order: OrderResponse, idBarberiaEsperada?: string): Promise<EstadoPago | null> {
   if (!order.id || !order.external_reference) return null;
   const pedido = await buscarPedido(supabase, order.external_reference, `Order ${order.id}`);
   if (!pedido) return null;
+  if (idBarberiaEsperada && pedido.id_barberia !== idBarberiaEsperada) {
+    console.error(`Order ${order.id}: el pedido ${pedido.id_pedido} es de otra barbería, no se registra`);
+    return null;
+  }
+  // El trigger da el pedido por pagado con cualquier pago aprobado: el total cobrado debe ser el del pedido (CLP, sin decimales)
+  if (Math.round(Number(order.total_amount)) !== Math.round(Number(pedido.monto_total))) {
+    console.error(`Order ${order.id}: total ${order.total_amount} distinto del pedido ${pedido.id_pedido} (${pedido.monto_total}), no se registra`);
+    return null;
+  }
 
   const pago = order.transactions?.payments?.[0];
   const estado = estadoPagoDesdeOrder(order.status);

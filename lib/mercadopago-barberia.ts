@@ -24,12 +24,12 @@ async function leerTokens(admin: Admin, idBarberia: string) {
 
 /**
  * Token con el que leer una notificación de la tienda: el de la barbería dueña de ese vendedor de Mercado Pago
- * (`user_id` de la notificación). `undefined` si el vendedor no es de ninguna barbería: se usa la cuenta de Sunwalk.
+ * (`user_id` de la notificación), junto con esa barbería. `undefined` si el vendedor no es de ninguna: se usa la cuenta de Sunwalk.
  */
-export async function tokenDeVendedor(admin: Admin, mpUserId: unknown): Promise<string | undefined> {
+export async function tokenDeVendedor(admin: Admin, mpUserId: unknown): Promise<{ accessToken: string; idBarberia: string } | undefined> {
   if (!Number.isSafeInteger(mpUserId)) return undefined;
   const { data } = await admin.from("barberia_mercadopago").select("id_barberia").eq("mp_user_id", mpUserId as number).maybeSingle();
-  return data ? tokenBarberia(admin, data.id_barberia) : undefined;
+  return data ? { accessToken: await tokenBarberia(admin, data.id_barberia), idBarberia: data.id_barberia } : undefined;
 }
 
 /**

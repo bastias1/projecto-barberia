@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-vi.mock("../lib/notifications", () => ({ notificarStockBajo: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../lib/notifications", () => ({
+  notificarStockBajo: vi.fn().mockResolvedValue(undefined),
+  notificarPedidoPagado: vi.fn().mockResolvedValue(undefined),
+  notificarSuscripcion: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { notificarStockBajo } from "../lib/notifications";
 import {
@@ -17,7 +21,11 @@ function cliente({ pedido = PEDIDO as typeof PEDIDO | null, upsertError = null a
   const db = {
     from: (tabla: string) => tabla === "pedido"
       ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: pedido }) }) }) }
-      : { upsert: async (fila: Record<string, unknown>, opciones: unknown) => { upserts.push({ fila, opciones }); return { error: upsertError }; } },
+      : {
+        // registrarPago lee el estado previo del mismo pago antes de guardarlo
+        select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }),
+        upsert: async (fila: Record<string, unknown>, opciones: unknown) => { upserts.push({ fila, opciones }); return { error: upsertError }; },
+      },
   } as unknown as SupabaseClient;
   return { db, upserts };
 }
@@ -64,13 +72,32 @@ describe("registrarPagoOrder", () => {
     expect(notificarStockBajo).toHaveBeenCalledWith("b1");
   });
 
-  it("monto: lo pagado; sin ese campo el total de la order; en cero o sin nada, el del pedido", async () => {
-    const a = cliente(); await registrarPagoOrder(a.db, order({ total_paid_amount: undefined, total_amount: "15990" }));
-    const b = cliente(); await registrarPagoOrder(b.db, order({ total_paid_amount: "0.00", total_amount: "15990" })); // order aún sin pagar
-    const c = cliente(); await registrarPagoOrder(c.db, order({ total_paid_amount: undefined, total_amount: undefined }));
-    expect(a.upserts[0].fila.monto).toBe(15990);
+  it("monto: lo pagado; sin ese campo, o en cero (order aún sin pagar), el total de la order", async () => {
+    const a = cliente(); await registrarPagoOrder(a.db, order({ total_paid_amount: undefined }));
+    const b = cliente(); await registrarPagoOrder(b.db, order({ total_paid_amount: "0.00" }));
+    expect(a.upserts[0].fila.monto).toBe(25000);
     expect(b.upserts[0].fila.monto).toBe(25000);
-    expect(c.upserts[0].fila.monto).toBe(25000);
+  });
+
+  it.each([["otro total", { total_amount: "15990" }], ["sin total", { total_amount: undefined }]])(
+    "%s distinto del pedido: no se registra (el trigger daría el pedido por pagado)", async (_, extra) => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { db, upserts } = cliente();
+      expect(await registrarPagoOrder(db, order(extra))).toBeNull();
+      expect(upserts).toHaveLength(0);
+      expect(notificarStockBajo).not.toHaveBeenCalled();
+      error.mockRestore();
+    });
+
+  it("solo se registra si el pedido es de la barbería de cuyo token se leyó la order", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const otra = cliente();
+    expect(await registrarPagoOrder(otra.db, order(), "b2")).toBeNull();
+    expect(otra.upserts).toHaveLength(0);
+    const misma = cliente();
+    expect(await registrarPagoOrder(misma.db, order(), "b1")).toBe("aprobado");
+    expect(misma.upserts).toHaveLength(1);
+    error.mockRestore();
   });
 
   it.each(["failed", "processing"])("order %s se registra pero no avisa del stock", async (status) => {
