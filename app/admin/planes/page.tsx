@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlanEditor } from "@/components/admin/plan-editor";
-import { createClient } from "@/utils/supabase/server";
+import { PlanAcciones } from "@/components/admin/plan-acciones";import { createClient } from "@/utils/supabase/server";
 import { caracteristicasPlan, getPlanes } from "@/lib/planes";
 import { getBarberiasAdmin } from "@/lib/admin-datos";
 import { formatCLP } from "@/lib/datetime";
@@ -57,6 +57,7 @@ export default async function AdminPlanes() {
               <p className="text-sm text-muted-foreground border-t pt-3">
                 {usoPorPlan.get(p.id_plan) ?? 0} barberías vigentes en este plan
               </p>
+              <PlanAcciones idPlan={p.id_plan} nombre={p.nombre} activo={p.activo} />
             </CardContent>
           </Card>
         ))}

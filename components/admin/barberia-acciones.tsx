@@ -1,9 +1,8 @@
 "use client"
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { CalendarPlus, Gift, Loader2, Power, Repeat, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { CalendarPlus, Gift, Power, Repeat, Trash2 } from "lucide-react";
+import { useAccionAdmin } from "@/components/admin/use-accion-admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,32 +33,12 @@ interface Props {
   planes: { id_plan: number; nombre: string; precio: number; activo: boolean }[];
 }
 
-type Resultado = { success: true } | { success: false; error: string };
-
 /** Acciones del superadmin sobre una barbería y su suscripción. */
 export function BarberiaAcciones({ idBarberia, nombre, activa, idPlan, fechaTermino, cobroAutomatico, puedeEliminar, planes }: Props) {
-  const router = useRouter();
-  const [enCurso, setEnCurso] = useState<string | null>(null);
+  const { enCurso, ejecutar, cargando } = useAccionAdmin();
   const [fecha, setFecha] = useState(fechaTermino ?? "");
   const [plan, setPlan] = useState(idPlan ? String(idPlan) : "");
   const [fechaCortesia, setFechaCortesia] = useState("");
-
-  const ejecutar = async (clave: string, accion: () => Promise<Resultado>, exito: string) => {
-    setEnCurso(clave);
-    try {
-      const r = await accion();
-      if (!r.success) {
-        toast.error(r.error);
-        return;
-      }
-      toast.success(exito);
-      router.refresh();
-    } finally {
-      setEnCurso(null);
-    }
-  };
-
-  const cargando = (clave: string) => enCurso === clave && <Loader2 className="h-4 w-4 animate-spin" />;
 
   return (
     <div className="space-y-6">
