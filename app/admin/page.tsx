@@ -3,7 +3,7 @@ import { AlertTriangle, CalendarCheck, DollarSign, Receipt, Store, Users } from 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/utils/supabase/server";
-import { calcularMRR, getBarberiasAdmin, haceDias, inicioMes, pruebasPorVencer } from "@/lib/admin-datos";
+import { calcularMRR, conteosBarberias, getBarberiasAdmin, haceDias, inicioMes, pruebasPorVencer } from "@/lib/admin-datos";
 import { formatCLP, formatFecha } from "@/lib/datetime";
 import { one } from "@/lib/utils";
 
@@ -14,11 +14,11 @@ export default async function AdminResumen() {
   const supabase = await createClient();
   const hace30 = haceDias(30);
 
-  const [barberias, { count: usuarios }, { count: usuariosNuevos }, { count: reservasMes }, { data: pagosMes }, { data: ultimosPagos }] = await Promise.all([
+  const [barberias, { count: usuarios }, { count: usuariosNuevos }, conteos, { data: pagosMes }, { data: ultimosPagos }] = await Promise.all([
     getBarberiasAdmin(supabase),
     supabase.from("usuario").select("id_usuario", { count: "exact", head: true }).is("deleted_at", null),
     supabase.from("usuario").select("id_usuario", { count: "exact", head: true }).gte("created_at", hace30),
-    supabase.from("reserva").select("id_reserva", { count: "exact", head: true }).neq("estado", "cancelada").gte("fecha_hora_inicio", inicioMes()),
+    conteosBarberias(supabase),
     supabase.from("pago").select("monto").eq("concepto", "suscripcion").eq("estado", "aprobado").gte("created_at", inicioMes()),
     supabase
       .from("pago")
@@ -48,7 +48,7 @@ export default async function AdminResumen() {
     { titulo: "Ingreso mensual (MRR)", valor: formatCLP(calcularMRR(barberias)), detalle: `${porEstado("cortesia")} en cortesía`, icon: DollarSign },
     { titulo: "Cobrado este mes", valor: formatCLP(cobradoMes), detalle: `${pagosMes?.length ?? 0} pagos de suscripción`, icon: Receipt },
     { titulo: "Usuarios", valor: usuarios ?? 0, detalle: `${usuariosNuevos ?? 0} nuevos en 30 días`, icon: Users },
-    { titulo: "Reservas del mes", valor: reservasMes ?? 0, detalle: "En todas las barberías", icon: CalendarCheck },
+    { titulo: "Reservas del mes", valor: conteos.reduce((t, c) => t + c.reservas_mes, 0), detalle: "En todas las barberías", icon: CalendarCheck },
   ];
 
   return (

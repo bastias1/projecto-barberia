@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { BarberiaAcciones } from "@/components/admin/barberia-acciones";
 import { BitacoraLista } from "@/components/admin/bitacora-lista";
 import { createClient } from "@/utils/supabase/server";
 import { ultimaSuscripcion } from "@/lib/suscripcion";
-import { estadoSuscripcion, inicioMes, type SuscripcionResumen } from "@/lib/admin-datos";
+import { conteosBarberias, estadoSuscripcion, type SuscripcionResumen } from "@/lib/admin-datos";
 import { getPlanes } from "@/lib/planes";
 import { ROL_LABEL } from "@/lib/roles";
 import { formatCLP, formatFecha } from "@/lib/datetime";
@@ -28,7 +28,7 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
     .maybeSingle();
   if (!barberia) notFound();
 
-  const [sus, planes, { data: sucursales }, { data: equipo }, { count: reservasMes }, { count: productos }, { data: pagos }, { data: bitacora }] = await Promise.all([
+  const [sus, planes, { data: sucursales }, { data: equipo }, conteos, { data: pagos }, { data: bitacora }] = await Promise.all([
     ultimaSuscripcion(supabase, id),
     getPlanes(supabase, { incluirInactivos: true }),
     supabase.from("sucursal").select("id_sucursal, nombre, direccion, comuna, activa").eq("id_barberia", id).order("id_sucursal"),
@@ -38,8 +38,7 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
       .eq("id_barberia", id)
       .in("rol", ["admin", "profesional"])
       .eq("activo", true),
-    supabase.from("reserva").select("id_reserva", { count: "exact", head: true }).eq("id_barberia", id).neq("estado", "cancelada").gte("fecha_hora_inicio", inicioMes()),
-    supabase.from("producto").select("id_producto", { count: "exact", head: true }).eq("id_barberia", id).eq("activo", true),
+    conteosBarberias(supabase),
     supabase.from("pago").select("id_pago, monto, estado, created_at").eq("id_barberia", id).eq("concepto", "suscripcion").order("created_at", { ascending: false }).limit(6),
     supabase
       .from("auditoria_admin")
@@ -53,6 +52,9 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
   const suscripcion = sus ? ({ ...sus, precio_pactado: Number(sus.precio_pactado) } as SuscripcionResumen & { fecha_inicio: string }) : null;
   const estado = estadoSuscripcion(suscripcion, barberia.activa);
   const plan = planes.find((p) => p.id_plan === suscripcion?.id_plan);
+  const uso = conteos.find((c) => c.id_barberia === id);
+  const reservasMes = uso?.reservas_mes ?? 0;
+  const productos = uso?.productos_activos ?? 0;
 
   return (
     <div className="space-y-6">
@@ -76,7 +78,6 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
         {barberia.activa && (
           <div className="flex gap-2">
             <a href={`/${barberia.slug}`} target="_blank"><Button variant="outline" className="gap-2"><ExternalLink className="h-4 w-4" />Página</Button></a>
-            <Link href={`/${barberia.slug}/dashboard`}><Button className="gap-2"><LayoutDashboard className="h-4 w-4" />Entrar al dashboard</Button></Link>
           </div>
         )}
       </div>
@@ -100,6 +101,7 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
               idPlan={suscripcion?.id_plan ?? null}
               fechaTermino={suscripcion?.fecha_termino ?? null}
               cobroAutomatico={!!suscripcion?.id_suscripcion_externa}
+              puedeEliminar={!!suscripcion && (suscripcion.estado !== "cancelada" || !!suscripcion.id_suscripcion_externa)}
               planes={planes.map((p) => ({ id_plan: p.id_plan, nombre: p.nombre, precio: p.precio_mensual, activo: p.activo }))}
             />
           </CardContent>

@@ -5,7 +5,8 @@ import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getSuperadmin, registrarAccion } from "@/lib/superadmin";
 import {
-  activarCortesia as activarCortesiaSus, cambiarPlan as cambiarPlanSus, extenderVigencia as extenderVigenciaSus,
+  activarCortesia as activarCortesiaSus, cambiarPlan as cambiarPlanSus, eliminarSuscripcion as eliminarSuscripcionSus,
+  extenderVigencia as extenderVigenciaSus,
 } from "@/lib/suscripcion";
 
 type Resultado = { success: true } | { success: false; error: string };
@@ -55,6 +56,14 @@ export async function activarCortesia(input: { idBarberia: string; fecha: string
   if (!admin) return SIN_PERMISO;
   const supabase = await createClient();
   return aplicarCambio(admin, supabase, "activar_cortesia", input.idBarberia, await activarCortesiaSus(supabase, input.idBarberia, input.fecha));
+}
+
+/** Cancela el cobro automático y deja la suscripción cancelada (el historial de pagos se conserva). */
+export async function eliminarSuscripcion(input: { idBarberia: string }): Promise<Resultado> {
+  const admin = await getSuperadmin();
+  if (!admin) return SIN_PERMISO;
+  const supabase = await createClient();
+  return aplicarCambio(admin, supabase, "eliminar_suscripcion", input.idBarberia, await eliminarSuscripcionSus(supabase, input.idBarberia));
 }
 
 /** Suspender cierra la página y el dashboard de la barbería; reactivar los vuelve a abrir. */

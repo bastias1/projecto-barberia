@@ -13,7 +13,7 @@ import { getSiteUrl } from "./signed-links";
  * - estadoSuscripcion       -> la regla de vigencia (fecha de Chile, como la BD)
  * - ultimaSuscripcion       -> la consulta de "la suscripción vigente" de una barbería
  * - transiciones            -> suscribir, aplicarPreapproval, aplicarCobroSuscripcion, cancelar,
- *                              extenderVigencia, cambiarPlan, activarCortesia
+ *                              extenderVigencia, cambiarPlan, activarCortesia, eliminarSuscripcion
  * El estado en la base lo actualiza el webhook o, sin él, estas mismas transiciones:
  * - preapproval autorizada  -> suscripción 'activa' con el plan elegido
  * - cada cobro aprobado     -> extiende fecha_termino un mes (+ días de gracia)
@@ -379,6 +379,33 @@ export async function cambiarPlan(supabase: SupabaseClient, idBarberia: string, 
     ok: true,
     antes: { id_plan: sus.id_plan, precio_pactado: sus.precio_pactado },
     despues: { id_plan: plan.id_plan, plan: plan.nombre, precio_pactado: plan.precio_mensual },
+  };
+}
+
+/** Cancela el cobro automático (si hay) y deja la suscripción 'cancelada': la barbería pierde los módulos ya. El historial de pagos queda. */
+export async function eliminarSuscripcion(supabase: SupabaseClient, idBarberia: string, opts?: OpcionesSuscripcion): Promise<Cambio> {
+  const sus = await ultimaSuscripcion(supabase, idBarberia);
+  if (!sus) return falla(SIN_SUSCRIPCION, 404);
+  if (sus.estado === "cancelada" && !sus.id_suscripcion_externa) return falla("La suscripción ya está cancelada", 409);
+
+  if (sus.id_suscripcion_externa) {
+    try {
+      await (opts?.pasarela ?? pasarelaMercadoPago).cancelar(sus.id_suscripcion_externa);
+    } catch (error) {
+      console.error("Suscripción - error cancelando la preapproval:", error);
+      return falla("Mercado Pago no pudo cancelar el cobro. Intenta nuevamente.", 502);
+    }
+  }
+
+  const { error } = await supabase
+    .from("suscripcion")
+    .update({ estado: "cancelada", id_suscripcion_externa: null })
+    .eq("id_suscripcion", sus.id_suscripcion);
+  if (error) return falla(error.message, 500);
+  return {
+    ok: true,
+    antes: { estado: sus.estado, fecha_termino: sus.fecha_termino, cobro_automatico: !!sus.id_suscripcion_externa },
+    despues: { estado: "cancelada", fecha_termino: sus.fecha_termino, cobro_automatico: false },
   };
 }
 

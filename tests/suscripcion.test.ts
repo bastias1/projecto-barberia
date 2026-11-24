@@ -6,7 +6,7 @@ vi.mock("../lib/pagos", () => ({ mercadoPagoClient: vi.fn(), registrarPagoCobro:
 
 import { registrarPagoCobro } from "../lib/pagos";
 import {
-  activarCortesia, aplicarCobroSuscripcion, aplicarPreapproval, cambiarPlan, cancelar, estadoSuscripcion, extenderVigencia,
+  activarCortesia, aplicarCobroSuscripcion, aplicarPreapproval, cambiarPlan, cancelar, eliminarSuscripcion, estadoSuscripcion, extenderVigencia,
   sincronizarCobros, sumarMes, suscribir, type PasarelaSuscripcion,
 } from "../lib/suscripcion";
 
@@ -209,6 +209,40 @@ describe("cancelación de la renovación automática", () => {
     expect(s.id_suscripcion_externa).toBe("PRE1");
     expect(avisar).not.toHaveBeenCalled();
     error.mockRestore();
+  });
+});
+
+describe("eliminarSuscripcion", () => {
+  it("cancela el cobro en Mercado Pago y deja la suscripción cancelada", async () => {
+    const p = pasarela();
+    const s = fila();
+    const r = await eliminarSuscripcion(bd({ suscripcion: [s] }), "b1", { pasarela: p });
+    expect(r).toMatchObject({ ok: true, despues: { estado: "cancelada", cobro_automatico: false } });
+    expect(p.cancelar).toHaveBeenCalledWith("PRE1");
+    expect(s).toMatchObject({ estado: "cancelada", id_suscripcion_externa: null });
+  });
+
+  it("sin cobro automático no llama a Mercado Pago", async () => {
+    const p = pasarela();
+    const s = fila({ id_suscripcion_externa: null, estado: "prueba" });
+    expect(await eliminarSuscripcion(bd({ suscripcion: [s] }), "b1", { pasarela: p })).toMatchObject({ ok: true });
+    expect(p.cancelar).not.toHaveBeenCalled();
+    expect(s.estado).toBe("cancelada");
+  });
+
+  it("si Mercado Pago falla: 502 y no cambia nada", async () => {
+    const error = silenciar();
+    const s = fila();
+    const r = await eliminarSuscripcion(bd({ suscripcion: [s] }), "b1", { pasarela: pasarela({ cancelar: vi.fn().mockRejectedValue(new Error("x")) }) });
+    expect(r).toMatchObject({ ok: false, status: 502 });
+    expect(s).toMatchObject({ estado: "activa", id_suscripcion_externa: "PRE1" });
+    error.mockRestore();
+  });
+
+  it("sin suscripción: 404; ya cancelada: 409", async () => {
+    expect(await eliminarSuscripcion(bd({ suscripcion: [] }), "b1", { pasarela: pasarela() })).toMatchObject({ ok: false, status: 404 });
+    const cancelada = fila({ estado: "cancelada", id_suscripcion_externa: null });
+    expect(await eliminarSuscripcion(bd({ suscripcion: [cancelada] }), "b1", { pasarela: pasarela() })).toMatchObject({ ok: false, status: 409 });
   });
 });
 

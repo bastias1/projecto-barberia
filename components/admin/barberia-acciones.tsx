@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Gift, Loader2, Power, Repeat } from "lucide-react";
+import { CalendarPlus, Gift, Loader2, Power, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { activarCortesia, cambiarEstadoBarberia, cambiarPlan, extenderVigencia } from "@/app/admin/actions";
+import { activarCortesia, cambiarEstadoBarberia, cambiarPlan, eliminarSuscripcion, extenderVigencia } from "@/app/admin/actions";
 import { formatCLP } from "@/lib/datetime";
 
 interface Props {
@@ -29,13 +29,15 @@ interface Props {
   idPlan: number | null;
   fechaTermino: string | null;
   cobroAutomatico: boolean;
+  /** Hay una suscripción que se pueda eliminar (no cancelada). */
+  puedeEliminar: boolean;
   planes: { id_plan: number; nombre: string; precio: number; activo: boolean }[];
 }
 
 type Resultado = { success: true } | { success: false; error: string };
 
 /** Acciones del superadmin sobre una barbería y su suscripción. */
-export function BarberiaAcciones({ idBarberia, nombre, activa, idPlan, fechaTermino, cobroAutomatico, planes }: Props) {
+export function BarberiaAcciones({ idBarberia, nombre, activa, idPlan, fechaTermino, cobroAutomatico, puedeEliminar, planes }: Props) {
   const router = useRouter();
   const [enCurso, setEnCurso] = useState<string | null>(null);
   const [fecha, setFecha] = useState(fechaTermino ?? "");
@@ -127,8 +129,33 @@ export function BarberiaAcciones({ idBarberia, nombre, activa, idPlan, fechaTerm
         </p>
       </div>
 
-      {/* Suspender */}
-      <div className="border-t pt-4">
+      <div className="flex flex-wrap gap-2 border-t pt-4">
+        {/* Eliminar suscripción */}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" disabled={!puedeEliminar || enCurso !== null} className="gap-2 text-destructive">
+              {cargando("eliminar") || <Trash2 className="h-4 w-4" />}
+              Eliminar suscripción
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar la suscripción de {nombre}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Se cancela el cobro automático en Mercado Pago (si lo tiene) y la barbería pierde ahora el acceso a sus módulos.
+                El historial de pagos se conserva y el dueño puede volver a suscribirse.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => ejecutar("eliminar", () => eliminarSuscripcion({ idBarberia }), "Suscripción eliminada")}>
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Suspender */}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant={activa ? "destructive" : "default"} disabled={enCurso !== null} className="gap-2">

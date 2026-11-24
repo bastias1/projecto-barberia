@@ -61,6 +61,7 @@ export const ACCION_LABEL: Record<string, string> = {
   extender_vigencia: "extendió la vigencia",
   cambiar_plan: "cambió el plan",
   activar_cortesia: "activó como cortesía",
+  eliminar_suscripcion: "eliminó la suscripción",
   suspender_barberia: "suspendió la barbería",
   reactivar_barberia: "reactivó la barbería",
   editar_plan: "editó el plan",
