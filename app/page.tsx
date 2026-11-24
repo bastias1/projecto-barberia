@@ -5,7 +5,6 @@ import { createClient } from "@/utils/supabase/server";
 import { caracteristicasPlan, DIAS_PRUEBA, getPlanes } from "@/lib/planes";
 import { formatCLP } from "@/lib/datetime";
 import { PLATAFORMA } from "@/lib/plataforma";
-import { resolverAcceso } from "@/lib/acceso";
 import { HeaderPlataforma } from "@/components/plataforma/header";
 import { FooterPlataforma } from "@/components/plataforma/footer";
 import { VistaAgenda, VistaPagina, VistaReserva, VistaTienda } from "@/components/plataforma/pantallas";
@@ -38,15 +37,13 @@ function Seccion({ id, titulo, children, className = "" }: { id?: string; titulo
 
 export default async function PlataformaHome() {
   const supabase = await createClient();
-  const [planes, { data: { user } }] = await Promise.all([getPlanes(supabase), supabase.auth.getUser()]);
-  // Con sesión: acceso directo a su panel (dashboard o cuenta)
-  const miPanel = user ? (await resolverAcceso(supabase, user.id)).destino : null;
+  const planes = await getPlanes(supabase);
   // El plan del medio se destaca como recomendado
   const destacado = planes.length >= 3 ? planes[1].id_plan : null;
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
-      <HeaderPlataforma miPanel={miPanel} />
+      <HeaderPlataforma />
 
       <main id="contenido">
         {/* Portada */}
