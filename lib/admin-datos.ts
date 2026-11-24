@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TZ } from "./barberia";
 import { addDays, fromZoned, todayIn } from "./datetime";
 import { estadoSuscripcion as clasificar, type ClaveEstado } from "./suscripcion";
-import { one, todasLasFilas } from "./utils";
+import { one } from "./utils";
 
 /* Consultas del panel de plataforma (/admin). Corren con la sesión del superadmin (RLS *_superadmin). */
 
@@ -66,9 +66,19 @@ export function haceDias(dias: number): string {
   return new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
 }
 
+/** Reservas del mes y productos activos por barbería: solo conteos (RPC), el superadmin no lee esas filas. */
+export async function conteosBarberias(supabase: SupabaseClient) {
+  const { data } = await supabase.rpc("admin_conteos_barberias", { p_desde: inicioMes() });
+  return ((data ?? []) as { id_barberia: string; reservas_mes: number; productos_activos: number }[]).map((r) => ({
+    ...r,
+    reservas_mes: Number(r.reservas_mes),
+    productos_activos: Number(r.productos_activos),
+  }));
+}
+
 /** Todas las barberías con su suscripción vigente, dueños y uso (escala: decenas o cientos). */
 export async function getBarberiasAdmin(supabase: SupabaseClient): Promise<FilaBarberia[]> {
-  const [{ data: barberias }, { data: planes }, { data: equipo }, { data: profesionales }, { data: reservas }] = await Promise.all([
+  const [{ data: barberias }, { data: planes }, { data: equipo }, { data: profesionales }, reservas] = await Promise.all([
     supabase
       .from("barberia")
       .select(`id_barberia, nombre, slug, activa, created_at,
@@ -81,7 +91,7 @@ export async function getBarberiasAdmin(supabase: SupabaseClient): Promise<FilaB
       .eq("rol", "admin")
       .eq("activo", true),
     supabase.from("profesional").select("id_barberia").eq("activo", true),
-    todasLasFilas<{ id_barberia: string }>(() => supabase.from("reserva").select("id_barberia").neq("estado", "cancelada").gte("fecha_hora_inicio", inicioMes()).order("id_reserva")),
+    conteosBarberias(supabase),
   ]);
 
   const nombrePlan = new Map((planes ?? []).map((p) => [p.id_plan, p.nombre]));
@@ -91,7 +101,7 @@ export async function getBarberiasAdmin(supabase: SupabaseClient): Promise<FilaB
     return m;
   };
   const barberos = contar(profesionales);
-  const reservasMes = contar(reservas);
+  const reservasMes = new Map(reservas.map((r) => [r.id_barberia, r.reservas_mes]));
 
   return (barberias ?? []).map((b) => {
     // La suscripción más reciente es la que rige

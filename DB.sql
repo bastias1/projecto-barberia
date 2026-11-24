@@ -1639,17 +1639,16 @@ RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   WHERE id_barberia = p_barberia AND id_usuario = (SELECT auth.uid()) AND activo;
 $$;
 
+-- El superadmin de la plataforma NO es admin/staff de ninguna barbería (no ve sus datos privados)
 CREATE FUNCTION private.es_admin(p_barberia uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
-  SELECT private.es_superadmin()
-      OR coalesce(private.rol_en_barberia(p_barberia) = 'admin', false);
+  SELECT coalesce(private.rol_en_barberia(p_barberia) = 'admin', false);
 $$;
 
 -- Personal de la barbería: administradores y profesionales
 CREATE FUNCTION private.es_staff(p_barberia uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
-  SELECT private.es_superadmin()
-      OR coalesce(private.rol_en_barberia(p_barberia) IN ('admin','profesional'), false);
+  SELECT coalesce(private.rol_en_barberia(p_barberia) IN ('admin','profesional'), false);
 $$;
 
 -- =====================================================================
@@ -1662,9 +1661,13 @@ DECLARE t text;
 BEGIN
   FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-    -- El superadmin de la plataforma puede operar sobre todo, salvo las tablas de solo
-    -- lectura/registro (sus políticas propias están más abajo)
-    CONTINUE WHEN t IN ('auditoria_admin', 'movimiento_stock', 'calendario_google', 'reserva_evento_google');
+    -- El superadmin opera sobre las tablas de la plataforma (barberías, planes, suscripciones, usuarios).
+    -- Nunca sobre los datos privados de cada barbería (clientes, reservas, pedidos, catálogo…): privacidad.
+    -- Las de solo lectura/registro tienen sus políticas propias más abajo (pago: solo cobros de suscripción).
+    CONTINUE WHEN t IN ('auditoria_admin', 'movimiento_stock', 'calendario_google', 'reserva_evento_google',
+                        'reserva', 'reserva_historial', 'pedido', 'detalle_pedido', 'resena', 'direccion_usuario',
+                        'consentimiento', 'producto', 'servicio', 'profesional_servicio', 'horario_atencion',
+                        'dia_bloqueado', 'prediccion_demanda', 'pago');
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR ALL TO authenticated
          USING ((SELECT private.es_superadmin())) WITH CHECK ((SELECT private.es_superadmin()))',
@@ -1864,6 +1867,10 @@ CREATE POLICY detalle_pedido_delete ON public.detalle_pedido FOR DELETE TO authe
                    AND (p.id_cliente = (SELECT auth.uid()) OR private.es_staff(p.id_barberia))));
 
 -- ---------------- Pagos ----------------
+
+-- El superadmin solo lee los cobros de suscripción/módulos de la plataforma
+CREATE POLICY pago_superadmin_select ON public.pago FOR SELECT TO authenticated
+  USING ((SELECT private.es_superadmin()) AND concepto IN ('suscripcion','modulo'));
 
 -- pago: lo escribe solo el backend (service_role); lo leen el admin y el cliente dueño
 CREATE POLICY pago_select ON public.pago FOR SELECT TO authenticated
@@ -2191,7 +2198,8 @@ DECLARE v_barberia uuid;
 BEGIN
   SELECT id_barberia INTO v_barberia FROM public.guest_usuario WHERE id_guest = p_guest;
   IF NOT FOUND THEN RETURN; END IF;
-  IF NOT private.es_admin(v_barberia) THEN
+  -- El superadmin la usa desde /admin para las solicitudes de eliminación de datos
+  IF NOT (private.es_admin(v_barberia) OR private.es_superadmin()) THEN
     RAISE EXCEPTION 'Solo el administrador de la barbería puede anonimizar invitados' USING ERRCODE = 'insufficient_privilege';
   END IF;
   UPDATE public.guest_usuario
@@ -2225,6 +2233,24 @@ GRANT  EXECUTE ON FUNCTION public.registrar_barberia(text, text, bigint, text, t
 GRANT  EXECUTE ON FUNCTION public.reservar_como_invitado(uuid, bigint, uuid, bigint, timestamptz, text, text, text, text, boolean, text) TO anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.horarios_ocupados(uuid, uuid, timestamptz, timestamptz) TO anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.dias_bloqueados(uuid, uuid, date, date)                 TO anon, authenticated;
+
+-- Conteos del panel /admin sin darle al superadmin acceso a las filas de reserva/producto
+CREATE FUNCTION public.admin_conteos_barberias(p_desde timestamptz)
+RETURNS TABLE (id_barberia uuid, reservas_mes bigint, productos_activos bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NOT private.es_superadmin() THEN
+    RAISE EXCEPTION 'Solo un administrador de la plataforma' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN QUERY
+  SELECT b.id_barberia,
+         (SELECT count(*) FROM public.reserva r
+           WHERE r.id_barberia = b.id_barberia AND r.estado <> 'cancelada' AND r.fecha_hora_inicio >= p_desde),
+         (SELECT count(*) FROM public.producto p WHERE p.id_barberia = b.id_barberia AND p.activo)
+  FROM public.barberia b;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.admin_conteos_barberias(timestamptz) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.admin_conteos_barberias(timestamptz) TO authenticated;
 
 REVOKE EXECUTE ON FUNCTION public.anonimizar_usuario(uuid) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.anonimizar_guest(uuid)   FROM PUBLIC, anon;
