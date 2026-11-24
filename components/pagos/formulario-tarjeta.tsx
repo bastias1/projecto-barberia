@@ -100,7 +100,7 @@ export function FormularioTarjeta({
         issuer: { id: "form-checkout__issuer" },
         installments: { id: "form-checkout__installments" },
         identificationType: { id: "form-checkout__identificationType" },
-        ...(pedirRut ? { identificationNumber: { id: "form-checkout__identificationNumber" } } : {}),
+        // El RUT no va al token (Mercado Pago lo rechaza con 324 invalid identificationNumber): el servidor lo envía en payer.identification
       },
       callbacks: {
         onFormMounted: (err: unknown) => {
@@ -146,8 +146,6 @@ export function FormularioTarjeta({
                 setError("Ingresa un RUT válido, por ejemplo 12.345.678-5.");
                 return;
               }
-              // El SDK lee el campo al crear el token: se le deja el RUT en la forma normalizada
-              if (rutRef.current) rutRef.current.value = rut;
             }
             // Un token nuevo en cada intento: es de un solo uso
             const nuevo = await cardForm.createCardToken().catch(() => undefined);
