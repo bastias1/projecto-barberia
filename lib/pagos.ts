@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MercadoPagoConfig, type Order, type Payment } from "mercadopago";
+import { MercadoPagoConfig, MPPaymentError, Order, type Payment } from "mercadopago";
 import { notificarPedidoPagado, notificarStockBajo, notificarSuscripcion } from "./notifications";
 
 type OrderResponse = Awaited<ReturnType<Order["get"]>>;
@@ -16,9 +16,12 @@ type PaymentResponse = Awaited<ReturnType<Payment["get"]>>;
 
 export type EstadoPago = "aprobado" | "pendiente" | "rechazado" | "reembolsado";
 
-/** Sin argumento, el cliente de Sunwalk (suscripciones); con el token de una barbería, el de su cuenta (tienda). */
+/**
+ * Sin argumento, el cliente de Sunwalk (suscripciones); con el token de una barbería, el de su cuenta (tienda).
+ * Todas las llamadas llevan el Platform ID que asigna Mercado Pago (X-Platform-Id), si está configurado.
+ */
 export function mercadoPagoClient(accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN ?? "") {
-  return new MercadoPagoConfig({ accessToken });
+  return new MercadoPagoConfig({ accessToken, options: { platformId: process.env.MERCADOPAGO_PLATFORM_ID || undefined } });
 }
 
 /** Estado de la order (o de su transacción) → pago.estado */
@@ -70,29 +73,31 @@ export function mensajeRechazo(statusDetail: string | undefined): string {
   }
 }
 
-/*
- * Crea una order con la API REST: el SDK descarta el detalle de los errores
- * (`errors[]`) y, en un 402 (order creada pero el pago falló), también la order.
+export type CuerpoOrder = Parameters<Order["create"]>[0]["body"];
+
+/**
+ * Crea una order con el SDK (sus headers de integración, el Platform ID y el Device ID del comprador,
+ * que genera MercadoPago.js). `order` es null si Mercado Pago no la creó; `error` queda para el log.
+ * En un 402 la order se creó pero el pago falló, y el error del SDK no la trae: se busca por el pedido.
  */
-export async function crearOrder(accessToken: string, body: Record<string, unknown>, idempotencyKey: string, deviceId?: string): Promise<
-  { status: number; order: OrderResponse | null; errores: unknown }
+export async function crearOrder(accessToken: string, body: CuerpoOrder, idempotencyKey: string, deviceId?: string): Promise<
+  { order: OrderResponse | null; error: unknown }
 > {
-  const res = await fetch("https://api.mercadopago.com/v1/orders", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "X-Idempotency-Key": idempotencyKey,
-      // Device ID del comprador (lo genera MercadoPago.js): mejora la aprobación y la seguridad
-      ...(deviceId ? { "X-meli-session-id": deviceId } : {}),
-      // Identificador de plataforma que entrega Mercado Pago; sin él no se envía
-      ...(process.env.MERCADOPAGO_PLATFORM_ID ? { "X-Platform-Id": process.env.MERCADOPAGO_PLATFORM_ID } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (res.ok) return { status: res.status, order: json as OrderResponse, errores: null };
-  return { status: res.status, order: (json.data as OrderResponse) ?? null, errores: json.errors ?? json };
+  const orders = new Order(mercadoPagoClient(accessToken));
+  const desde = new Date(Date.now() - 60_000).toISOString();
+  try {
+    return { order: await orders.create({ body, requestOptions: { idempotencyKey, meliSessionId: deviceId } }), error: null };
+  } catch (error) {
+    if (!(error instanceof MPPaymentError) || !body.external_reference) return { order: null, error };
+    // shortcut: toma la order más reciente del pedido en el último minuto; dos intentos simultáneos del mismo pedido podrían cruzarse
+    const { data } = await orders.search({
+      options: {
+        external_reference: body.external_reference, begin_date: desde, end_date: new Date(Date.now() + 60_000).toISOString(),
+        sort_by: "created_date", sort_order: "desc", page_size: 1,
+      },
+    }).catch(() => ({ data: undefined }));
+    return { order: data?.[0] ?? null, error };
+  }
 }
 
 interface PagoNuevo {
