@@ -89,16 +89,24 @@ export async function crearOrder(accessToken: string, body: CuerpoOrder, idempot
     return { order: await orders.create({ body, requestOptions: { idempotencyKey, meliSessionId: deviceId } }), error: null };
   } catch (error) {
     if (!(error instanceof MPPaymentError) || !body.external_reference) return { order: null, error };
+    // La búsqueda tarda unos segundos en ver una order recién creada: se reintenta
     // shortcut: toma la order más reciente del pedido en el último minuto; dos intentos simultáneos del mismo pedido podrían cruzarse
-    const { data } = await orders.search({
-      options: {
-        external_reference: body.external_reference, begin_date: desde, end_date: new Date(Date.now() + 60_000).toISOString(),
-        sort_by: "created_date", sort_order: "desc", page_size: 1,
-      },
-    }).catch(() => ({ data: undefined }));
-    return { order: data?.[0] ?? null, error };
+    for (const espera of ESPERAS_BUSQUEDA_MS) {
+      await new Promise((r) => setTimeout(r, espera));
+      const { data } = await orders.search({
+        options: {
+          external_reference: body.external_reference, begin_date: desde, end_date: new Date(Date.now() + 60_000).toISOString(),
+          sort_by: "created_date", sort_order: "desc", page_size: 1,
+        },
+      }).catch((e) => (console.error("[pagos] No se pudo buscar la order rechazada:", e), { data: undefined }));
+      if (data?.[0]) return { order: data[0], error };
+    }
+    return { order: null, error };
   }
 }
+
+/** Esperas antes de cada búsqueda de la order tras un 402 (~5 s en total). */
+export const ESPERAS_BUSQUEDA_MS = [0, 800, 1500, 2500];
 
 interface PagoNuevo {
   idBarberia: string;
