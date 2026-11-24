@@ -47,3 +47,6 @@ __pycache__/
 # script destructivo de un solo uso
 limpiar-datos.sql
 limpiar-usuarios.sql
+
+# verification runs (verify-sunwalk skill)
+.verify-run/
