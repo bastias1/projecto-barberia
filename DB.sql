@@ -2593,6 +2593,71 @@ GRANT  EXECUTE ON FUNCTION public.gcal_borrar(uuid)              TO service_role
 REVOKE EXECUTE ON FUNCTION public.gcal_reclamar(integer)         FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.gcal_reclamar(integer)         TO service_role;
 
+-- ---------------- Mercado Pago de cada barbería (OAuth) ----------------
+-- Los pagos de la tienda van directo a la cuenta de la barbería; las suscripciones, a la de Sunwalk.
+-- Access y refresh token viven en Vault (id_secreto); solo el backend (service role) los lee o escribe.
+CREATE TABLE public.barberia_mercadopago (
+  id_barberia  uuid        PRIMARY KEY REFERENCES public.barberia (id_barberia) ON DELETE CASCADE,
+  mp_user_id   bigint      NOT NULL UNIQUE,   -- id del vendedor en Mercado Pago (llega en las notificaciones)
+  cuenta       text,                          -- nickname o correo, solo para mostrar "conectado como …"
+  id_secreto   uuid        NOT NULL,          -- vault.secrets.id (nombre 'mp_<id_barberia>'), JSON {access_token, refresh_token}
+  expira_at    timestamptz NOT NULL,          -- vencimiento del access token
+  estado       text        NOT NULL DEFAULT 'conectada' CHECK (estado IN ('conectada', 'desconectada')),
+  conectado_at timestamptz NOT NULL DEFAULT now(),
+  ultimo_error text
+);
+
+-- RLS: el admin de la barbería lee solo las columnas no secretas; escribe únicamente el backend.
+-- Sin política de superadmin (privacidad de la barbería).
+ALTER TABLE public.barberia_mercadopago ENABLE ROW LEVEL SECURITY;
+CREATE POLICY barberia_mercadopago_select ON public.barberia_mercadopago FOR SELECT TO authenticated
+  USING ((SELECT private.es_admin(id_barberia)));
+REVOKE ALL ON public.barberia_mercadopago FROM anon, authenticated;
+GRANT SELECT (id_barberia, mp_user_id, cuenta, expira_at, estado, conectado_at, ultimo_error)
+  ON public.barberia_mercadopago TO authenticated;
+
+CREATE FUNCTION public.mp_guardar_token(p_barberia uuid, p_token text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_id uuid;
+BEGIN
+  SELECT id INTO v_id FROM vault.secrets WHERE name = 'mp_' || p_barberia;
+  IF v_id IS NULL THEN
+    v_id := vault.create_secret(p_token, 'mp_' || p_barberia, 'Tokens OAuth de Mercado Pago');
+  ELSE
+    PERFORM vault.update_secret(v_id, p_token);
+  END IF;
+  RETURN v_id;
+END $$;
+
+CREATE FUNCTION public.mp_token(p_barberia uuid)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT d.decrypted_secret FROM vault.decrypted_secrets d
+  JOIN public.barberia_mercadopago m ON m.id_secreto = d.id
+  WHERE m.id_barberia = p_barberia;
+$$;
+
+-- Desconecta: borra el secreto y el vínculo
+CREATE FUNCTION public.mp_borrar(p_barberia uuid)
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  DELETE FROM vault.secrets WHERE name = 'mp_' || p_barberia;
+  DELETE FROM public.barberia_mercadopago WHERE id_barberia = p_barberia;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.mp_guardar_token(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.mp_token(uuid)               FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.mp_borrar(uuid)              FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.mp_guardar_token(uuid, text) TO service_role;
+GRANT  EXECUTE ON FUNCTION public.mp_token(uuid)               TO service_role;
+GRANT  EXECUTE ON FUNCTION public.mp_borrar(uuid)              TO service_role;
+
+-- La tienda pública solo necesita saber si la barbería puede cobrar; los tokens y la cuenta no se exponen.
+CREATE FUNCTION public.barberia_acepta_pagos(p_barberia uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT EXISTS (SELECT 1 FROM public.barberia_mercadopago WHERE id_barberia = p_barberia AND estado = 'conectada');
+$$;
+REVOKE EXECUTE ON FUNCTION public.barberia_acepta_pagos(uuid) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.barberia_acepta_pagos(uuid) TO anon, authenticated, service_role;
+
 
 
 

@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getBarberiaBySlug } from "@/lib/barberia";
 import { Order } from "mercadopago";
 import { crearOrder, estadoPagoDesdeOrder, mensajeRechazo, mercadoPagoClient, registrarPagoOrder } from "@/lib/pagos";
+import { SinMercadoPago, tokenBarberia } from "@/lib/mercadopago-barberia";
 
 const TIPOS_TARJETA = ["credit_card", "debit_card", "prepaid_card"];
 
@@ -50,6 +51,17 @@ export async function POST(request: Request) {
             return Response.json({ error: 'Este pedido ya no se puede pagar' }, { status: 409 });
         }
 
+        // El dinero va a la cuenta de Mercado Pago de la barbería: sin ella no se cobra (jamás con la de Sunwalk)
+        let accessToken: string;
+        try {
+            accessToken = await tokenBarberia(createServiceRoleClient(), barberia.id_barberia);
+        } catch (error) {
+            if (error instanceof SinMercadoPago) {
+                return Response.json({ error: 'Esta barbería aún no habilita pagos en línea.' }, { status: 409 });
+            }
+            throw error;
+        }
+
         // Un intento anterior aún en proceso podría aprobarse después: se consulta a
         // Mercado Pago antes de cobrar de nuevo, para no cobrar dos veces el mismo pedido
         const { data: enCurso } = await supabase
@@ -62,7 +74,7 @@ export async function POST(request: Request) {
             .limit(1)
             .maybeSingle();
         if (enCurso) {
-            const anterior = await new Order(mercadoPagoClient()).get({ id: enCurso.id_transaccion_externa });
+            const anterior = await new Order(mercadoPagoClient(accessToken)).get({ id: enCurso.id_transaccion_externa });
             await registrarPagoOrder(createServiceRoleClient(), anterior);
             const estadoAnterior = estadoPagoDesdeOrder(anterior.status);
             if (estadoAnterior === 'pendiente' || estadoAnterior === 'aprobado') {
@@ -76,7 +88,7 @@ export async function POST(request: Request) {
         const email = process.env.MERCADOPAGO_TEST_PAYER_EMAIL || user.email;
 
         // La clave liga el intento al pedido y al token: dos solicitudes simultáneas con el mismo token no crean dos orders
-        const resultado = await crearOrder({
+        const resultado = await crearOrder(accessToken, {
             type: 'online',
             processing_mode: 'automatic',
             external_reference: String(pedido.id_pedido),

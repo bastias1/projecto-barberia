@@ -1,6 +1,7 @@
 import { Invoice, Order, Payment, PreApproval, WebhookSignatureValidator } from 'mercadopago';
 import { aplicarCobroSuscripcion, aplicarPreapproval } from "@/lib/suscripcion";
 import { mercadoPagoClient, registrarPagoOrder, registrarPagoPayment } from "@/lib/pagos";
+import { SinMercadoPago, tokenDeVendedor } from "@/lib/mercadopago-barberia";
 
 const client = mercadoPagoClient();
 
@@ -75,9 +76,16 @@ export async function POST(request: Request) {
         if (type === 'order') {
             const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
             try {
-                const order = await new Order(client).get({ id: String(data.id) });
-                await registrarPagoOrder(createServiceRoleClient(), order);
+                // La order vive en la cuenta de la barbería: se lee con su token (según el vendedor de la notificación)
+                const admin = createServiceRoleClient();
+                const token = await tokenDeVendedor(admin, Number(body.user_id));
+                const order = await new Order(token ? mercadoPagoClient(token) : client).get({ id: String(data.id) });
+                await registrarPagoOrder(admin, order);
             } catch (error) {
+                if (error instanceof SinMercadoPago) {
+                    console.error('Order de una barbería sin Mercado Pago conectado, no se pudo leer:', data.id);
+                    return new Response(null, { status: 200 });
+                }
                 console.error('Error processing order:', error);
                 if ((error as { status?: number } | null)?.status === 404) {
                     return new Response(null, { status: 200 }); // notificación de prueba

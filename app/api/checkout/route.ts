@@ -30,6 +30,11 @@ export async function POST(request: Request) {
             return Response.json({ error: 'Barbería no encontrada' }, { status: 404 });
         }
         const idBarberia = barberia.id_barberia;
+        // No se crea el pedido (que reserva stock) si la barbería no puede cobrar
+        const { data: aceptaPagos } = await supabase.rpc('barberia_acepta_pagos', { p_barberia: idBarberia });
+        if (!aceptaPagos) {
+            return Response.json({ error: 'Esta barbería aún no habilita pagos en línea.' }, { status: 409 });
+        }
         const despacho = body.delivery_method === 'despacho';
         if (despacho && !body.shipping_address) {
             return Response.json({ error: 'Falta la dirección de despacho' }, { status: 400 });

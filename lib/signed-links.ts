@@ -5,7 +5,7 @@ import crypto from "crypto";
  * una reserva y dejar una reseña. El token identifica a quien recibe el correo
  * sin necesidad de iniciar sesión.
  */
-export type LinkPurpose = "confirmar-reserva" | "cancelar-reserva" | "resena-reserva" | "resena-pedido" | "google-oauth";
+export type LinkPurpose = "confirmar-reserva" | "cancelar-reserva" | "resena-reserva" | "resena-pedido" | "google-oauth" | "mp-oauth";
 
 function secret(): string {
   const value = process.env.BOOKING_SECRET;

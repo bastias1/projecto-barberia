@@ -16,8 +16,9 @@ type PaymentResponse = Awaited<ReturnType<Payment["get"]>>;
 
 export type EstadoPago = "aprobado" | "pendiente" | "rechazado" | "reembolsado";
 
-export function mercadoPagoClient() {
-  return new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN ?? "" });
+/** Sin argumento, el cliente de Sunwalk (suscripciones); con el token de una barbería, el de su cuenta (tienda). */
+export function mercadoPagoClient(accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN ?? "") {
+  return new MercadoPagoConfig({ accessToken });
 }
 
 /** Estado de la order (o de su transacción) → pago.estado */
@@ -73,13 +74,13 @@ export function mensajeRechazo(statusDetail: string | undefined): string {
  * Crea una order con la API REST: el SDK descarta el detalle de los errores
  * (`errors[]`) y, en un 402 (order creada pero el pago falló), también la order.
  */
-export async function crearOrder(body: Record<string, unknown>, idempotencyKey: string): Promise<
+export async function crearOrder(accessToken: string, body: Record<string, unknown>, idempotencyKey: string): Promise<
   { ok: true; order: OrderResponse } | { ok: false; status: number; order: OrderResponse | null; errores: unknown }
 > {
   const res = await fetch("https://api.mercadopago.com/v1/orders", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN ?? ""}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       "X-Idempotency-Key": idempotencyKey,
     },

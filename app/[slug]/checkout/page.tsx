@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard, MapPin, Store, Truck } from "lucide-react";
 import { useBarberiaCart } from "@/lib/cart-store";
-import { useBarberia } from "@/components/barberia-provider";
+import { useAceptaPagos, useBarberia } from "@/components/barberia-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ const sinSuscripcion = () => () => {};
 
 export default function CheckoutPage() {
   const { slug } = useBarberia();
+  const aceptaPagos = useAceptaPagos();
   const { items: cart } = useBarberiaCart();
   const router = useRouter();
   const loginUrl = `/login?barberia=${slug}&next=/${slug}/checkout`;
@@ -295,13 +296,19 @@ export default function CheckoutPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <FormularioTarjeta
-                monto={monto}
-                textoBoton={`Pagar $${monto.toLocaleString("es-CL")}`}
-                nota="Pago procesado de forma segura por Mercado Pago. 1 cuota."
-                datosBoton={{ "data-mp-checkout-cta": "checkout-api" }}
-                onPagar={pagar}
-              />
+              {aceptaPagos ? (
+                <FormularioTarjeta
+                  monto={monto}
+                  textoBoton={`Pagar $${monto.toLocaleString("es-CL")}`}
+                  nota="Pago procesado de forma segura por Mercado Pago. 1 cuota."
+                  datosBoton={{ "data-mp-checkout-cta": "checkout-api" }}
+                  onPagar={pagar}
+                />
+              ) : (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Esta barbería aún no habilita pagos en línea. Contáctala para coordinar tu compra.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

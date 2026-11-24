@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BarberiaProvider } from "@/components/barberia-provider";
-import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
+import { getAceptaPagosCached, getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
 
 type Props = {
   children: React.ReactNode;
@@ -24,7 +24,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function BarberiaLayout({ children, params }: Props) {
   const barberia = await getBarberiaCached((await params).slug);
   if (!barberia) notFound();
-  const modulos = await getModulosCached(barberia.id_barberia);
+  const [modulos, aceptaPagos] = await Promise.all([
+    getModulosCached(barberia.id_barberia),
+    getAceptaPagosCached(barberia.id_barberia),
+  ]);
 
-  return <BarberiaProvider barberia={barberia} modulos={modulos}>{children}</BarberiaProvider>;
+  return <BarberiaProvider barberia={barberia} modulos={modulos} aceptaPagos={aceptaPagos}>{children}</BarberiaProvider>;
 }

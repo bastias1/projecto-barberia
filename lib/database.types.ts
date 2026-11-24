@@ -280,6 +280,18 @@ export interface Database {
         ultimo_error: string | null;
         ultimo_error_at: string | null;
       }, "id_usuario" | "email_google" | "id_secreto">;
+      // Cuenta de Mercado Pago de la barbería (OAuth): el admin lee solo las columnas no secretas (sin id_secreto);
+      // se escribe con service role. Tokens en Vault (mp_guardar_token / mp_token / mp_borrar)
+      barberia_mercadopago: Table<{
+        id_barberia: string;
+        mp_user_id: number;
+        cuenta: string | null; // nickname o correo, para mostrar
+        id_secreto: string; // vault.secrets.id; no legible para authenticated
+        expira_at: string; // vencimiento del access token
+        estado: "conectada" | "desconectada";
+        conectado_at: string;
+        ultimo_error: string | null;
+      }, "id_barberia" | "mp_user_id" | "id_secreto" | "expira_at">;
       // HU-25: la escribe ml/pronostico.py (service role); el admin la lee con el módulo `pronostico`
       prediccion_demanda: Table<{
         id_prediccion: number;
