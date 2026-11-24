@@ -98,7 +98,8 @@ export async function POST(request: Request) {
                 .eq('id_barberia', barberia.id_barberia).eq('id_pedido', pedido.id_pedido),
             supabase.from('usuario').select('nombre, apellido, created_at').eq('id_usuario', user.id).maybeSingle(),
         ]);
-        const deviceId = typeof body.deviceId === 'string' && body.deviceId.length <= 200 ? body.deviceId : undefined;
+        // Va como header X-Meli-Session-Id: solo caracteres seguros. Mide ~230 ("armor.<hex>.<hex>"), con margen
+        const deviceId = typeof body.deviceId === 'string' && /^[\w.:-]{1,1000}$/.test(body.deviceId) ? body.deviceId : undefined;
 
         const resultado = await crearOrder(accessToken, armarOrden({
             idPedido: pedido.id_pedido,
