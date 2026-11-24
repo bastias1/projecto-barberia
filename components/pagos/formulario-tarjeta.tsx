@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizarRut } from "@/lib/rut";
 
 // MercadoPago.js v2 (https://sdk.mercadopago.com/js/v2): solo lo que usa este formulario
 type CardForm = { createCardToken: () => Promise<{ token?: string } | undefined>; unmount: () => void };
@@ -25,6 +26,8 @@ export interface DatosTarjeta {
   paymentMethodType: string;
   /** Va al servidor para enviarlo a Mercado Pago (mejora la aprobación). */
   deviceId?: string;
+  /** RUT ya validado, solo con `pedirRut`: el servidor lo reenvía a Mercado Pago y no lo guarda. */
+  rut?: string;
 }
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? "";
@@ -49,12 +52,15 @@ export function FormularioTarjeta({
   textoBoton,
   nota,
   datosBoton,
+  pedirRut = false,
   onPagar,
 }: {
   monto: number;
   textoBoton: string;
   nota: string;
   datosBoton?: Record<`data-${string}`, string>;
+  /** Pide el RUT del titular y lo valida; solo la tienda (la suscripción no lo necesita). */
+  pedirRut?: boolean;
   onPagar: (datos: DatosTarjeta) => Promise<string | null>;
 }) {
   const [sdkListo, setSdkListo] = useState(false);
@@ -65,6 +71,7 @@ export function FormularioTarjeta({
   const metodo = useRef<{ id: string; tipo: string } | null>(null);
   const validando = useRef(false);
   const enviandoRef = useRef(false);
+  const rutRef = useRef<HTMLInputElement>(null);
   // El CardForm se monta una vez; el callback más reciente se lee desde el ref
   const onPagarRef = useRef(onPagar);
   useEffect(() => {
@@ -93,6 +100,7 @@ export function FormularioTarjeta({
         issuer: { id: "form-checkout__issuer" },
         installments: { id: "form-checkout__installments" },
         identificationType: { id: "form-checkout__identificationType" },
+        ...(pedirRut ? { identificationNumber: { id: "form-checkout__identificationNumber" } } : {}),
       },
       callbacks: {
         onFormMounted: (err: unknown) => {
@@ -131,6 +139,16 @@ export function FormularioTarjeta({
           setEnviando(true);
           setError(null);
           try {
+            let rut: string | undefined;
+            if (pedirRut) {
+              rut = normalizarRut(rutRef.current?.value) ?? undefined;
+              if (!rut) {
+                setError("Ingresa un RUT válido, por ejemplo 12.345.678-5.");
+                return;
+              }
+              // El SDK lee el campo al crear el token: se le deja el RUT en la forma normalizada
+              if (rutRef.current) rutRef.current.value = rut;
+            }
             // Un token nuevo en cada intento: es de un solo uso
             const nuevo = await cardForm.createCardToken().catch(() => undefined);
             if (nuevo?.token && validando.current) {
@@ -143,7 +161,7 @@ export function FormularioTarjeta({
             }
             setError(await onPagarRef.current({
               token: nuevo.token, paymentMethodId: metodo.current.id, paymentMethodType: metodo.current.tipo,
-              deviceId: window.MP_DEVICE_SESSION_ID,
+              deviceId: window.MP_DEVICE_SESSION_ID, rut,
             }));
           } catch {
             setError("No se pudo conectar. Revisa tu conexión e intenta nuevamente.");
@@ -156,7 +174,7 @@ export function FormularioTarjeta({
     });
 
     return () => cardForm.unmount();
-  }, [sdkListo, monto]);
+  }, [sdkListo, monto, pedirRut]);
 
   return (
     <>
@@ -204,6 +222,13 @@ export function FormularioTarjeta({
           <Label id="cardholder-name-label" htmlFor="form-checkout__cardholderName">Nombre del titular</Label>
           <Input id="form-checkout__cardholderName" aria-labelledby="cardholder-name-label" autoComplete="cc-name" placeholder="Como aparece en la tarjeta" required className="h-11" />
         </div>
+
+        {pedirRut && (
+          <div className="grid gap-2" data-mp-field="identificationNumber">
+            <Label htmlFor="form-checkout__identificationNumber">RUT del titular</Label>
+            <Input id="form-checkout__identificationNumber" ref={rutRef} autoComplete="off" placeholder="12.345.678-5" required className="h-11" />
+          </div>
+        )}
 
         {/* Nodos que exige el CardForm del SDK; el servidor fija 1 cuota */}
         <select id="form-checkout__issuer" data-mp-sdk-required-field="issuer" hidden aria-hidden="true" tabIndex={-1} />

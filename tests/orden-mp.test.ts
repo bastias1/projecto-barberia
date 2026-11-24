@@ -35,7 +35,16 @@ describe("armarOrden", () => {
 
   it("envía ítems con cantidad, precio unitario entero como texto, título, categoría y código", () => {
     const { items } = armarOrden(base) as { items: Record<string, unknown>[] };
-    expect(items).toEqual([{ external_code: "3", title: "Cera", category_id: "beauty", quantity: 2, unit_price: "12500" }]);
+    expect(items).toEqual([{ external_code: "3", title: "Cera", description: "Cera", category_id: "beauty", quantity: 2, unit_price: "12500" }]);
+  });
+
+  it("la descripción del producto va en el ítem; sin ella o en blanco se repite el nombre, y se corta en 255", () => {
+    const desc = (descripcion: string | null | undefined) =>
+      (armarOrden({ ...base, items: [{ ...base.items[0], descripcion }] }) as { items: { description: string }[] }).items[0].description;
+    expect(desc("Cera mate de fijación fuerte")).toBe("Cera mate de fijación fuerte");
+    expect(desc(null)).toBe("Cera");
+    expect(desc("   ")).toBe("Cera");
+    expect(desc("x".repeat(300))).toHaveLength(255);
   });
 
   it("la suma de los ítems es el total del pedido", () => {
@@ -50,6 +59,12 @@ describe("armarOrden", () => {
     expect(o.payer).toEqual({ email: "cliente@correo.cl", first_name: "Ana", last_name: "Pérez" });
     expect(o.transactions.payments[0].payment_method.statement_descriptor).toBe("BARBERIA BENJVMIN");
     expect(o.additional_info).toEqual({ "payer.authentication_type": "WEB", "payer.registration_date": "2026-01-02T03:04:05.000Z" });
+  });
+
+  it("envía el RUT como identificación del comprador solo si viene", () => {
+    const con = armarOrden({ ...base, comprador: { ...base.comprador, rut: "12345678-5" } }) as Detalle;
+    expect(con.payer.identification).toEqual({ type: "RUT", number: "12345678-5" });
+    expect((armarOrden(base) as Detalle).payer).not.toHaveProperty("identification");
   });
 
   it("omite lo que no hay: apellido, correo, fecha y descriptor vacío", () => {

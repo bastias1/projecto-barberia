@@ -85,7 +85,7 @@ describe("tokenBarberia", () => {
 });
 
 describe("tokenDeVendedor", () => {
-  it.each([undefined, null, NaN, "abc", 1.5])("un user_id inválido (%s) usa la cuenta de Sunwalk", async (id) => {
+  it.each([NaN, Number("abc"), 1.5, -0.5])("un user_id inválido (%s) usa la cuenta de Sunwalk", async (id) => {
     const { admin } = adminFalso([null], []);
     await expect(tokenDeVendedor(admin, id)).resolves.toBeUndefined();
   });

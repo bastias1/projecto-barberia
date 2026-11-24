@@ -26,8 +26,9 @@ export interface DatosOrden {
   monto: string;
   barberia: string;
   email?: string;
-  comprador: { nombre: string; apellido: string | null; registradoEn: string | null };
-  items: { idProducto: number; nombre: string; cantidad: number; precioUnitario: number }[];
+  /** `rut` ya validado (lib/rut.ts). Solo se reenvía a Mercado Pago: no se guarda ni se registra. */
+  comprador: { nombre: string; apellido: string | null; registradoEn: string | null; rut?: string | null };
+  items: { idProducto: number; nombre: string; descripcion?: string | null; cantidad: number; precioUnitario: number }[];
   pago: { metodoId: string; tipo: string; token: string };
 }
 
@@ -43,6 +44,7 @@ export function armarOrden(d: DatosOrden): Record<string, unknown> {
       ...(d.email ? { email: d.email } : {}),
       first_name: d.comprador.nombre,
       ...(d.comprador.apellido ? { last_name: d.comprador.apellido } : {}),
+      ...(d.comprador.rut ? { identification: { type: "RUT", number: d.comprador.rut } } : {}),
     },
     transactions: {
       payments: [{
@@ -57,6 +59,8 @@ export function armarOrden(d: DatosOrden): Record<string, unknown> {
     items: d.items.map((i) => ({
       external_code: String(i.idProducto),
       title: i.nombre,
+      // Sin descripción en el catálogo se repite el nombre: el campo no debe ir vacío
+      description: (i.descripcion?.trim() || i.nombre).slice(0, 255),
       category_id: CATEGORIA_ITEMS,
       quantity: i.cantidad,
       unit_price: String(Math.round(i.precioUnitario)),

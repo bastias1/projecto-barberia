@@ -1,4 +1,4 @@
-import { getSiteUrl, signLink, verifyLink } from "./signed-links";
+import { crearStateOAuth, getSiteUrl, leerStateOAuth } from "./signed-links";
 import type { createServiceRoleClient } from "@/utils/supabase/service-role";
 
 /**
@@ -7,7 +7,6 @@ import type { createServiceRoleClient } from "@/utils/supabase/service-role";
  * El access token dura ~180 días; el refresh token se rota en cada renovación.
  */
 
-const VIGENCIA_STATE_MS = 10 * 60_000;
 const TOKEN_URL = "https://api.mercadopago.com/oauth/token";
 
 /** Sin MERCADOPAGO_CLIENT_ID / MERCADOPAGO_CLIENT_SECRET la UI oculta "Conectar". */
@@ -24,20 +23,8 @@ function env(nombre: "MERCADOPAGO_CLIENT_ID" | "MERCADOPAGO_CLIENT_SECRET"): str
 /** Debe coincidir exactamente con la URL de redireccionamiento registrada en la aplicación de Mercado Pago. */
 const redirectUri = () => `${getSiteUrl()}/api/mercadopago/callback`;
 
-/** state = userId.slug.expira.firma — liga la vuelta de Mercado Pago al usuario y barbería que la pidieron. */
-export function crearState(userId: string, slug: string, ahora = Date.now()): string {
-  const expira = ahora + VIGENCIA_STATE_MS;
-  return `${userId}.${slug}.${expira}.${signLink("mp-oauth", `${userId}:${slug}:${expira}`)}`;
-}
-
-export function leerState(state: string | null | undefined, ahora = Date.now()): { userId: string; slug: string } | null {
-  const partes = (state ?? "").split(".");
-  if (partes.length !== 4) return null;
-  const [userId, slug, expira, firma] = partes;
-  if (!/^\d+$/.test(expira) || Number(expira) < ahora) return null;
-  if (!verifyLink("mp-oauth", `${userId}:${slug}:${expira}`, firma)) return null;
-  return { userId, slug };
-}
+export const crearState = (userId: string, slug: string, ahora?: number) => crearStateOAuth("mp-oauth", userId, slug, ahora);
+export const leerState = (state: string | null | undefined, ahora?: number) => leerStateOAuth("mp-oauth", state, ahora);
 
 export function urlAutorizacion(state: string): string {
   const params = new URLSearchParams({

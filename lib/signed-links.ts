@@ -25,6 +25,24 @@ export function verifyLink(purpose: LinkPurpose, id: number | string, token: str
   return crypto.timingSafeEqual(expected, Buffer.from(token, "hex"));
 }
 
+type PurposeOAuth = Extract<LinkPurpose, "google-oauth" | "mp-oauth">;
+const VIGENCIA_STATE_MS = 10 * 60_000;
+
+/** `state` de OAuth = userId.slug.expira.firma: liga la vuelta del proveedor al usuario y barbería que la pidieron (10 min). */
+export function crearStateOAuth(purpose: PurposeOAuth, userId: string, slug: string, ahora = Date.now()): string {
+  const expira = ahora + VIGENCIA_STATE_MS;
+  return `${userId}.${slug}.${expira}.${signLink(purpose, `${userId}:${slug}:${expira}`)}`;
+}
+
+export function leerStateOAuth(purpose: PurposeOAuth, state: string | null | undefined, ahora = Date.now()): { userId: string; slug: string } | null {
+  const partes = (state ?? "").split(".");
+  if (partes.length !== 4) return null;
+  const [userId, slug, expira, firma] = partes;
+  if (!/^\d+$/.test(expira) || Number(expira) < ahora) return null;
+  if (!verifyLink(purpose, `${userId}:${slug}:${expira}`, firma)) return null;
+  return { userId, slug };
+}
+
 export function getSiteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;

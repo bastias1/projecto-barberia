@@ -6,6 +6,7 @@ import { crearOrder, estadoPagoDesdeOrder, mensajeRechazo, mercadoPagoClient, re
 import { SinMercadoPago, tokenBarberia } from "@/lib/mercadopago-barberia";
 import { armarOrden } from "@/lib/orden-mp";
 import { one } from "@/lib/utils";
+import { normalizarRut } from "@/lib/rut";
 
 const TIPOS_TARJETA = ["credit_card", "debit_card", "prepaid_card"];
 
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
         // Más datos del comprador y de la compra mejoran la aprobación (y la calidad de la integración)
         const [{ data: lineas }, { data: comprador }] = await Promise.all([
             supabase.from('detalle_pedido')
-                .select('id_producto, cantidad, precio_unitario, producto:producto!detalle_pedido_producto_fkey (nombre)')
+                .select('id_producto, cantidad, precio_unitario, producto:producto!detalle_pedido_producto_fkey (nombre, descripcion)')
                 .eq('id_barberia', barberia.id_barberia).eq('id_pedido', pedido.id_pedido),
             supabase.from('usuario').select('nombre, apellido, created_at').eq('id_usuario', user.id).maybeSingle(),
         ]);
@@ -108,21 +109,26 @@ export async function POST(request: Request) {
                 nombre: comprador?.nombre || user.email?.split('@')[0] || 'Cliente',
                 apellido: comprador?.apellido ?? null,
                 registradoEn: comprador?.created_at ?? null,
+                // Va directo a Mercado Pago: no se guarda ni se escribe en el log. Si no es válido, se omite sin frenar el pago
+                rut: normalizarRut(body.rut),
             },
-            items: (lineas ?? []).map((l) => ({
-                idProducto: l.id_producto,
-                nombre: one<{ nombre: string }>(l.producto)?.nombre ?? `Producto ${l.id_producto}`,
-                cantidad: l.cantidad,
-                precioUnitario: Number(l.precio_unitario),
-            })),
+            items: (lineas ?? []).map((l) => {
+                const producto = one<{ nombre: string; descripcion: string | null }>(l.producto);
+                return {
+                    idProducto: l.id_producto,
+                    nombre: producto?.nombre ?? `Producto ${l.id_producto}`,
+                    descripcion: producto?.descripcion,
+                    cantidad: l.cantidad,
+                    precioUnitario: Number(l.precio_unitario),
+                };
+            }),
             pago: { metodoId: paymentMethodId, tipo, token },
         }), `pedido-${pedido.id_pedido}-${token}`, deviceId);
 
         // 402: la order se creó pero el pago falló; viene en `data` y se registra igual
         const order = resultado.order;
         if (!order) {
-            const r = resultado as { status: number; errores: unknown };
-            console.error('Checkout API - Mercado Pago order error:', r.status, JSON.stringify(r.errores),
+            console.error('Checkout API - Mercado Pago order error:', resultado.status, JSON.stringify(resultado.errores),
                 { paymentMethodId, tipo, tokenLength: token.length });
             return Response.json({ error: 'No se pudo procesar el pago. Revisa los datos de la tarjeta e intenta nuevamente.' }, { status: 502 });
         }

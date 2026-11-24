@@ -302,6 +302,7 @@ export default function CheckoutPage() {
                   textoBoton={`Pagar $${monto.toLocaleString("es-CL")}`}
                   nota="Pago procesado de forma segura por Mercado Pago. 1 cuota."
                   datosBoton={{ "data-mp-checkout-cta": "checkout-api" }}
+                  pedirRut
                   onPagar={pagar}
                 />
               ) : (
