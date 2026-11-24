@@ -74,7 +74,7 @@ export function mensajeRechazo(statusDetail: string | undefined): string {
  * Crea una order con la API REST: el SDK descarta el detalle de los errores
  * (`errors[]`) y, en un 402 (order creada pero el pago falló), también la order.
  */
-export async function crearOrder(accessToken: string, body: Record<string, unknown>, idempotencyKey: string): Promise<
+export async function crearOrder(accessToken: string, body: Record<string, unknown>, idempotencyKey: string, deviceId?: string): Promise<
   { ok: true; order: OrderResponse } | { ok: false; status: number; order: OrderResponse | null; errores: unknown }
 > {
   const res = await fetch("https://api.mercadopago.com/v1/orders", {
@@ -83,6 +83,10 @@ export async function crearOrder(accessToken: string, body: Record<string, unkno
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       "X-Idempotency-Key": idempotencyKey,
+      // Device ID del comprador (lo genera MercadoPago.js): mejora la aprobación y la seguridad
+      ...(deviceId ? { "X-meli-session-id": deviceId } : {}),
+      // Identificador de plataforma que entrega Mercado Pago; sin él no se envía
+      ...(process.env.MERCADOPAGO_PLATFORM_ID ? { "X-Platform-Id": process.env.MERCADOPAGO_PLATFORM_ID } : {}),
     },
     body: JSON.stringify(body),
   });

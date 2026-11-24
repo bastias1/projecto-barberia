@@ -14,6 +14,8 @@ type MercadoPagoJs = new (publicKey: string, options?: { locale?: string }) => {
 declare global {
   interface Window {
     MercadoPago?: MercadoPagoJs;
+    /** Device ID del comprador: MercadoPago.js v2 lo crea solo al cargar. */
+    MP_DEVICE_SESSION_ID?: string;
   }
 }
 
@@ -21,6 +23,8 @@ export interface DatosTarjeta {
   token: string;
   paymentMethodId: string;
   paymentMethodType: string;
+  /** Va al servidor para enviarlo a Mercado Pago (mejora la aprobación). */
+  deviceId?: string;
 }
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? "";
@@ -137,7 +141,10 @@ export function FormularioTarjeta({
               setError("Revisa los datos de la tarjeta.");
               return;
             }
-            setError(await onPagarRef.current({ token: nuevo.token, paymentMethodId: metodo.current.id, paymentMethodType: metodo.current.tipo }));
+            setError(await onPagarRef.current({
+              token: nuevo.token, paymentMethodId: metodo.current.id, paymentMethodType: metodo.current.tipo,
+              deviceId: window.MP_DEVICE_SESSION_ID,
+            }));
           } catch {
             setError("No se pudo conectar. Revisa tu conexión e intenta nuevamente.");
           } finally {
