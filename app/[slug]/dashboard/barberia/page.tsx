@@ -3,11 +3,22 @@ import { createClient } from "@/utils/supabase/server";
 import { one } from "@/lib/utils";
 import { BarberiaForm } from "@/components/dashboard/barberia-form";
 import { SucursalesManager, type BarberoAdmin } from "@/components/dashboard/sucursales-manager";
+import { MercadoPagoConexion } from "@/components/dashboard/mercadopago-conexion";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { mercadoPagoOAuthConfigurado } from "@/lib/mercadopago-oauth";
 
-export default async function MiBarberiaPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function MiBarberiaPage({ params, searchParams }: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ mercadopago?: string }>;
+}) {
   const ctx = await requireStaff((await params).slug, { admin: true });
   const idBarberia = ctx.barberia.id_barberia;
   const supabase = await createClient();
+  const { data: conexionMP } = await supabase
+    .from("barberia_mercadopago")
+    .select("cuenta, estado, ultimo_error")
+    .eq("id_barberia", idBarberia)
+    .maybeSingle();
 
   // Sucursales (también las inactivas), barberos activos y sus asignaciones
   const [{ data: sucursales }, { data: profesionales }, { data: asignaciones }] = await Promise.all([
@@ -57,6 +68,17 @@ export default async function MiBarberiaPage({ params }: { params: Promise<{ slu
         barberos={barberos}
         asignaciones={asignaciones ?? []}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mercado Pago</CardTitle>
+          <CardDescription>La cuenta que recibe los pagos de tu tienda</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MercadoPagoConexion slug={ctx.barberia.slug} conexion={conexionMP} configurado={mercadoPagoOAuthConfigurado()}
+            resultado={(await searchParams).mercadopago} />
+        </CardContent>
+      </Card>
 
       <BarberiaForm barberia={ctx.barberia} />
     </div>

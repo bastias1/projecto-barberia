@@ -1,8 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { PedidosClient } from "@/components/dashboard/pedidos/pedidos-client";
 import { requireStaff } from "@/lib/staff-context";
-import { getModulosCached } from "@/lib/barberia-server";
+import { getAceptaPagosCached, getModulosCached } from "@/lib/barberia-server";
 import { ModuloFueraDelPlan } from "@/components/modulo-no-disponible";
+import { AvisoSinMercadoPago } from "@/components/dashboard/mercadopago-conexion";
 import { tieneModulo } from "@/lib/modulos";
 
 export default async function PedidosPage({
@@ -98,6 +99,9 @@ export default async function PedidosPage({
     return (
         <div className="p-6">
             <h1 className="text-3xl font-bold mb-6">Gestión de Pedidos</h1>
+            {!(await getAceptaPagosCached(idBarberia)) && (
+                <div className="mb-6"><AvisoSinMercadoPago slug={ctx.barberia.slug} /></div>
+            )}
             <PedidosClient
                 initialOrders={pedidos || []}
                 totalPages={totalPages}

@@ -4,19 +4,21 @@ import { createContext, useContext } from "react";
 import type { Barberia } from "@/lib/barberia";
 import { tieneModulo, type ModuloCodigo } from "@/lib/modulos";
 
-const BarberiaContext = createContext<{ barberia: Barberia; modulos: string[] } | null>(null);
+const BarberiaContext = createContext<{ barberia: Barberia; modulos: string[]; aceptaPagos: boolean } | null>(null);
 
-/** Expone a los Client Components la barbería de la URL (/[slug]) y sus módulos vigentes. */
+/** Expone a los Client Components la barbería de la URL (/[slug]), sus módulos vigentes y si puede cobrar. */
 export function BarberiaProvider({
   barberia,
   modulos,
+  aceptaPagos,
   children,
 }: {
   barberia: Barberia;
   modulos: string[];
+  aceptaPagos: boolean;
   children: React.ReactNode;
 }) {
-  return <BarberiaContext.Provider value={{ barberia, modulos }}>{children}</BarberiaContext.Provider>;
+  return <BarberiaContext.Provider value={{ barberia, modulos, aceptaPagos }}>{children}</BarberiaContext.Provider>;
 }
 
 function useBarberiaContext() {
@@ -39,6 +41,11 @@ export function useModulos(): string[] {
 /** ¿La suscripción de la barbería incluye este módulo? */
 export function useModulo(codigo: ModuloCodigo): boolean {
   return tieneModulo(useBarberiaContext().modulos, codigo);
+}
+
+/** ¿La barbería conectó su Mercado Pago? Sin eso el checkout de la tienda está bloqueado. */
+export function useAceptaPagos(): boolean {
+  return useBarberiaContext().aceptaPagos;
 }
 
 /** Arma rutas internas de la barbería actual: href("/tienda") -> "/benjvmin/tienda". */

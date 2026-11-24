@@ -12,6 +12,13 @@ export const getBarberiaCached = cache(async (slug: string) => {
   return getBarberiaBySlug(await createClient(), slug);
 });
 
+/** ¿La barbería tiene Mercado Pago conectado? Sin él la tienda es solo catálogo (RPC barberia_acepta_pagos). */
+export const getAceptaPagosCached = cache(async (idBarberia: string): Promise<boolean> => {
+  const { data, error } = await (await createClient()).rpc("barberia_acepta_pagos", { p_barberia: idBarberia });
+  if (error) console.error("Error fetching estado de pagos:", error);
+  return data === true;
+});
+
 /** Módulos vigentes según la suscripción (RPC modulos_barberia): agenda, ecommerce, bi. */
 export const getModulosCached = cache(async (idBarberia: string): Promise<string[]> => {
   const { data, error } = await (await createClient()).rpc("modulos_barberia", { p_barberia: idBarberia });
