@@ -1,3 +1,5 @@
+import type { CuerpoOrder } from "./pagos";
+
 /**
  * Cuerpo de la order de la tienda (Orders API) con los datos que Mercado Pago mide en la calidad de la
  * integración y usa contra el fraude: ítems, comprador y descriptor del resumen de tarjeta.
@@ -32,7 +34,7 @@ export interface DatosOrden {
   pago: { metodoId: string; tipo: string; token: string };
 }
 
-export function armarOrden(d: DatosOrden): Record<string, unknown> {
+export function armarOrden(d: DatosOrden): CuerpoOrder {
   const descriptor = descriptorDe(d.barberia);
   return {
     type: "online",
