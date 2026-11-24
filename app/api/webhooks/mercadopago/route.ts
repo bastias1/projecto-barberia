@@ -78,9 +78,9 @@ export async function POST(request: Request) {
             try {
                 // La order vive en la cuenta de la barbería: se lee con su token (según el vendedor de la notificación)
                 const admin = createServiceRoleClient();
-                const token = await tokenDeVendedor(admin, Number(body.user_id));
-                const order = await new Order(token ? mercadoPagoClient(token) : client).get({ id: String(data.id) });
-                await registrarPagoOrder(admin, order);
+                const vendedor = await tokenDeVendedor(admin, Number(body.user_id));
+                const order = await new Order(vendedor ? mercadoPagoClient(vendedor.accessToken) : client).get({ id: String(data.id) });
+                await registrarPagoOrder(admin, order, vendedor?.idBarberia);
             } catch (error) {
                 if (error instanceof SinMercadoPago) {
                     console.error('Order de una barbería sin Mercado Pago conectado, no se pudo leer:', data.id);

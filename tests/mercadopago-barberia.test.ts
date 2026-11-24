@@ -95,11 +95,11 @@ describe("tokenDeVendedor", () => {
     await expect(tokenDeVendedor(admin, 123)).resolves.toBeUndefined();
   });
 
-  it("un vendedor de una barbería usa el token de esa barbería", async () => {
+  it("un vendedor de una barbería usa el token de esa barbería y devuelve cuál es", async () => {
     const { admin } = adminFalso(
       [{ id_barberia: "b1" } as never, { estado: "conectada", expira_at: en(100 * DIA) }],
       [secreto("A")],
     );
-    await expect(tokenDeVendedor(admin, 123)).resolves.toBe("A");
+    await expect(tokenDeVendedor(admin, 123)).resolves.toEqual({ accessToken: "A", idBarberia: "b1" });
   });
 });

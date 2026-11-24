@@ -75,7 +75,7 @@ export async function POST(request: Request) {
             .maybeSingle();
         if (enCurso) {
             const anterior = await new Order(mercadoPagoClient(accessToken)).get({ id: enCurso.id_transaccion_externa });
-            await registrarPagoOrder(createServiceRoleClient(), anterior);
+            await registrarPagoOrder(createServiceRoleClient(), anterior, barberia.id_barberia);
             const estadoAnterior = estadoPagoDesdeOrder(anterior.status);
             if (estadoAnterior === 'pendiente' || estadoAnterior === 'aprobado') {
                 return Response.json({ estado: estadoAnterior, orderId: anterior.id });
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
             return Response.json({ error: 'No se pudo procesar el pago. Revisa los datos de la tarjeta e intenta nuevamente.' }, { status: 502 });
         }
 
-        await registrarPagoOrder(createServiceRoleClient(), order);
+        await registrarPagoOrder(createServiceRoleClient(), order, barberia.id_barberia);
 
         const estado = estadoPagoDesdeOrder(order.status);
         const detalle = order.transactions?.payments?.[0]?.status_detail ?? order.status_detail;
