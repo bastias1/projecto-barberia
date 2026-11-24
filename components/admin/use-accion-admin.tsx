@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export type ResultadoAccion = { success: true } | { success: false; error: string };
+import type { ResultadoAccion } from "@/lib/utils";
 
 /** Estado "en curso", toast y refresco compartidos por los botones de acción del panel /admin. */
 export function useAccionAdmin() {

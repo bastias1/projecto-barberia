@@ -4,19 +4,19 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getSuperadmin, registrarAccion } from "@/lib/superadmin";
+import type { ResultadoAccion } from "@/lib/utils";
 import {
   activarCortesia as activarCortesiaSus, cambiarPlan as cambiarPlanSus, eliminarSuscripcion as eliminarSuscripcionSus,
-  extenderVigencia as extenderVigenciaSus,
+  extenderVigencia as extenderVigenciaSus, type Cambio,
 } from "@/lib/suscripcion";
 
-type Resultado = { success: true } | { success: false; error: string };
 type Superadmin = NonNullable<Awaited<ReturnType<typeof getSuperadmin>>>;
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-const SIN_PERMISO: Resultado = { success: false, error: "Solo un administrador de la plataforma puede hacer esto" };
+const SIN_PERMISO: ResultadoAccion = { success: false, error: "Solo un administrador de la plataforma puede hacer esto" };
 
 /** Toda acción del panel: comprueba que es superadmin y corre con su propia sesión (políticas *_superadmin). */
-async function conSuperadmin<R extends Resultado>(accion: (admin: Superadmin, supabase: Supabase) => Promise<R>): Promise<R | Resultado> {
+async function conSuperadmin<R extends ResultadoAccion>(accion: (admin: Superadmin, supabase: Supabase) => Promise<R>): Promise<R | ResultadoAccion> {
   const admin = await getSuperadmin();
   if (!admin) return SIN_PERMISO;
   return accion(admin, await createClient());
@@ -33,8 +33,8 @@ function refrescar(idBarberia?: string) {
 function cambiarSuscripcion(
   accion: string,
   idBarberia: string,
-  cambio: (supabase: Supabase) => ReturnType<typeof extenderVigenciaSus>,
-): Promise<Resultado> {
+  cambio: (supabase: Supabase) => Promise<Cambio>,
+): Promise<ResultadoAccion> {
   return conSuperadmin(async (admin, supabase) => {
     const r = await cambio(supabase);
     if (!r.ok) return { success: false as const, error: r.error };
@@ -45,27 +45,27 @@ function cambiarSuscripcion(
 }
 
 /** Nueva fecha de término (prueba o suscripción). Si estaba vencida o cancelada, vuelve a activa. */
-export async function extenderVigencia(input: { idBarberia: string; fecha: string }): Promise<Resultado> {
+export async function extenderVigencia(input: { idBarberia: string; fecha: string }): Promise<ResultadoAccion> {
   return cambiarSuscripcion("extender_vigencia", input.idBarberia, (s) => extenderVigenciaSus(s, input.idBarberia, input.fecha));
 }
 
 /** Cambia el plan (y su precio pactado). El cobro de Mercado Pago no cambia hasta que el dueño vuelva a pagar. */
-export async function cambiarPlan(input: { idBarberia: string; idPlan: number }): Promise<Resultado> {
+export async function cambiarPlan(input: { idBarberia: string; idPlan: number }): Promise<ResultadoAccion> {
   return cambiarSuscripcion("cambiar_plan", input.idBarberia, (s) => cambiarPlanSus(s, input.idBarberia, input.idPlan));
 }
 
 /** Suscripción activa sin cobro (fecha opcional: sin fecha = indefinida). */
-export async function activarCortesia(input: { idBarberia: string; fecha: string | null }): Promise<Resultado> {
+export async function activarCortesia(input: { idBarberia: string; fecha: string | null }): Promise<ResultadoAccion> {
   return cambiarSuscripcion("activar_cortesia", input.idBarberia, (s) => activarCortesiaSus(s, input.idBarberia, input.fecha));
 }
 
 /** Cancela el cobro automático y deja la suscripción cancelada (el historial de pagos se conserva). */
-export async function eliminarSuscripcion(input: { idBarberia: string }): Promise<Resultado> {
+export async function eliminarSuscripcion(input: { idBarberia: string }): Promise<ResultadoAccion> {
   return cambiarSuscripcion("eliminar_suscripcion", input.idBarberia, (s) => eliminarSuscripcionSus(s, input.idBarberia));
 }
 
 /** Suspender cierra la página y el dashboard de la barbería; reactivar los vuelve a abrir. */
-export async function cambiarEstadoBarberia(input: { idBarberia: string; activa: boolean }): Promise<Resultado> {
+export async function cambiarEstadoBarberia(input: { idBarberia: string; activa: boolean }): Promise<ResultadoAccion> {
   return conSuperadmin(async (admin, supabase) => {
     const { data, error } = await supabase
       .from("barberia")
@@ -95,7 +95,7 @@ export interface PlanInput {
   limites: Record<string, number | null>; // null = sin límite
 }
 
-export async function guardarPlan(input: PlanInput): Promise<Resultado & { idPlan?: number }> {
+export async function guardarPlan(input: PlanInput): Promise<ResultadoAccion & { idPlan?: number }> {
   return conSuperadmin(async (admin, supabase) => {
     const nombre = input.nombre.trim();
     if (!nombre) return { success: false as const, error: "El plan necesita un nombre" };
@@ -116,23 +116,23 @@ export async function guardarPlan(input: PlanInput): Promise<Resultado & { idPla
 
     // Módulos: los opcionales elegidos (agenda es base para todos los planes)
     const opcionales = (modulos ?? []).filter((m) => !m.es_base);
-    await supabase.from("plan_modulo").delete().eq("id_plan", plan.id_plan).in("id_modulo", opcionales.map((m) => m.id_modulo));
     const elegidos = opcionales.filter((m) => input.modulos.includes(m.codigo));
-    if (elegidos.length) {
-      await supabase.from("plan_modulo").insert(elegidos.map((m) => ({ id_plan: plan.id_plan, id_modulo: m.id_modulo })));
-    }
-
-    // Límites: número = tope; null = sin límite (sin fila)
-    for (const tipo of tipos ?? []) {
-      if (!(tipo.codigo in input.limites)) continue;
-      const valor = input.limites[tipo.codigo];
-      if (valor === null) {
-        await supabase.from("plan_limite").delete().eq("id_plan", plan.id_plan).eq("id_tipo_limite", tipo.id_tipo_limite);
-      } else {
-        await supabase
-          .from("plan_limite")
-          .upsert({ id_plan: plan.id_plan, id_tipo_limite: tipo.id_tipo_limite, valor: Math.max(0, Math.round(valor)) }, { onConflict: "id_plan,id_tipo_limite" });
-      }
+    const escrituras = [
+      () => supabase.from("plan_modulo").delete().eq("id_plan", plan.id_plan).in("id_modulo", opcionales.map((m) => m.id_modulo)),
+      ...(elegidos.length ? [() => supabase.from("plan_modulo").insert(elegidos.map((m) => ({ id_plan: plan.id_plan, id_modulo: m.id_modulo })))] : []),
+      // Límites: número = tope; null = sin límite (sin fila)
+      ...(tipos ?? []).filter((t) => t.codigo in input.limites).map((tipo) => {
+        const valor = input.limites[tipo.codigo];
+        return valor === null
+          ? () => supabase.from("plan_limite").delete().eq("id_plan", plan.id_plan).eq("id_tipo_limite", tipo.id_tipo_limite)
+          : () => supabase.from("plan_limite")
+              .upsert({ id_plan: plan.id_plan, id_tipo_limite: tipo.id_tipo_limite, valor: Math.max(0, Math.round(valor)) }, { onConflict: "id_plan,id_tipo_limite" });
+      }),
+    ];
+    // shortcut: no es atómico (una RPC lo sería); guardar de nuevo es idempotente y completa lo que faltó
+    for (const escribir of escrituras) {
+      const { error: e } = await escribir();
+      if (e) return { success: false as const, error: `El plan se guardó, pero no todos sus módulos o límites (${e.message}). Vuelve a guardarlo.` };
     }
 
     await registrarAccion(supabase, admin, input.idPlan ? "editar_plan" : "crear_plan", "plan", plan.id_plan, {
@@ -144,7 +144,7 @@ export async function guardarPlan(input: PlanInput): Promise<Resultado & { idPla
 }
 
 /** Archivar = deja de ofrecerse (portada y Suscripción); quienes ya lo tienen lo conservan con su precio pactado. */
-export async function archivarPlan(input: { idPlan: number; activo: boolean }): Promise<Resultado> {
+export async function archivarPlan(input: { idPlan: number; activo: boolean }): Promise<ResultadoAccion> {
   return conSuperadmin(async (admin, supabase) => {
     const { data, error } = await supabase.from("plan_suscripcion").update({ activo: input.activo }).eq("id_plan", input.idPlan).select("nombre").maybeSingle();
     if (error || !data) return { success: false as const, error: error?.message ?? "Plan no encontrado" };
@@ -156,7 +156,7 @@ export async function archivarPlan(input: { idPlan: number; activo: boolean }): 
 }
 
 /** Eliminar solo si ninguna suscripción lo usó nunca: la FK `suscripcion_id_plan_fkey` (sin cascada) lo impide y protege el historial. */
-export async function eliminarPlan(input: { idPlan: number }): Promise<Resultado> {
+export async function eliminarPlan(input: { idPlan: number }): Promise<ResultadoAccion> {
   return conSuperadmin(async (admin, supabase) => {
     const { data, error } = await supabase.from("plan_suscripcion").delete().eq("id_plan", input.idPlan).select("nombre, precio_mensual").maybeSingle();
     if (error) {
@@ -174,7 +174,7 @@ export async function eliminarPlan(input: { idPlan: number }): Promise<Resultado
 // ------------------------------------------------------------------ usuarios
 
 /** Dar o quitar rol de administrador de plataforma (usuario.rol no es editable por RLS: service role). */
-export async function cambiarSuperadmin(input: { idUsuario: string; superadmin: boolean }): Promise<Resultado> {
+export async function cambiarSuperadmin(input: { idUsuario: string; superadmin: boolean }): Promise<ResultadoAccion> {
   return conSuperadmin(async (admin, supabase) => {
     if (input.idUsuario === admin.userId && !input.superadmin) {
       return { success: false as const, error: "No puedes quitarte tu propio rol" };
@@ -197,7 +197,7 @@ export async function cambiarSuperadmin(input: { idUsuario: string; superadmin: 
 }
 
 /** Suspender bloquea el inicio de sesión (ban en Auth) y marca el perfil; reactivar lo revierte. */
-export async function cambiarSuspensionUsuario(input: { idUsuario: string; suspender: boolean }): Promise<Resultado> {
+export async function cambiarSuspensionUsuario(input: { idUsuario: string; suspender: boolean }): Promise<ResultadoAccion> {
   return conSuperadmin(async (admin, supabase) => {
     if (input.idUsuario === admin.userId) return { success: false as const, error: "No puedes suspender tu propia cuenta" };
 
@@ -227,7 +227,7 @@ export async function cambiarSuspensionUsuario(input: { idUsuario: string; suspe
  * anonimiza la cuenta con ese correo, si existe, y sus registros como invitado en todas las barberías.
  * Reservas, pedidos y pagos se conservan sin datos de identificación.
  */
-export async function eliminarDatosPersona(input: { correo: string }): Promise<Resultado> {
+export async function eliminarDatosPersona(input: { correo: string }): Promise<ResultadoAccion> {
   return conSuperadmin(async (admin, supabase) => {
     const correo = input.correo.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return { success: false as const, error: "Correo inválido" };

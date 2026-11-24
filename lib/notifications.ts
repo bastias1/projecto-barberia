@@ -332,41 +332,6 @@ export async function notificarSuscripcion(idBarberia: string, aviso: AvisoSuscr
   return enviado;
 }
 
-/**
- * Avisos de vencimiento (job diario): 3 días antes si no hay renovación automática, y una vez vencida.
- * `suscripcion.aviso_enviado` = "<aviso>:<fecha_termino>" evita repetirlos; al extenderse la fecha vuelve a avisar.
- * shortcut: fechas en UTC (puede adelantarse un día respecto de Chile).
- */
-export async function notificarVencimientos(): Promise<number> {
-  const supabase = createServiceRoleClient();
-  const dia = (dias: number) => new Date(Date.now() + dias * 86400_000).toISOString().slice(0, 10);
-  const hoy = dia(0);
-  const { data: filas, error } = await supabase
-    .from("suscripcion")
-    .select("id_suscripcion, id_barberia, estado, fecha_termino, id_suscripcion_externa, aviso_enviado")
-    .in("estado", ["prueba", "activa"])
-    .gte("fecha_termino", dia(-3)) // las vencidas hace más tiempo no se avisan
-    .lte("fecha_termino", dia(3));
-  if (error) {
-    console.error("[notificaciones] Error leyendo vencimientos:", error);
-    return 0;
-  }
-
-  let enviados = 0;
-  for (const s of filas ?? []) {
-    const aviso: AvisoSuscripcion | null = s.fecha_termino! < hoy ? "vencida" : s.id_suscripcion_externa ? null : "por_vencer";
-    const clave = `${aviso}:${s.fecha_termino}`;
-    if (!aviso || s.aviso_enviado === clave) continue;
-    // Reclamo condicional: un solo job gana aunque se solapen
-    const base = supabase.from("suscripcion").update({ aviso_enviado: clave }).eq("id_suscripcion", s.id_suscripcion);
-    const { data: reclamada } = await (s.aviso_enviado === null ? base.is("aviso_enviado", null) : base.eq("aviso_enviado", s.aviso_enviado)).select("id_suscripcion");
-    if (!reclamada?.length) continue;
-    if (await notificarSuscripcion(s.id_barberia, aviso)) enviados++;
-    else await supabase.from("suscripcion").update({ aviso_enviado: null }).eq("id_suscripcion", s.id_suscripcion);
-  }
-  return enviados;
-}
-
 /** Confirmación al dueño que registra una barbería (prueba de 14 días). */
 export async function notificarBarberiaRegistrada(correo: string, nombre: string, slug: string): Promise<void> {
   const base = `${getSiteUrl()}/${slug}`;

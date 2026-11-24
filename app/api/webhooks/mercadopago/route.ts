@@ -2,6 +2,7 @@ import { Invoice, Order, Payment, PreApproval, WebhookSignatureValidator } from 
 import { aplicarCobroSuscripcion, aplicarPreapproval } from "@/lib/suscripcion";
 import { mercadoPagoClient, registrarPagoOrder, registrarPagoPayment } from "@/lib/pagos";
 import { SinMercadoPago, tokenDeVendedor } from "@/lib/mercadopago-barberia";
+import { createServiceRoleClient } from "@/utils/supabase/service-role";
 
 const client = mercadoPagoClient();
 
@@ -23,108 +24,63 @@ function firmaValida(request: Request, dataId: string, secrets: string[]): boole
     });
 }
 
+type Admin = ReturnType<typeof createServiceRoleClient>;
+type Notificacion = { id: string; userId: number; action?: string };
+
+/** Un manejador por tópico. Los que no están aquí se ignoran (200). */
+const MANEJADORES: Record<string, (admin: Admin, n: Notificacion) => Promise<unknown>> = {
+    // Suscripción de la barbería: autorización del cobro mensual y cada cobro (cuenta de Sunwalk)
+    subscription_preapproval: async (admin, n) => aplicarPreapproval(admin, await new PreApproval(client).get({ id: n.id })),
+    subscription_authorized_payment: async (admin, n) => aplicarCobroSuscripcion(admin, await new Invoice(client).get({ id: n.id })),
+    // Pedido de la tienda: la order vive en la cuenta del vendedor de la notificación y se lee con su token
+    order: async (admin, n) => {
+        const vendedor = await tokenDeVendedor(admin, n.userId);
+        const order = await new Order(vendedor ? mercadoPagoClient(vendedor.accessToken) : client).get({ id: n.id });
+        return registrarPagoOrder(admin, order, vendedor?.idBarberia ?? null);
+    },
+    // Pedidos antiguos pagados con Checkout Pro (Payments API)
+    payment: async (admin, n) => registrarPagoPayment(admin, await new Payment(client).get({ id: n.id })),
+    // Vinculaciones OAuth (mp-connect): su formato no está documentado; solo se registra para verlo.
+    // Desconectar a una barbería por una suposición sería peor que no hacerlo.
+    'mp-connect': async (_admin, n) => console.log('Webhook mp-connect:', JSON.stringify(n)),
+};
+
+/** Notificación de prueba o recurso inexistente (SDK v3: status 404 o causes[0].code 2000). */
+function noEncontrado(error: unknown): boolean {
+    const e = error as { status?: number; causes?: { code?: number }[] } | null;
+    return e?.status === 404 || e?.causes?.[0]?.code === 2000;
+}
+
 export async function POST(request: Request) {
+    const body = await request.json().catch(() => null);
+    if (!body) return new Response('No body', { status: 400 });
+
+    const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+    if (!secret) {
+        console.error('MERCADOPAGO_WEBHOOK_SECRET is not configured');
+        return new Response("Webhook secret not configured", { status: 500 });
+    }
+
+    // data.id viene en la query; si es alfanumérico (orders: ORD…) va en minúsculas en el manifest
+    const dataId = (new URL(request.url).searchParams.get("data.id") ?? String(body.data?.id ?? '')).toLowerCase();
+    const secrets = [secret, process.env.MERCADOPAGO_WEBHOOK_SECRET_ANTERIOR].filter((s): s is string => !!s);
+    if (!firmaValida(request, dataId, secrets)) {
+        console.error("Invalid signature - potential security threat");
+        return new Response("Invalid signature", { status: 401 });
+    }
+
+    const manejar = MANEJADORES[body.type];
+    if (!manejar) return new Response(null, { status: 200 });
+
     try {
-        const body = await request.json().catch(() => null);
-
-        if (!body) {
-            console.error('❌ No body in request');
-            return new Response('No body', { status: 400 });
-        }
-
-        // Verify Signature (REQUIRED for security)
-        const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-        if (!secret) {
-            console.error('MERCADOPAGO_WEBHOOK_SECRET is not configured');
-            return new Response("Webhook secret not configured", { status: 500 });
-        }
-
-        // data.id viene en la query; si es alfanumérico (orders: ORD…) va en minúsculas en el manifest
-        const dataId = (new URL(request.url).searchParams.get("data.id") ?? String(body.data?.id ?? '')).toLowerCase();
-        const secrets = [secret, process.env.MERCADOPAGO_WEBHOOK_SECRET_ANTERIOR].filter((s): s is string => !!s);
-
-        if (!firmaValida(request, dataId, secrets)) {
-            console.error("Invalid signature - potential security threat");
-            return new Response("Invalid signature", { status: 401 });
-        }
-
-        const { type, data } = body;
-
-        // Vinculaciones y desvinculaciones OAuth (tópico mp-connect). No encontré su formato en la documentación:
-        // por ahora solo se registra para verlo; desconectar a una barbería por una suposición sería peor que no hacerlo.
-        if (type === 'mp-connect') {
-            console.log('Webhook mp-connect:', JSON.stringify({ action: body.action, user_id: body.user_id, id: data?.id }));
-            return new Response(null, { status: 200 });
-        }
-
-        // Suscripción de la barbería: autorización del cobro mensual y cada cobro
-        if (type === 'subscription_preapproval' || type === 'subscription_authorized_payment') {
-            const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
-            const supabase = createServiceRoleClient();
-            try {
-                if (type === 'subscription_preapproval') {
-                    const preapproval = await new PreApproval(client).get({ id: String(data.id) });
-                    await aplicarPreapproval(supabase, preapproval);
-                } else {
-                    const cobro = await new Invoice(client).get({ id: String(data.id) });
-                    await aplicarCobroSuscripcion(supabase, cobro);
-                }
-            } catch (error) {
-                console.error(`Error processing ${type}:`, error);
-                if ((error as { status?: number } | null)?.status === 404) {
-                    return new Response(null, { status: 200 }); // notificación de prueba
-                }
-                throw error;
-            }
-            return new Response(null, { status: 200 });
-        }
-
-        // Pago de un pedido de la tienda (Checkout API / Orders API)
-        if (type === 'order') {
-            const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
-            try {
-                // La order vive en la cuenta de la barbería: se lee con su token (según el vendedor de la notificación)
-                const admin = createServiceRoleClient();
-                const vendedor = await tokenDeVendedor(admin, Number(body.user_id));
-                const order = await new Order(vendedor ? mercadoPagoClient(vendedor.accessToken) : client).get({ id: String(data.id) });
-                await registrarPagoOrder(admin, order, vendedor?.idBarberia);
-            } catch (error) {
-                if (error instanceof SinMercadoPago) {
-                    console.error('Order de una barbería sin Mercado Pago conectado, no se pudo leer:', data.id);
-                    return new Response(null, { status: 200 });
-                }
-                console.error('Error processing order:', error);
-                if ((error as { status?: number } | null)?.status === 404) {
-                    return new Response(null, { status: 200 }); // notificación de prueba
-                }
-                throw error;
-            }
-            return new Response(null, { status: 200 });
-        }
-
-        // Pedidos antiguos pagados con Checkout Pro (Payments API)
-        if (type === 'payment') {
-            try {
-                const payment = await new Payment(client).get({ id: data.id });
-                console.log(`Webhook received: payment ${data.id} (${payment.status}), external reference ${payment.external_reference}`);
-
-                const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
-                await registrarPagoPayment(createServiceRoleClient(), payment);
-            } catch (error) {
-                console.error('Error fetching payment:', error);
-                // Handle test payments or payment not found gracefully (SDK v3: MercadoPagoError.causes)
-                const mpError = error as { status?: number; causes?: { code?: number }[] } | null;
-                if (mpError?.status === 404 || mpError?.causes?.[0]?.code === 2000) {
-                    console.log('Test webhook or payment not found - ignoring:', data.id);
-                    return new Response(null, { status: 200 }); // Return 200 for test webhooks
-                }
-                throw error; // Re-throw other errors
-            }
-        }
-
-        return new Response(null, { status: 200 });
+        await manejar(createServiceRoleClient(), { id: String(body.data?.id), userId: Number(body.user_id), action: body.action });
     } catch (error) {
-        console.error('Webhook error:', error);
+        if (error instanceof SinMercadoPago || noEncontrado(error)) {
+            console.error(`Webhook ${body.type} ${body.data?.id} ignorado:`, error);
+            return new Response(null, { status: 200 });
+        }
+        console.error(`Webhook ${body.type} error:`, error);
         return new Response(null, { status: 500 });
     }
+    return new Response(null, { status: 200 });
 }

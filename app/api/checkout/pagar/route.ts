@@ -128,8 +128,7 @@ export async function POST(request: Request) {
         // 402: la order se creó pero el pago falló; viene en `data` y se registra igual
         const order = resultado.order;
         if (!order) {
-            const r = resultado as { status: number; errores: unknown };
-            console.error('Checkout API - Mercado Pago order error:', r.status, JSON.stringify(r.errores),
+            console.error('Checkout API - Mercado Pago order error:', resultado.status, JSON.stringify(resultado.errores),
                 { paymentMethodId, tipo, tokenLength: token.length });
             return Response.json({ error: 'No se pudo procesar el pago. Revisa los datos de la tarjeta e intenta nuevamente.' }, { status: 502 });
         }

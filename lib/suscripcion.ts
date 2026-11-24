@@ -62,9 +62,21 @@ export interface OpcionesSuscripcion {
 }
 
 const hoyDe = (o?: OpcionesSuscripcion) => o?.hoy ?? todayIn(DEFAULT_TZ);
+const pasarelaDe = (o?: OpcionesSuscripcion) => o?.pasarela ?? pasarelaMercadoPago;
 
 export type Resultado<T extends object = object> = ({ ok: true } & T) | { ok: false; error: string; status: number };
 const falla = (error: string, status: number) => ({ ok: false as const, error, status });
+
+/** Cancela la preapproval en Mercado Pago; si no se pudo, devuelve la falla para el dueño (null = cancelada). */
+async function cancelarEnMP(idPreapproval: string, opts?: OpcionesSuscripcion) {
+  try {
+    await pasarelaDe(opts).cancelar(idPreapproval);
+    return null;
+  } catch (error) {
+    console.error("Suscripción - error cancelando la preapproval:", error);
+    return falla("Mercado Pago no pudo cancelar el cobro. Intenta nuevamente.", 502);
+  }
+}
 
 export interface SuscripcionFila {
   id_suscripcion: number;
@@ -205,7 +217,7 @@ export async function aplicarPreapproval(supabase: SupabaseClient, pre: Preappro
     // Cambio de plan: la preapproval anterior deja de cobrar
     if (sus.id_suscripcion_externa && sus.id_suscripcion_externa !== pre.id) {
       try {
-        await (opts?.pasarela ?? pasarelaMercadoPago).cancelar(sus.id_suscripcion_externa);
+        await pasarelaDe(opts).cancelar(sus.id_suscripcion_externa);
       } catch (error) {
         console.error(`[suscripcion] No se pudo cancelar la preapproval anterior ${sus.id_suscripcion_externa}:`, error);
       }
@@ -252,7 +264,7 @@ export async function aplicarCobroSuscripcion(supabase: SupabaseClient, cobro: C
  */
 export async function sincronizarCobros(supabase: SupabaseClient, idPreapproval: string, opts?: OpcionesSuscripcion): Promise<void> {
   try {
-    for (const cobro of await (opts?.pasarela ?? pasarelaMercadoPago).cobros(idPreapproval)) {
+    for (const cobro of await pasarelaDe(opts).cobros(idPreapproval)) {
       await aplicarCobroSuscripcion(supabase, cobro, opts);
     }
   } catch (error) {
@@ -295,7 +307,7 @@ export async function suscribir(
     return falla(`Mercado Pago no permite cobros menores a $${MONTO_MINIMO_SUSCRIPCION}`, 400);
   }
 
-  const pasarela = opts?.pasarela ?? pasarelaMercadoPago;
+  const pasarela = pasarelaDe(opts);
   let preapproval: PreapprovalMP;
   try {
     preapproval = await pasarela.crear({
@@ -331,15 +343,45 @@ export async function cancelar(supabase: SupabaseClient, idBarberia: string, opt
   const sus = await ultimaSuscripcion(supabase, idBarberia, { conCobro: true });
   if (!sus?.id_suscripcion_externa) return falla("No hay un cobro automático activo", 404);
 
-  try {
-    await (opts?.pasarela ?? pasarelaMercadoPago).cancelar(sus.id_suscripcion_externa);
-  } catch (error) {
-    console.error("Suscripción - error cancelando la preapproval:", error);
-    return falla("Mercado Pago no pudo cancelar el cobro. Intenta nuevamente.", 502);
-  }
+  const fallo = await cancelarEnMP(sus.id_suscripcion_externa, opts);
+  if (fallo) return fallo;
 
   await cortarRenovacion(supabase, { ...sus, id_suscripcion_externa: sus.id_suscripcion_externa }, opts);
   return { ok: true };
+}
+
+/**
+ * Avisos de vencimiento (job diario): 3 días antes si no hay renovación automática, y una vez vencida,
+ * con la misma regla de vigencia (fecha de Chile). Usa service role.
+ * `suscripcion.aviso_enviado` = "<aviso>:<fecha_termino>" evita repetirlos; al extenderse la fecha vuelve a avisar.
+ */
+export async function avisarVencimientos(supabase: SupabaseClient, opts?: OpcionesSuscripcion): Promise<number> {
+  const hoy = hoyDe(opts);
+  const { data: filas, error } = await supabase
+    .from("suscripcion")
+    .select("id_suscripcion, id_barberia, estado, fecha_termino, id_suscripcion_externa, aviso_enviado")
+    .in("estado", ["prueba", "activa"])
+    .gte("fecha_termino", sumarDias(hoy, -3)) // las vencidas hace más tiempo no se avisan
+    .lte("fecha_termino", sumarDias(hoy, 3));
+  if (error) {
+    console.error("[suscripcion] Error leyendo vencimientos:", error);
+    return 0;
+  }
+
+  const avisar = opts?.avisar ?? notificarSuscripcion;
+  let enviados = 0;
+  for (const s of filas ?? []) {
+    const aviso = !estadoSuscripcion(s, { hoy }).vigente ? "vencida" : s.id_suscripcion_externa ? null : "por_vencer";
+    const clave = `${aviso}:${s.fecha_termino}`;
+    if (!aviso || s.aviso_enviado === clave) continue;
+    // Reclamo condicional: un solo job gana aunque se solapen
+    const base = supabase.from("suscripcion").update({ aviso_enviado: clave }).eq("id_suscripcion", s.id_suscripcion);
+    const { data: reclamada } = await (s.aviso_enviado === null ? base.is("aviso_enviado", null) : base.eq("aviso_enviado", s.aviso_enviado)).select("id_suscripcion");
+    if (!reclamada?.length) continue;
+    if (await avisar(s.id_barberia, aviso)) enviados++;
+    else await supabase.from("suscripcion").update({ aviso_enviado: null }).eq("id_suscripcion", s.id_suscripcion);
+  }
+  return enviados;
 }
 
 // ---- Acciones del superadmin: corren con su sesión (RLS *_superadmin) y devuelven antes/después para la bitácora.
@@ -347,7 +389,7 @@ export async function cancelar(supabase: SupabaseClient, idBarberia: string, opt
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const SIN_SUSCRIPCION = "La barbería no tiene suscripción";
 
-type Cambio = Resultado<{ antes: Record<string, unknown>; despues: Record<string, unknown> }>;
+export type Cambio = Resultado<{ antes: Record<string, unknown>; despues: Record<string, unknown> }>;
 
 /** Nueva fecha de término (prueba o suscripción). Si estaba vencida o cancelada, vuelve a activa. */
 export async function extenderVigencia(supabase: SupabaseClient, idBarberia: string, fecha: string): Promise<Cambio> {
@@ -388,14 +430,8 @@ export async function eliminarSuscripcion(supabase: SupabaseClient, idBarberia: 
   if (!sus) return falla(SIN_SUSCRIPCION, 404);
   if (sus.estado === "cancelada" && !sus.id_suscripcion_externa) return falla("La suscripción ya está cancelada", 409);
 
-  if (sus.id_suscripcion_externa) {
-    try {
-      await (opts?.pasarela ?? pasarelaMercadoPago).cancelar(sus.id_suscripcion_externa);
-    } catch (error) {
-      console.error("Suscripción - error cancelando la preapproval:", error);
-      return falla("Mercado Pago no pudo cancelar el cobro. Intenta nuevamente.", 502);
-    }
-  }
+  const fallo = sus.id_suscripcion_externa ? await cancelarEnMP(sus.id_suscripcion_externa, opts) : null;
+  if (fallo) return fallo;
 
   const { error } = await supabase
     .from("suscripcion")

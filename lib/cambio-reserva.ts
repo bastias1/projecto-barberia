@@ -3,7 +3,7 @@ import { DEFAULT_TZ, formatPlazo } from "./barberia";
 import { fromZoned } from "./datetime";
 import { notificarCambioReserva } from "./notifications";
 
-export type ResultadoCambio = { success: true } | { success: false; error: string };
+import type { ResultadoAccion } from "./utils";
 
 export interface NuevaHora {
   fecha: string; // YYYY-MM-DD local de la sucursal
@@ -17,7 +17,7 @@ export interface NuevaHora {
  * `supabase` es el cliente con la sesión del dueño, o el de service role cuando ya se
  * verificó el link firmado del correo. Solo servidor.
  */
-export async function cambiarReservaCliente(supabase: SupabaseClient, idReserva: number, nueva?: NuevaHora): Promise<ResultadoCambio> {
+export async function cambiarReservaCliente(supabase: SupabaseClient, idReserva: number, nueva?: NuevaHora): Promise<ResultadoAccion> {
   let inicio: string | null = null;
   if (nueva) {
     const { data: sucursal } = await supabase.from("sucursal").select("zona_horaria").eq("id_sucursal", nueva.idSucursal).maybeSingle();

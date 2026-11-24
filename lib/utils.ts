@@ -1,6 +1,9 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+/** Resultado de una acción de servidor que el cliente muestra con un toast. */
+export type ResultadoAccion = { success: true } | { success: false; error: string }
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

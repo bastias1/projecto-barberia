@@ -1,11 +1,10 @@
-import { getSiteUrl, signLink, verifyLink } from "./signed-links";
+import { crearStateOAuth, getSiteUrl, leerStateOAuth } from "./signed-links";
 
 /**
  * HU-24: vincular la cuenta de Google de un barbero (OAuth 2.0 con fetch, sin googleapis).
  * La sincronización de eventos está en lib/google-calendar.ts.
  */
 
-const VIGENCIA_STATE_MS = 10 * 60_000;
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events", "openid", "email"];
 
 /** Sin GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET la UI oculta "Conectar". */
@@ -21,20 +20,8 @@ function env(nombre: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET"): string {
 
 const redirectUri = () => `${getSiteUrl()}/api/google-calendar/callback`;
 
-/** state = userId.slug.expira.firma — liga la vuelta de Google al usuario y barbería que la pidieron. */
-export function crearState(userId: string, slug: string, ahora = Date.now()): string {
-  const expira = ahora + VIGENCIA_STATE_MS;
-  return `${userId}.${slug}.${expira}.${signLink("google-oauth", `${userId}:${slug}:${expira}`)}`;
-}
-
-export function leerState(state: string | null | undefined, ahora = Date.now()): { userId: string; slug: string } | null {
-  const partes = (state ?? "").split(".");
-  if (partes.length !== 4) return null;
-  const [userId, slug, expira, firma] = partes;
-  if (!/^\d+$/.test(expira) || Number(expira) < ahora) return null;
-  if (!verifyLink("google-oauth", `${userId}:${slug}:${expira}`, firma)) return null;
-  return { userId, slug };
-}
+export const crearState = (userId: string, slug: string, ahora?: number) => crearStateOAuth("google-oauth", userId, slug, ahora);
+export const leerState = (state: string | null | undefined, ahora?: number) => leerStateOAuth("google-oauth", state, ahora);
 
 /** `loginHint`: correo de la sesión, para que Google proponga esa cuenta (útil si entró con Google). */
 export function urlAutorizacion(state: string, loginHint?: string | null): string {

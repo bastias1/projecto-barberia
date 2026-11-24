@@ -7,7 +7,7 @@ vi.mock("../lib/pagos", () => ({ mercadoPagoClient: vi.fn(), registrarPagoCobro:
 import { registrarPagoCobro } from "../lib/pagos";
 import {
   activarCortesia, aplicarCobroSuscripcion, aplicarPreapproval, cambiarPlan, cancelar, eliminarSuscripcion, estadoSuscripcion, extenderVigencia,
-  sincronizarCobros, sumarMes, suscribir, type PasarelaSuscripcion,
+  avisarVencimientos, sincronizarCobros, sumarMes, suscribir, type PasarelaSuscripcion,
 } from "../lib/suscripcion";
 
 describe("sumarMes", () => {
@@ -87,6 +87,10 @@ function bd(tablas: Record<string, Fila[]>) {
         update: (p: Fila) => ((patch = p), q),
         eq: (c: string, v: unknown) => (filtros.push((f) => f[c] === v), q),
         not: (c: string, _op: string, v: unknown) => (filtros.push((f) => f[c] !== v), q),
+        is: (c: string, v: unknown) => (filtros.push((f) => f[c] === v), q),
+        in: (c: string, v: unknown[]) => (filtros.push((f) => v.includes(f[c])), q),
+        gte: (c: string, v: string) => (filtros.push((f) => String(f[c]) >= v), q),
+        lte: (c: string, v: string) => (filtros.push((f) => String(f[c]) <= v), q),
         order: (c: string, o: { ascending: boolean }) => ((columna = c), (desc = !o.ascending), q),
         limit: (n: number) => ((max = n), q),
         maybeSingle: async () => ({ data: ejecutar()[0] ?? null }),
@@ -375,5 +379,38 @@ describe("acciones del superadmin", () => {
     expect(await activarCortesia(bd({ suscripcion: [s] }), "b1", null)).toMatchObject({ ok: true });
     expect(s).toMatchObject({ estado: "activa", fecha_termino: null });
     expect(await activarCortesia(bd({ suscripcion: [s] }), "b1", "mañana")).toMatchObject({ ok: false, status: 400 });
+  });
+});
+
+// ---------------------------------------------------------------- avisos de vencimiento
+
+describe("avisarVencimientos", () => {
+  const avisar = () => vi.fn().mockResolvedValue(true);
+
+  it("avisa 'vencida' y 'por_vencer' (sin renovación) una sola vez por fecha de término", async () => {
+    const filas = [
+      fila({ id_suscripcion: 1, id_barberia: "vencida", fecha_termino: "2026-11-22", id_suscripcion_externa: null, aviso_enviado: null }),
+      fila({ id_suscripcion: 2, id_barberia: "por-vencer", fecha_termino: "2026-11-25", id_suscripcion_externa: null, aviso_enviado: null }),
+      fila({ id_suscripcion: 3, id_barberia: "con-mp", fecha_termino: "2026-11-25", aviso_enviado: null }),
+      fila({ id_suscripcion: 4, id_barberia: "ya-avisada", fecha_termino: "2026-11-25", id_suscripcion_externa: null, aviso_enviado: "por_vencer:2026-11-25" }),
+      fila({ id_suscripcion: 5, id_barberia: "lejana", fecha_termino: "2026-12-20", id_suscripcion_externa: null, aviso_enviado: null }),
+    ];
+    const a = avisar();
+    expect(await avisarVencimientos(bd({ suscripcion: filas }), { hoy: HOY, avisar: a })).toBe(2);
+    expect(a.mock.calls).toEqual([["vencida", "vencida"], ["por-vencer", "por_vencer"]]);
+    expect(filas[0].aviso_enviado).toBe("vencida:2026-11-22");
+  });
+
+  it("termina hoy en Chile: aún vigente, avisa 'por_vencer' (no 'vencida')", async () => {
+    const filas = [fila({ fecha_termino: HOY, id_suscripcion_externa: null, aviso_enviado: null })];
+    const a = avisar();
+    await avisarVencimientos(bd({ suscripcion: filas }), { hoy: HOY, avisar: a });
+    expect(a).toHaveBeenCalledWith("b1", "por_vencer");
+  });
+
+  it("si el correo no sale, libera el reclamo para reintentar", async () => {
+    const filas = [fila({ fecha_termino: "2026-11-22", id_suscripcion_externa: null, aviso_enviado: null })];
+    await avisarVencimientos(bd({ suscripcion: filas }), { hoy: HOY, avisar: vi.fn().mockResolvedValue(false) });
+    expect(filas[0].aviso_enviado).toBeNull();
   });
 });

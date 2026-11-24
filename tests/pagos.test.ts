@@ -7,7 +7,7 @@ vi.mock("../lib/notifications", () => ({
   notificarSuscripcion: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { notificarStockBajo } from "../lib/notifications";
+import { notificarPedidoPagado, notificarStockBajo } from "../lib/notifications";
 import {
   estadoPagoDesdeOrder, estadoPagoDesdePayment, registrarPagoCobro, registrarPagoOrder, registrarPagoPayment,
 } from "../lib/pagos";
@@ -16,18 +16,30 @@ import {
 // devuelve el pedido y captura el upsert a `pago`.
 const PEDIDO = { id_pedido: 7, id_barberia: "b1", monto_total: 25000 };
 
-function cliente({ pedido = PEDIDO as typeof PEDIDO | null, upsertError = null as { message: string } | null } = {}) {
+/** `previo`: estado del mismo pago ya guardado (null = no existe: el insert gana). */
+function cliente({ pedido = PEDIDO as typeof PEDIDO | null, upsertError = null as { message: string } | null, previo = null as string | null } = {}) {
   const upserts: { fila: Record<string, unknown>; opciones: unknown }[] = [];
+  const updates: Record<string, unknown>[] = [];
   const db = {
     from: (tabla: string) => tabla === "pedido"
       ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: pedido }) }) }) }
       : {
-        // registrarPago lee el estado previo del mismo pago antes de guardarlo
-        select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }),
-        upsert: async (fila: Record<string, unknown>, opciones: unknown) => { upserts.push({ fila, opciones }); return { error: upsertError }; },
+        // insert que ignora duplicados: devuelve fila solo si no existía
+        upsert: (fila: Record<string, unknown>, opciones: unknown) => {
+          upserts.push({ fila, opciones });
+          return { select: async () => ({ data: previo === null ? [{}] : [], error: upsertError }) };
+        },
+        // update condicional: solo si el estado guardado es otro
+        update: (cambios: Record<string, unknown>) => ({
+          eq: () => ({ eq: () => ({ neq: (_: string, estado: string) => ({ select: async () => {
+            const cambia = previo !== null && previo !== estado;
+            if (cambia) updates.push(cambios);
+            return { data: cambia ? [{}] : [], error: null };
+          } }) }) }),
+        }),
       },
   } as unknown as SupabaseClient;
-  return { db, upserts };
+  return { db, upserts, updates };
 }
 
 const order = (extra: Record<string, unknown> = {}) => ({
@@ -45,7 +57,7 @@ const payment = (extra: Record<string, unknown> = {}) => ({
 const SUS = { id_suscripcion: 3, id_barberia: "b1", precio_pactado: 49990 };
 const COBRO = { id: 9, preapproval_id: "PRE1", transaction_amount: 49990, payment: { id: 1, status: "approved", status_detail: "accredited" } };
 
-beforeEach(() => vi.mocked(notificarStockBajo).mockClear());
+beforeEach(() => vi.clearAllMocks());
 
 describe("mapeo de estados", () => {
   it.each([
@@ -62,19 +74,32 @@ describe("mapeo de estados", () => {
 describe("registrarPagoOrder", () => {
   it("guarda el pago con su clave de idempotencia y avisa del stock", async () => {
     const { db, upserts } = cliente();
-    expect(await registrarPagoOrder(db, order())).toBe("aprobado");
+    expect(await registrarPagoOrder(db, order(), null)).toBe("aprobado");
     expect(upserts).toHaveLength(1);
-    expect(upserts[0].opciones).toEqual({ onConflict: "proveedor,id_transaccion_externa" });
+    expect(upserts[0].opciones).toEqual({ onConflict: "proveedor,id_transaccion_externa", ignoreDuplicates: true });
     expect(upserts[0].fila).toMatchObject({
       id_barberia: "b1", concepto: "pedido", id_pedido: 7, monto: 25000, proveedor: "mercadopago", id_transaccion_externa: "ORD1", estado: "aprobado",
       detalle: { status: "processed", payment_id: "PAY1", payment_method: "visa", installments: 1 },
     });
     expect(notificarStockBajo).toHaveBeenCalledWith("b1");
+    expect(notificarPedidoPagado).toHaveBeenCalledWith(7);
+  });
+
+  it("el comprobante sale solo para quien escribe el cambio de estado (síncrono + webhook a la vez)", async () => {
+    const igual = cliente({ previo: "aprobado" });
+    expect(await registrarPagoOrder(igual.db, order(), null)).toBe("aprobado");
+    expect(igual.updates).toHaveLength(0);
+    expect(notificarPedidoPagado).not.toHaveBeenCalled();
+
+    const pendiente = cliente({ previo: "pendiente" });
+    expect(await registrarPagoOrder(pendiente.db, order(), null)).toBe("aprobado");
+    expect(pendiente.updates[0]).toMatchObject({ estado: "aprobado", monto: 25000 });
+    expect(notificarPedidoPagado).toHaveBeenCalledTimes(1);
   });
 
   it("monto: lo pagado; sin ese campo, o en cero (order aún sin pagar), el total de la order", async () => {
-    const a = cliente(); await registrarPagoOrder(a.db, order({ total_paid_amount: undefined }));
-    const b = cliente(); await registrarPagoOrder(b.db, order({ total_paid_amount: "0.00" }));
+    const a = cliente(); await registrarPagoOrder(a.db, order({ total_paid_amount: undefined }), null);
+    const b = cliente(); await registrarPagoOrder(b.db, order({ total_paid_amount: "0.00" }), null);
     expect(a.upserts[0].fila.monto).toBe(25000);
     expect(b.upserts[0].fila.monto).toBe(25000);
   });
@@ -83,7 +108,7 @@ describe("registrarPagoOrder", () => {
     "%s distinto del pedido: no se registra (el trigger daría el pedido por pagado)", async (_, extra) => {
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const { db, upserts } = cliente();
-      expect(await registrarPagoOrder(db, order(extra))).toBeNull();
+      expect(await registrarPagoOrder(db, order(extra), null)).toBeNull();
       expect(upserts).toHaveLength(0);
       expect(notificarStockBajo).not.toHaveBeenCalled();
       error.mockRestore();
@@ -102,21 +127,21 @@ describe("registrarPagoOrder", () => {
 
   it.each(["failed", "processing"])("order %s se registra pero no avisa del stock", async (status) => {
     const { db, upserts } = cliente();
-    await registrarPagoOrder(db, order({ status }));
+    await registrarPagoOrder(db, order({ status }), null);
     expect(upserts).toHaveLength(1);
     expect(notificarStockBajo).not.toHaveBeenCalled();
   });
 
   it("sin referencia al pedido: no hace nada", async () => {
     const { db, upserts } = cliente();
-    expect(await registrarPagoOrder(db, order({ external_reference: undefined }))).toBeNull();
+    expect(await registrarPagoOrder(db, order({ external_reference: undefined }), null)).toBeNull();
     expect(upserts).toHaveLength(0);
   });
 
   it("pedido inexistente: null y sin pago", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const { db, upserts } = cliente({ pedido: null });
-    expect(await registrarPagoOrder(db, order())).toBeNull();
+    expect(await registrarPagoOrder(db, order(), null)).toBeNull();
     expect(upserts).toHaveLength(0);
     error.mockRestore();
   });
@@ -124,7 +149,7 @@ describe("registrarPagoOrder", () => {
   it("si falla el guardado: null, queda en el log y no avisa del stock", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const { db } = cliente({ upsertError: { message: "boom" } });
-    expect(await registrarPagoOrder(db, order())).toBeNull();
+    expect(await registrarPagoOrder(db, order(), null)).toBeNull();
     expect(error).toHaveBeenCalled();
     expect(notificarStockBajo).not.toHaveBeenCalled();
     error.mockRestore();

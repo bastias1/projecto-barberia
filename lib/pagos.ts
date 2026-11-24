@@ -75,7 +75,7 @@ export function mensajeRechazo(statusDetail: string | undefined): string {
  * (`errors[]`) y, en un 402 (order creada pero el pago falló), también la order.
  */
 export async function crearOrder(accessToken: string, body: Record<string, unknown>, idempotencyKey: string, deviceId?: string): Promise<
-  { ok: true; order: OrderResponse } | { ok: false; status: number; order: OrderResponse | null; errores: unknown }
+  { status: number; order: OrderResponse | null; errores: unknown }
 > {
   const res = await fetch("https://api.mercadopago.com/v1/orders", {
     method: "POST",
@@ -91,8 +91,8 @@ export async function crearOrder(accessToken: string, body: Record<string, unkno
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
-  if (res.ok) return { ok: true, order: json as OrderResponse };
-  return { ok: false, status: res.status, order: (json.data as OrderResponse) ?? null, errores: json.errors ?? json };
+  if (res.ok) return { status: res.status, order: json as OrderResponse, errores: null };
+  return { status: res.status, order: (json.data as OrderResponse) ?? null, errores: json.errors ?? json };
 }
 
 interface PagoNuevo {
@@ -113,10 +113,9 @@ interface PagoNuevo {
  * Devuelve false si no se pudo guardar (el error queda en el log).
  */
 export async function registrarPago(supabase: SupabaseClient, p: PagoNuevo): Promise<boolean> {
-  // La respuesta síncrona y el webhook registran el mismo pago: el correo sale solo cuando cambia el estado
-  const { data: previo } = await supabase.from("pago").select("estado").eq("proveedor", "mercadopago").eq("id_transaccion_externa", p.idTransaccion).maybeSingle();
-  const cambio = previo?.estado !== p.estado;
-  const { error } = await supabase.from("pago").upsert(
+  // La respuesta síncrona y el webhook registran el mismo pago, a veces a la vez: el correo sale solo para
+  // quien escribió el cambio de estado (insert nuevo o update condicional), así no se repite
+  const { data: insertado, error } = await supabase.from("pago").upsert(
     {
       id_barberia: p.idBarberia,
       concepto: p.concepto,
@@ -128,10 +127,21 @@ export async function registrarPago(supabase: SupabaseClient, p: PagoNuevo): Pro
       estado: p.estado,
       detalle: p.detalle,
     },
-    { onConflict: "proveedor,id_transaccion_externa" }
-  );
-  if (error) {
-    console.error(`[pagos] No se pudo registrar el pago ${p.idTransaccion}:`, error);
+    { onConflict: "proveedor,id_transaccion_externa", ignoreDuplicates: true }
+  ).select("id_transaccion_externa");
+  let cambio = Boolean(insertado?.length);
+  let errorUpdate = null;
+  if (!error && !cambio) {
+    const { data: actualizado, error: e } = await supabase.from("pago")
+      .update({ estado: p.estado, monto: p.monto, detalle: p.detalle })
+      .eq("proveedor", "mercadopago").eq("id_transaccion_externa", p.idTransaccion)
+      .neq("estado", p.estado)
+      .select("id_transaccion_externa");
+    cambio = Boolean(actualizado?.length);
+    errorUpdate = e;
+  }
+  if (error || errorUpdate) {
+    console.error(`[pagos] No se pudo registrar el pago ${p.idTransaccion}:`, error ?? errorUpdate);
     return false;
   }
   if (p.concepto === "pedido" && p.estado === "aprobado") {
@@ -154,8 +164,9 @@ async function buscarPedido(supabase: SupabaseClient, ref: string, origen: strin
  * Registra el pago de una order de la tienda (Orders API).
  * `idBarberiaEsperada`: la barbería de cuyo token se leyó la order; si el pedido es de otra, no se registra
  * (el cuerpo del webhook no va firmado, así que el vendedor que informa no es de fiar por sí solo).
+ * `null` solo para orders leídas con la cuenta de Sunwalk (vendedor desconocido en el webhook).
  */
-export async function registrarPagoOrder(supabase: SupabaseClient, order: OrderResponse, idBarberiaEsperada?: string): Promise<EstadoPago | null> {
+export async function registrarPagoOrder(supabase: SupabaseClient, order: OrderResponse, idBarberiaEsperada: string | null): Promise<EstadoPago | null> {
   if (!order.id || !order.external_reference) return null;
   const pedido = await buscarPedido(supabase, order.external_reference, `Order ${order.id}`);
   if (!pedido) return null;
