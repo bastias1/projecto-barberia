@@ -56,9 +56,9 @@ export function BlockedDates({ barberId, barberiaId, initialBlockedDates }: Bloc
       setNewBlock({ fecha: "", motivo: "" });
       setDialogOpen(false);
       router.refresh();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding blocked date:', error);
-      if (error.code === '23505') {
+      if ((error as { code?: string }).code === "23505") {
         toast.error('Esta fecha ya está bloqueada');
       } else {
         toast.error('Error al bloquear fecha');

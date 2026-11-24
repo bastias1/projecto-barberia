@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/mode-toggle";
+import { BarberiaNavbar } from "@/components/barberia-navbar";
 import { BarberSelection } from "@/components/booking/barber-selection";
 import { ServiceSelection } from "@/components/booking/service-selection";
 import { DateTimeSelection } from "@/components/booking/date-time-selection";
@@ -22,8 +22,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useBarberia } from "@/components/barberia-provider";
 import { BlockedClientModal } from "@/components/booking/blocked-client-modal";
 import { RequiereModulo } from "@/components/requiere-modulo";
-import Link from "next/link";
-import { AlertTriangle, ArrowLeft, ArrowRight, Loader2, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -323,17 +322,7 @@ function Agendar() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-2 px-4">
-          <Button asChild variant="ghost" className="-ml-3 h-11 gap-2">
-            <Link href={`/${barberia.slug}`}>
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              <span className="max-w-[12rem] truncate">{barberia.nombre}</span>
-            </Link>
-          </Button>
-          <ModeToggle />
-        </div>
-      </header>
+      <BarberiaNavbar ancho="max-w-2xl" />
 
       <main id="contenido" className="mx-auto max-w-2xl px-4 pb-28 pt-6">
         {step <= 4 && (

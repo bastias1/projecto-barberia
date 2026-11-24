@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/mode-toggle";
+import { BarberiaNavbar } from "@/components/barberia-navbar";
 import { LegalLinks } from "@/components/legal-links";
 import { RecentCutsCarousel } from "@/components/recent-cuts-carousel";
 import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
 import Link from "next/link";
-import { ArrowRight, Clock, Instagram, LogIn, MapPin, ShoppingBag, Star } from "lucide-react";
+import { ArrowRight, Clock, Instagram, MapPin, ShoppingBag, Star } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { getSucursales } from "@/lib/barberia";
 import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
@@ -47,40 +47,13 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link href={`/${slug}`} className="flex min-h-11 min-w-0 items-center gap-2 font-semibold">
-            {barberia.logo_url ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element -- los logos pueden venir de cualquier host */}
-                <img src={barberia.logo_url} alt="" className={`h-8 max-w-32 object-contain ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`} />
-                {barberia.logo_oscuro_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={barberia.logo_oscuro_url} alt="" className="hidden h-8 max-w-32 object-contain dark:block" />
-                )}
-                <span className="sr-only">{barberia.nombre}</span>
-              </>
-            ) : (
-              <span className="display truncate text-xl">{barberia.nombre}</span>
-            )}
-          </Link>
-          <div className="flex items-center gap-2">
-            <ModeToggle />
-            <Button asChild variant="ghost" className="h-11 px-3">
-              <Link href={`/login?barberia=${slug}`}>
-                <LogIn className="size-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Iniciar sesión</span>
-                <span className="sr-only sm:hidden">Iniciar sesión</span>
-              </Link>
-            </Button>
-            {conAgenda && (
-              <Button asChild className="h-11">
-                <Link href={`/${slug}/agendar`}>Reservar</Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
+      <BarberiaNavbar
+        acciones={conAgenda && (
+          <Button asChild className="h-11">
+            <Link href={`/${slug}/agendar`}>Reservar</Link>
+          </Button>
+        )}
+      />
 
       <main id="contenido">
         {/* Portada: nombre, eslogan y acciones */}

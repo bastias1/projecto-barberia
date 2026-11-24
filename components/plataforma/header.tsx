@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Marca } from "./marca";
 import { MenuMovil, type EnlaceNav } from "./menu-movil";
+import { MenuCuenta, useSesion } from "./menu-cuenta";
 
 const ENLACES_LANDING: EnlaceNav[] = [
   { href: "/#producto", label: "Producto" },
@@ -13,9 +16,11 @@ const ENLACES_LANDING: EnlaceNav[] = [
 
 /**
  * Cabecera de la plataforma. En teléfono: marca + menú; desde md: enlaces en línea.
- * `miPanel` = destino del panel si hay sesión. Páginas sin enlaces (login, registro) pasan `simple`.
+ * Lee la sesión en el navegador: con sesión muestra el avatar con menú de cuenta en todas las páginas.
+ * Páginas sin enlaces (login, registro) pasan `simple`.
  */
-export function HeaderPlataforma({ miPanel = null, simple = false }: { miPanel?: string | null; simple?: boolean }) {
+export function HeaderPlataforma({ simple = false }: { simple?: boolean }) {
+  const sesion = useSesion();
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
@@ -30,18 +35,19 @@ export function HeaderPlataforma({ miPanel = null, simple = false }: { miPanel?:
         <div className="flex items-center gap-2">
           <ModeToggle />
           {simple ? (
-            <Button asChild variant="outline" className="h-11">
-              <Link href="/">Volver</Link>
-            </Button>
+            <>
+              <Button asChild variant="outline" className="h-11">
+                <Link href="/">Volver</Link>
+              </Button>
+              <MenuCuenta sesion={sesion} soloConSesion />
+            </>
           ) : (
             <>
-              <Button asChild variant="ghost" className="hidden h-11 md:inline-flex">
-                <Link href={miPanel ?? "/login"}>{miPanel ? "Mi panel" : "Iniciar sesión"}</Link>
-              </Button>
+              <MenuCuenta sesion={sesion} />
               <Button asChild className="hidden h-11 md:inline-flex">
                 <Link href="/registro">Prueba gratis</Link>
               </Button>
-              <MenuMovil enlaces={ENLACES_LANDING} miPanel={miPanel} />
+              <MenuMovil enlaces={ENLACES_LANDING} miPanel={sesion.destino} />
             </>
           )}
         </div>

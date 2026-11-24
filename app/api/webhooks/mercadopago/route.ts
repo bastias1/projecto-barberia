@@ -23,7 +23,6 @@ function firmaValida(request: Request, dataId: string, secrets: string[]): boole
 }
 
 export async function POST(request: Request) {
-    console.log('🔔 Webhook endpoint called');
     try {
         const body = await request.json().catch(() => null);
 
@@ -31,8 +30,6 @@ export async function POST(request: Request) {
             console.error('❌ No body in request');
             return new Response('No body', { status: 400 });
         }
-
-        console.log('📦 Webhook body:', JSON.stringify(body, null, 2));
 
         // Verify Signature (REQUIRED for security)
         const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
@@ -49,8 +46,6 @@ export async function POST(request: Request) {
             console.error("Invalid signature - potential security threat");
             return new Response("Invalid signature", { status: 401 });
         }
-
-        console.log("✅ Webhook signature verified successfully");
 
         const { type, data } = body;
 

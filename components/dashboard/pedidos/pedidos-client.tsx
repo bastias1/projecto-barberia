@@ -78,7 +78,7 @@ interface Pedido {
 }
 
 interface PedidosClientProps {
-    initialOrders: any[];
+    initialOrders: PedidoRow[];
     totalPages: number;
     currentPage: number;
     totalOrders: number;

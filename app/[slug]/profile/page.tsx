@@ -11,6 +11,7 @@ import { OrderHistory } from "@/components/profile/order-history";
 import { BookingHistory } from "@/components/profile/booking-history";
 import { Loader2, User, MapPin, Lock, ArrowLeft, Package, CalendarClock } from "lucide-react";
 import Link from "next/link";
+import { BarberiaNavbar } from "@/components/barberia-navbar";
 import { useBarberia } from "@/components/barberia-provider";
 
 export default function ProfilePage() {
@@ -40,6 +41,8 @@ export default function ProfilePage() {
     }
 
     return (
+        <>
+        <BarberiaNavbar />
         <div className="container mx-auto py-10 px-4 max-w-4xl">
             <div className="mb-6">
                 <Link
@@ -102,5 +105,6 @@ export default function ProfilePage() {
                 </TabsContent>
             </Tabs>
         </div>
+        </>
     );
 }

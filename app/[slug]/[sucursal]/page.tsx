@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Calendar, Clock, MapPin, Phone } from "lucide-react";
+import { Calendar, Clock, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ModeToggle } from "@/components/mode-toggle";
+import { BarberiaNavbar } from "@/components/barberia-navbar";
 import { createClient } from "@/utils/supabase/server";
 import { getProfesionalesDeSucursal, getSucursalBySlug, getSucursales } from "@/lib/barberia";
 import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
@@ -55,24 +55,13 @@ export default async function SucursalPage({ params }: { params: Params }) {
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Button asChild variant="ghost" className="-ml-3 h-11 gap-2">
-            <Link href={`/${barberia.slug}`}>
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              <span className="max-w-[12rem] truncate">{barberia.nombre}</span>
-            </Link>
+      <BarberiaNavbar
+        acciones={tieneModulo(modulos, "agenda") && (
+          <Button asChild className="h-11">
+            <Link href={agendarHref}>Reservar</Link>
           </Button>
-          <div className="flex items-center gap-2">
-            <ModeToggle />
-            {tieneModulo(modulos, "agenda") && (
-              <Button asChild className="h-11">
-                <Link href={agendarHref}>Reservar</Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
+        )}
+      />
 
       <main id="contenido" className="mx-auto max-w-5xl px-4 pb-16 pt-10 sm:px-6 md:pt-14">
         <section className="mb-12">
