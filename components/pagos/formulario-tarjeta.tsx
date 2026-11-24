@@ -15,7 +15,7 @@ type MercadoPagoJs = new (publicKey: string, options?: { locale?: string }) => {
 declare global {
   interface Window {
     MercadoPago?: MercadoPagoJs;
-    /** Device ID del comprador: MercadoPago.js v2 lo crea solo al cargar. */
+    /** Device ID del comprador: lo crea security.js de Mercado Pago al cargar. */
     MP_DEVICE_SESSION_ID?: string;
   }
 }
@@ -182,6 +182,8 @@ export function FormularioTarjeta({
         onReady={() => setSdkListo(true)}
         onError={() => setErrorInicio("No se pudo cargar Mercado Pago. Revisa tu conexión o desactiva el bloqueador de anuncios.")}
       />
+      {/* Device ID: MercadoPago.js v2 no expone window.MP_DEVICE_SESSION_ID; este script de Mercado Pago sí, y el servidor lo envía como X-Meli-Session-Id */}
+      <Script src="https://www.mercadopago.com/v2/security.js" strategy="afterInteractive" {...{ view: "checkout" }} />
 
       <div
         id="checkout-init-error"
