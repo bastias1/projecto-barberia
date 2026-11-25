@@ -24,10 +24,10 @@ Domain terms used in the code. Names stay in Spanish where the code uses them.
 
 **Apariencia**: how a barbería's public pages look, as chosen by its admin: Secciones, Modo, Tema and Diseño.
 
-**Sección**: one block of the barbería's home page that can be shown, hidden and reordered. The portada (header) is not one: it is always first.
+**Sección**: one block of the barbería's home page that can be shown, hidden and reordered. The encabezado (header) is not one: it is always first.
 
 **Modo**: light, dark or automatic (follows the visitor's device). Not part of the Tema.
 
 **Tema**: colors, font and card style of the barbería's public pages.
 
-**Diseño**: how the home page arranges the portada and the Secciones.
+**Diseño**: how the home page arranges the encabezado and the Secciones. A foto de portada is the banner of one of the diseños.

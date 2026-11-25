@@ -10,7 +10,7 @@ export default async function AparienciaPage({ params }: { params: Promise<{ slu
       <div>
         <h1 className="display text-3xl">Apariencia</h1>
         <p className="mt-1 text-muted-foreground">
-          Elige las secciones, colores y estilo de tus páginas. Los cambios se publican al guardar.
+          Elige las secciones, colores, estilo y diseño de tus páginas. Los cambios se publican al guardar.
         </p>
       </div>
       <AparienciaEditor idBarberia={barberia.id_barberia} slug={barberia.slug} inicial={leerApariencia(barberia.apariencia)} />

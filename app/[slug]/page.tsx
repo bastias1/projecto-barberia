@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { BarberiaNavbar } from "@/components/barberia-navbar";
 import { LegalLinks } from "@/components/legal-links";
 import { RecentCutsCarousel } from "@/components/recent-cuts-carousel";
-import { SeccionesHome } from "@/components/secciones-home";
+import { DisenoHome } from "@/components/diseno-home";
 import { Vidrio } from "@/components/vidrio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
@@ -64,7 +64,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
   const hayResumen = resumen && resumen.total > 0 && resumen.promedio !== null;
   const barberos = (equipo ?? []) as { id_profesional: string; nombre_visible: string; profile_image: string | null; especialidad: string | null }[];
 
-  // Cada sección es falsa si no tiene contenido; el orden y la visibilidad los pone SeccionesHome
+  // Cada sección es falsa si no tiene contenido; el orden y la visibilidad los pone DisenoHome
   const nodos: Record<SeccionId, React.ReactNode> = {
     sucursales: sucursales.length > 1 && (
       <Seccion titulo={SECCION_NOMBRE.sucursales}>
@@ -239,6 +239,60 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
     ),
   };
 
+  // Nombre, eslogan y acciones: se escribe una vez y cada diseño lo ubica
+  const encabezado = (
+    <section className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:px-6 md:pb-16 md:pt-16 lg:group-data-[diseno=columna]/home:py-10">
+      {barberia.logo_url && (
+        <div className="mb-8">
+          {/* eslint-disable-next-line @next/next/no-img-element -- los logos pueden venir de cualquier host */}
+          <img src={barberia.logo_url} alt={`Logo ${barberia.nombre}`} className={`h-20 max-w-64 object-contain object-left sm:h-28 ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`} />
+          {barberia.logo_oscuro_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={barberia.logo_oscuro_url} alt={`Logo ${barberia.nombre}`} className="hidden h-20 max-w-64 object-contain object-left sm:h-28 dark:block" />
+          )}
+        </div>
+      )}
+      <h1 className="display max-w-3xl text-4xl sm:text-5xl lg:text-6xl lg:group-data-[diseno=columna]/home:text-4xl">
+        {barberia.logo_url ? (barberia.eslogan || barberia.nombre) : barberia.nombre}
+      </h1>
+      {!barberia.logo_url && barberia.eslogan && (
+        <p className="mt-4 max-w-2xl text-lg text-muted-foreground sm:text-xl">{barberia.eslogan}</p>
+      )}
+      {principal && (
+        <p className="mt-4 flex items-center gap-2 text-muted-foreground">
+          <MapPin className="size-4 shrink-0" aria-hidden="true" />
+          {principal.direccion}, {principal.comuna}
+        </p>
+      )}
+
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:group-data-[diseno=columna]/home:flex-col">
+        {conAgenda ? (
+          <Button asChild size="lg" className="h-12 w-full px-6 text-base sm:w-auto lg:group-data-[diseno=columna]/home:w-full">
+            <Link href={`/${slug}/agendar`}>Agendar cita <ArrowRight className="size-4" aria-hidden="true" /></Link>
+          </Button>
+        ) : (
+          <p className="rounded-xl border border-dashed border-border px-4 py-3 text-muted-foreground">
+            Las reservas en línea no están disponibles.{" "}
+            {barberia.telefono ? `Agenda llamando al ${barberia.telefono}.` : "Contacta a la barbería para agendar."}
+          </p>
+        )}
+        {conTienda && (
+          <Button asChild size="lg" variant="outline" className="h-12 w-full px-6 text-base sm:w-auto lg:group-data-[diseno=columna]/home:w-full">
+            <Link href={`/${slug}/tienda`}><ShoppingBag className="size-4" aria-hidden="true" /> Ir a la tienda</Link>
+          </Button>
+        )}
+      </div>
+
+      {hayResumen && (
+        <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+          <Star className="size-4 fill-current text-foreground" aria-hidden="true" />
+          <span className="font-semibold text-foreground">{Number(resumen.promedio).toLocaleString("es-CL", { minimumFractionDigits: 1 })}</span> de 5
+          {" · "}{resumen.total} {resumen.total === 1 ? "opinión" : "opiniones"}
+        </p>
+      )}
+    </section>
+  );
+
   return (
     <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
       <BarberiaNavbar
@@ -250,59 +304,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
       />
 
       <main id="contenido">
-        {/* Portada: nombre, eslogan y acciones */}
-        <section className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:px-6 md:pb-16 md:pt-16">
-          {barberia.logo_url && (
-            <div className="mb-8">
-              {/* eslint-disable-next-line @next/next/no-img-element -- los logos pueden venir de cualquier host */}
-              <img src={barberia.logo_url} alt={`Logo ${barberia.nombre}`} className={`h-20 max-w-64 object-contain object-left sm:h-28 ${barberia.logo_oscuro_url ? "dark:hidden" : ""}`} />
-              {barberia.logo_oscuro_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={barberia.logo_oscuro_url} alt={`Logo ${barberia.nombre}`} className="hidden h-20 max-w-64 object-contain object-left sm:h-28 dark:block" />
-              )}
-            </div>
-          )}
-          <h1 className="display max-w-3xl text-4xl sm:text-5xl lg:text-6xl">
-            {barberia.logo_url ? (barberia.eslogan || barberia.nombre) : barberia.nombre}
-          </h1>
-          {!barberia.logo_url && barberia.eslogan && (
-            <p className="mt-4 max-w-2xl text-lg text-muted-foreground sm:text-xl">{barberia.eslogan}</p>
-          )}
-          {principal && (
-            <p className="mt-4 flex items-center gap-2 text-muted-foreground">
-              <MapPin className="size-4 shrink-0" aria-hidden="true" />
-              {principal.direccion}, {principal.comuna}
-            </p>
-          )}
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            {conAgenda ? (
-              <Button asChild size="lg" className="h-12 w-full px-6 text-base sm:w-auto">
-                <Link href={`/${slug}/agendar`}>Agendar cita <ArrowRight className="size-4" aria-hidden="true" /></Link>
-              </Button>
-            ) : (
-              <p className="rounded-xl border border-dashed border-border px-4 py-3 text-muted-foreground">
-                Las reservas en línea no están disponibles.{" "}
-                {barberia.telefono ? `Agenda llamando al ${barberia.telefono}.` : "Contacta a la barbería para agendar."}
-              </p>
-            )}
-            {conTienda && (
-              <Button asChild size="lg" variant="outline" className="h-12 w-full px-6 text-base sm:w-auto">
-                <Link href={`/${slug}/tienda`}><ShoppingBag className="size-4" aria-hidden="true" /> Ir a la tienda</Link>
-              </Button>
-            )}
-          </div>
-
-          {hayResumen && (
-            <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-              <Star className="size-4 fill-current text-foreground" aria-hidden="true" />
-              <span className="font-semibold text-foreground">{Number(resumen.promedio).toLocaleString("es-CL", { minimumFractionDigits: 1 })}</span> de 5
-              {" · "}{resumen.total} {resumen.total === 1 ? "opinión" : "opiniones"}
-            </p>
-          )}
-        </section>
-
-        <SeccionesHome nodos={nodos} />
+        <DisenoHome encabezado={encabezado} nodos={nodos} />
       </main>
 
       <footer className="border-t border-border">

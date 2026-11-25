@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AparienciaTema } from "@/components/dashboard/apariencia-tema";
+import { AparienciaDiseno, AparienciaTema } from "@/components/dashboard/apariencia-tema";
 import { createClient } from "@/utils/supabase/client";
 import { useModulos } from "@/components/barberia-provider";
 import { tieneModulo, type ModuloCodigo } from "@/lib/modulos";
@@ -111,7 +111,15 @@ function VistaPrevia({ slug, apariencia }: { slug: string; apariencia: Aparienci
     return () => observador.disconnect();
   }, []);
 
-  const anchoPagina = movil ? 390 : 1280;
+  // El ancho de esta ventana: así la foto de portada se recorta igual que en la página que ve quien edita
+  const [anchoVentana, setAnchoVentana] = useState(1280);
+  useEffect(() => {
+    const medir = () => setAnchoVentana(Math.max(1280, window.innerWidth));
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, []);
+  const anchoPagina = movil ? 390 : anchoVentana;
   const escala = ancho ? Math.min(1, ancho / anchoPagina) : 1;
   const alto = 640;
 
@@ -198,7 +206,11 @@ export function AparienciaEditor({ idBarberia, slug, inicial }: { idBarberia: st
             <TabsList className="w-full">
               <TabsTrigger value="secciones">Secciones</TabsTrigger>
               <TabsTrigger value="tema">Tema</TabsTrigger>
+              <TabsTrigger value="diseno">Diseño</TabsTrigger>
             </TabsList>
+            <TabsContent value="diseno">
+              <AparienciaDiseno idBarberia={idBarberia} apariencia={apariencia} onChange={setApariencia} />
+            </TabsContent>
             <TabsContent value="tema">
               <AparienciaTema tema={apariencia.tema} onChange={(tema) => setApariencia({ ...apariencia, tema })} />
             </TabsContent>
@@ -207,7 +219,7 @@ export function AparienciaEditor({ idBarberia, slug, inicial }: { idBarberia: st
           <ul>
             <li className="flex items-center gap-2 border-t border-border py-1">
               <span className="grid size-11 shrink-0 place-items-center text-muted-foreground"><Lock className="size-4" aria-hidden="true" /></span>
-              <span className="flex-1 py-2">Portada <span className="sr-only">(siempre va primero)</span></span>
+              <span className="flex-1 py-2">Encabezado <span className="sr-only">(siempre va primero)</span></span>
             </li>
             <DndContext id="secciones" sensors={sensores} collisionDetection={closestCenter} onDragEnd={alSoltar} accessibility={ACCESIBILIDAD}>
               <SortableContext items={secciones.map((s) => s.id)} strategy={verticalListSortingStrategy}>

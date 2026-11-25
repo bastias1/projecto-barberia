@@ -24,6 +24,9 @@ export interface SeccionConfig {
   visible: boolean;
 }
 
+// Cómo se acomodan el encabezado y las secciones en el inicio
+export const DISENOS = { clasico: "Clásico", columna: "Dos columnas", portada: "Portada con foto" };
+
 export const MODOS = { auto: "Automático", claro: "Claro", oscuro: "Oscuro" };
 
 // Opciones del tema: la primera de cada una es el aspecto por defecto
@@ -47,9 +50,23 @@ export type Tema =
   { [K in keyof typeof COLORES]: string | null } &
   { modo: keyof typeof MODOS };
 
+/** Qué parte de la foto de portada se ve: punto (x, y) en % y acercamiento en %. */
+export const ENCUADRE = {
+  x: { nombre: "Horizontal", min: 0, max: 100, base: 50 },
+  y: { nombre: "Vertical", min: 0, max: 100, base: 50 },
+  zoom: { nombre: "Acercar", min: 100, max: 200, base: 100 },
+};
+export type Encuadre = Record<keyof typeof ENCUADRE, number>;
+
+export const ENCUADRE_POR_DEFECTO: Encuadre = { x: 50, y: 50, zoom: 100 };
+
 export interface Apariencia {
   secciones: SeccionConfig[];
   tema: Tema;
+  diseno: keyof typeof DISENOS;
+  /** Foto de portada subida a la carpeta de la barbería; se usa con el diseño "portada". */
+  portada: string | null;
+  encuadre: Encuadre;
 }
 
 export const TEMA_POR_DEFECTO: Tema = {
@@ -83,7 +100,7 @@ const OCULTAS: SeccionId[] = ["productos"];
 const porDefecto = (id: SeccionId): SeccionConfig => ({ id, visible: !OCULTAS.includes(id) });
 
 export function aparienciaPorDefecto(): Apariencia {
-  return { secciones: SECCIONES.map(porDefecto), tema: { ...TEMA_POR_DEFECTO } };
+  return { secciones: SECCIONES.map(porDefecto), tema: { ...TEMA_POR_DEFECTO }, diseno: "clasico", portada: null, encuadre: { ...ENCUADRE_POR_DEFECTO } };
 }
 
 function leerSecciones(guardadas: unknown): SeccionConfig[] {
@@ -113,13 +130,30 @@ function leerTema(guardado: unknown): Tema {
   return tema as Tema;
 }
 
+// Solo fotos subidas a barberias/<id>/portada/ de nuestro Storage
+function leerPortada(url: unknown): string | null {
+  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/imgs/barberias/`;
+  return typeof url === "string" && url.startsWith(base) && /^[0-9a-f-]+\/portada\/\w+\.\w+$/i.test(url.slice(base.length)) ? url : null;
+}
+
+function leerEncuadre(guardado: unknown): Encuadre {
+  const g = (guardado ?? {}) as Record<string, unknown>;
+  const encuadre = { ...ENCUADRE_POR_DEFECTO };
+  for (const [campo, { min, max }] of Object.entries(ENCUADRE)) {
+    const valor = g[campo];
+    if (typeof valor === "number" && Number.isFinite(valor)) encuadre[campo as keyof Encuadre] = Math.min(max, Math.max(min, Math.round(valor)));
+  }
+  return encuadre;
+}
+
 /**
  * Lee lo guardado (o recibido por la vista previa). El admin puede escribir cualquier JSON por la API:
  * solo pasa lo conocido; lo demás vuelve a su valor por defecto.
  */
 export function leerApariencia(json: unknown): Apariencia {
-  const g = (json ?? {}) as { secciones?: unknown; tema?: unknown };
-  return { secciones: leerSecciones(g.secciones), tema: leerTema(g.tema) };
+  const g = (json ?? {}) as { secciones?: unknown; tema?: unknown; diseno?: unknown; portada?: unknown; encuadre?: unknown };
+  const diseno = typeof g.diseno === "string" && Object.hasOwn(DISENOS, g.diseno) ? (g.diseno as Apariencia["diseno"]) : "clasico";
+  return { secciones: leerSecciones(g.secciones), tema: leerTema(g.tema), diseno, portada: leerPortada(g.portada), encuadre: leerEncuadre(g.encuadre) };
 }
 
 /** Qué muestra la vista previa: el inicio real, o Reservar y Tienda con datos de ejemplo. */

@@ -16,7 +16,7 @@ const MAX_GALERIA = 12;
 const MAX_IMAGEN_MB = 5;
 
 /** Sube una imagen a la carpeta de la barbería (Storage solo deja escribir a su admin). */
-async function subirImagen(idBarberia: string, carpeta: "logo" | "galeria", file: File): Promise<string> {
+async function subirImagen(idBarberia: string, carpeta: "logo" | "galeria" | "portada", file: File): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("El archivo debe ser una imagen");
   if (file.size > MAX_IMAGEN_MB * 1024 * 1024) throw new Error(`La imagen no puede pesar más de ${MAX_IMAGEN_MB} MB`);
 
@@ -29,7 +29,8 @@ async function subirImagen(idBarberia: string, carpeta: "logo" | "galeria", file
   return supabase.storage.from("imgs").getPublicUrl(path).data.publicUrl;
 }
 
-function LogoInput({
+export function LogoInput({
+  carpeta = "logo",
   label,
   descripcion,
   value,
@@ -37,6 +38,7 @@ function LogoInput({
   idBarberia,
   fondo,
 }: {
+  carpeta?: "logo" | "portada";
   label: string;
   descripcion: string;
   value: string | null;
@@ -51,7 +53,7 @@ function LogoInput({
     if (!file) return;
     setSubiendo(true);
     try {
-      onChange(await subirImagen(idBarberia, "logo", file));
+      onChange(await subirImagen(idBarberia, carpeta, file));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo subir la imagen");
     } finally {
@@ -67,7 +69,7 @@ function LogoInput({
         {value ? (
           <img src={value} alt={label} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className={`text-xs ${fondo === "claro" ? "text-zinc-500" : "text-zinc-400"}`}>Sin logo</span>
+          <span className={`text-xs ${fondo === "claro" ? "text-zinc-500" : "text-zinc-400"}`}>{carpeta === "logo" ? "Sin logo" : "Sin foto"}</span>
         )}
       </div>
       <p className="text-xs text-muted-foreground">{descripcion}</p>

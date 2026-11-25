@@ -40,6 +40,21 @@ describe("leerApariencia", () => {
     expect(cssTema(tema)).not.toContain("script");
   });
 
+  it("el diseño es uno conocido y la foto de portada solo viene de nuestro Storage", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://proyecto.supabase.co";
+    const base = "https://proyecto.supabase.co/storage/v1/object/public/imgs/barberias/";
+    const buena = `${base}1b2c-3d/portada/1700000000000_ab12cd.jpg`;
+    expect(leerApariencia({ diseno: "columna", portada: buena })).toMatchObject({ diseno: "columna", portada: buena });
+    for (const portada of ["https://otro.example/x.jpg", `${base}1b2c/logo/x.jpg`, `${base}1b2c/portada/../../x.jpg`, `${buena}?a="><script>`, "javascript:alert(1)", 5]) {
+      expect(leerApariencia({ diseno: "toString", portada })).toMatchObject({ diseno: "clasico", portada: null });
+    }
+  });
+
+  it("el encuadre de la foto queda dentro de sus límites", () => {
+    expect(leerApariencia({ encuadre: { x: -20, y: 33.6, zoom: 999 } }).encuadre).toEqual({ x: 0, y: 34, zoom: 200 });
+    expect(leerApariencia({ encuadre: { x: "10", y: NaN, zoom: null } }).encuadre).toEqual({ x: 50, y: 50, zoom: 100 });
+  });
+
   it("los presets son temas válidos", () => {
     for (const { tema } of PRESETS) expect(leerApariencia({ tema }).tema).toEqual(tema);
   });
