@@ -19,6 +19,7 @@ import { createClient } from "@/utils/supabase/client";
 import { ESTADO_PAGO, ESTADO_PEDIDO, parseDireccion } from "@/lib/pedido-estados";
 import type { EstadoPagoPedido, EstadoPedido } from "@/lib/database.types";
 import { one } from "@/lib/utils";
+import { Vidrio } from "@/components/vidrio";
 
 interface Producto {
     nombre: string;
@@ -135,6 +136,7 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
 
     return (
         <Card>
+          <Vidrio />
             <CardHeader>
                 <CardTitle>Historial de Pedidos</CardTitle>
                 <CardDescription>Revisa el estado de tus compras anteriores.</CardDescription>
@@ -142,7 +144,7 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
             <CardContent>
                 {orders.length === 0 ? (
                     <div className="text-center py-12">
-                        <Package className="h-16 w-16 mx-auto mb-4 text-zinc-300 dark:text-zinc-700" />
+                        <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
                         <h3 className="text-lg font-semibold mb-2">No tienes pedidos</h3>
                         <p className="text-muted-foreground text-sm">
                             Cuando realices una compra, aparecerá aquí.
@@ -156,8 +158,8 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
                                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 bg-zinc-100 dark:bg-zinc-800 rounded-lg flex items-center justify-center">
-                                        <Package className="h-6 w-6 text-zinc-500" />
+                                    <div className="h-12 w-12 bg-muted rounded-lg flex items-center justify-center">
+                                        <Package className="h-6 w-6 text-muted-foreground" />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
@@ -194,7 +196,7 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
 
                                             <div className="space-y-4 py-4">
                                                 {/* Order Status */}
-                                                <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg">
+                                                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                                                     <span className="text-sm text-muted-foreground">Estado</span>
                                                     {getStatusBadge(order.estado)}
                                                 </div>
@@ -205,7 +207,7 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
                                                     <div className="space-y-3 max-h-[200px] overflow-y-auto">
                                                         {order.detalle_pedido?.map((detalle, index) => (
                                                             <div key={index} className="flex items-center gap-3">
-                                                                <div className="relative h-12 w-12 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden flex-shrink-0">
+                                                                <div className="relative h-12 w-12 bg-muted rounded-md overflow-hidden flex-shrink-0">
                                                                     {detalle.producto?.imagen_url ? (
                                                                         <Image
                                                                             src={detalle.producto.imagen_url}
@@ -239,7 +241,7 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
                                                 {order.tipo_entrega === "despacho" && order.direccion_envio && (
                                                     <div>
                                                         <h4 className="font-semibold mb-2">Dirección de envío</h4>
-                                                        <div className="text-sm bg-zinc-50 dark:bg-zinc-900 p-3 rounded-md">
+                                                        <div className="text-sm bg-muted p-3 rounded-md">
                                                             {parseDireccion(order.direccion_envio)?.lineas.map((linea, i) => (
                                                                 <p key={i}>{linea}</p>
                                                             ))}

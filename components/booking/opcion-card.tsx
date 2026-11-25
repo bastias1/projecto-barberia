@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import { Vidrio } from "@/components/vidrio";
 import { cn } from "@/lib/utils";
 
 /** Opción seleccionable de un paso (sucursal, barbero, servicio): botón de >=64px con estado marcado. */
@@ -19,10 +20,11 @@ export function OpcionCard({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors",
+        "tarjeta flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors",
         selected ? "border-primary bg-accent" : "border-border bg-card hover:bg-muted",
       )}
     >
+      <Vidrio />
       <div className="min-w-0 flex-1">{children}</div>
       <span
         aria-hidden="true"

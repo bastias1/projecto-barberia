@@ -7,6 +7,7 @@ import { es } from "date-fns/locale";
 import Link from "next/link";
 import { useBarberiaHref } from "@/components/barberia-provider";
 import type { Sucursal } from "@/lib/barberia";
+import { Vidrio } from "@/components/vidrio";
 
 interface Service {
   id: number;
@@ -66,7 +67,8 @@ export function BookingConfirmation({
         <p className="mt-2 text-muted-foreground">Te enviamos un correo a <span className="break-all text-foreground">{formData.email}</span> con los links para confirmar o cancelar.</p>
       </div>
 
-      <dl className="divide-y divide-border rounded-xl border border-border bg-card px-4">
+      <dl className="divide-y divide-border tarjeta rounded-xl border border-border bg-card px-4">
+        <Vidrio />
         {sucursal && (
           <Fila etiqueta="Sucursal">
             {sucursal.nombre}

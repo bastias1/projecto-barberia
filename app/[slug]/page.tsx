@@ -4,6 +4,7 @@ import { BarberiaNavbar } from "@/components/barberia-navbar";
 import { LegalLinks } from "@/components/legal-links";
 import { RecentCutsCarousel } from "@/components/recent-cuts-carousel";
 import { SeccionesHome } from "@/components/secciones-home";
+import { Vidrio } from "@/components/vidrio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ReviewsCarousel } from "@/components/reviews/reviews-carousel";
 import Link from "next/link";
@@ -14,7 +15,7 @@ import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
 import { getHorarioResumen, instagramUrl, mapaEmbedUrl } from "@/lib/barberia-publica";
 import { PLATAFORMA } from "@/lib/plataforma";
 import { tieneModulo } from "@/lib/modulos";
-import { leerApariencia, SECCION_NOMBRE, type SeccionId } from "@/lib/apariencia";
+import { SECCION_NOMBRE, type SeccionId } from "@/lib/apariencia";
 import { formatCLP } from "@/lib/datetime";
 
 function Seccion({ id, titulo, children }: { id?: string; titulo: string; children: React.ReactNode }) {
@@ -69,7 +70,8 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
       <Seccion titulo={SECCION_NOMBRE.sucursales}>
         <div className="grid gap-4 md:grid-cols-2">
           {sucursales.map((s) => (
-            <div key={s.id_sucursal} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
+            <div key={s.id_sucursal} className="flex flex-col gap-4 tarjeta rounded-2xl border border-border bg-card p-6">
+              <Vidrio />
               <div>
                 <h3 className="text-xl font-semibold">{s.nombre}</h3>
                 <p className="mt-1 text-muted-foreground">{s.direccion}, {s.comuna}</p>
@@ -94,7 +96,8 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
       <Seccion titulo={SECCION_NOMBRE.servicios}>
         <ul className="grid gap-4 md:grid-cols-2">
           {servicios.map((s) => (
-            <li key={s.id_servicio} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-6">
+            <li key={s.id_servicio} className="flex flex-col gap-3 tarjeta rounded-2xl border border-border bg-card p-6">
+              <Vidrio />
               <div className="flex justify-between gap-4">
                 <h3 className="font-semibold">{s.nombre}</h3>
                 <p className="tabular shrink-0 font-semibold">{formatCLP(s.precio)}</p>
@@ -118,7 +121,8 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
       <Seccion titulo={SECCION_NOMBRE.equipo}>
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {barberos.map((b) => (
-            <li key={b.id_profesional} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
+            <li key={b.id_profesional} className="flex items-center gap-4 tarjeta rounded-2xl border border-border bg-card p-5">
+              <Vidrio />
               <Avatar className="size-14">
                 <AvatarImage src={b.profile_image ?? undefined} alt="" className="object-cover" />
                 <AvatarFallback>{b.nombre_visible.slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -153,7 +157,8 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
 
     horario: (
       <Seccion titulo={SECCION_NOMBRE.horario}>
-        <div className="max-w-md rounded-2xl border border-border bg-card p-6">
+        <div className="max-w-md tarjeta rounded-2xl border border-border bg-card p-6">
+          <Vidrio />
           {horario.length === 0 ? (
             <p className="text-muted-foreground">Consulta la disponibilidad al agendar.</p>
           ) : (
@@ -172,7 +177,8 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
 
     ubicacion: principal && (
       <Seccion titulo={SECCION_NOMBRE.ubicacion}>
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="overflow-hidden tarjeta rounded-2xl border border-border bg-card">
+          <Vidrio />
           <ul className="space-y-1 p-6 text-muted-foreground">
             {sucursales.map((s) => (
               <li key={s.id_sucursal}>
@@ -210,7 +216,8 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
         <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {productos?.map((p) => (
             <li key={p.id_producto}>
-              <Link href={`/${slug}/tienda/${p.id_producto}`} className="lift block h-full overflow-hidden rounded-2xl border border-border bg-card">
+              <Link href={`/${slug}/tienda/${p.id_producto}`} className="lift block h-full overflow-hidden tarjeta rounded-2xl border border-border bg-card">
+                <Vidrio />
                 <div className="aspect-square bg-muted">
                   {p.imagen_url && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -295,7 +302,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
           )}
         </section>
 
-        <SeccionesHome inicial={leerApariencia(barberia.apariencia).secciones} nodos={nodos} />
+        <SeccionesHome nodos={nodos} />
       </main>
 
       <footer className="border-t border-border">

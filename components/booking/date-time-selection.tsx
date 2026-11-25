@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AccionesPaso } from "./acciones-paso";
 import { TituloPaso } from "./opcion-card";
+import { Vidrio } from "@/components/vidrio";
 
 interface Service {
   id: number;
@@ -54,7 +55,8 @@ export function DateTimeSelection({
     <div>
       <TituloPaso titulo="Elige fecha y hora" ayuda={`${selectedService.nombre} · $${selectedService.precio.toLocaleString("es-CL")}`} />
 
-      <div className="rounded-xl border border-border bg-card">
+      <div className="tarjeta rounded-xl border border-border bg-card">
+        <Vidrio />
         <Calendar
           mode="single"
           selected={selectedDate}

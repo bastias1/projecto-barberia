@@ -1,7 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* data-modo lo pone el tema de una barbería (components/apariencia-provider.tsx) y manda sobre .dark */
+@custom-variant dark (&:is(.dark:not(:has([data-modo="claro"])) *, :root:has([data-modo="oscuro"]) *));
 
 @theme inline {
   --color-background: var(--background);
@@ -50,7 +51,8 @@
 
 /* Paleta de la plataforma (Sunwalk): blanco y gris neutro, tinta casi negra y un acento menta.
    El menta se usa como relleno con texto oscuro (nunca como texto sobre blanco). */
-:root {
+:root,
+:root:has([data-modo="claro"]) {
   --radius: 0.625rem;
 
   --background: #ffffff;
@@ -101,7 +103,9 @@
   --sidebar-ring: #2f6b4d;
 }
 
-.dark {
+/* El :not es necesario: el compilador iguala el peso de ambos bloques y este va después */
+.dark:not(:has([data-modo="claro"])),
+:root:has([data-modo="oscuro"]) {
   /* Oscuro diseñado, no invertido: las superficies suben de luminosidad y el menta pasa a ser el acento */
   --background: #0d0e0e;
   --foreground: #ececec;
@@ -149,6 +153,14 @@
   --sidebar-accent-foreground: #ececec;
   --sidebar-border: #2a2d2c;
   --sidebar-ring: #7fe3ad;
+}
+
+:root:has([data-modo="claro"]) {
+  color-scheme: light !important;
+}
+
+:root:has([data-modo="oscuro"]) {
+  color-scheme: dark !important;
 }
 
 @layer base {

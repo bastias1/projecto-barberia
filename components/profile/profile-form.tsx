@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Vidrio } from "@/components/vidrio";
 
 export function ProfileForm() {
     const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +76,7 @@ export function ProfileForm() {
 
     return (
         <Card>
+          <Vidrio />
             <CardHeader>
                 <CardTitle>Mis Datos Personales</CardTitle>
                 <CardDescription>Actualiza tu información personal.</CardDescription>

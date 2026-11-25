@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
 import { avisarCambioSeguridad } from "@/app/cuenta/actions";
+import { Vidrio } from "@/components/vidrio";
 
 export function PasswordForm() {
     const [isSaving, setIsSaving] = useState(false);
@@ -51,6 +52,7 @@ export function PasswordForm() {
 
     return (
         <Card>
+          <Vidrio />
             <CardHeader>
                 <CardTitle>Cambiar Contraseña</CardTitle>
                 <CardDescription>

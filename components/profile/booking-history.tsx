@@ -25,6 +25,7 @@ import { formatCLP, formatFecha, toZoned } from "@/lib/datetime";
 import { getBarberos } from "@/lib/services/barber-service";
 import { one } from "@/lib/utils";
 import { cambiarReserva } from "@/app/[slug]/reprogramar/actions";
+import { Vidrio } from "@/components/vidrio";
 
 interface Reserva {
     id: number;
@@ -125,6 +126,7 @@ export function BookingHistory() {
                     return (
                         <li key={r.id}>
                             <Card>
+                              <Vidrio />
                                 <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="font-semibold">{r.servicio} con {r.barbero}</p>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Sun } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
+import { useApariencia } from "@/components/apariencia-provider";
 import { BarberiaUserMenu } from "@/components/barberia-user-menu";
 import { useBarberia } from "@/components/barberia-provider";
 import { PLATAFORMA } from "@/lib/plataforma";
@@ -43,6 +44,8 @@ export function BarberiaNavbar({
     children?: React.ReactNode;
 }) {
     const { slug } = useBarberia();
+    // Si la barbería fijó claro u oscuro, el visitante no lo cambia
+    const modoLibre = useApariencia().tema.modo === "auto";
     return (
         <header className="sticky top-0 z-40 border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur">
             <div className={`mx-auto px-4 sm:px-6 ${ancho}`}>
@@ -62,7 +65,7 @@ export function BarberiaNavbar({
                     </Link>
                     <div className="flex items-center gap-1 justify-self-end sm:gap-2">
                         {acciones}
-                        <ModeToggle />
+                        {modoLibre && <ModeToggle />}
                         <BarberiaUserMenu />
                     </div>
                 </div>

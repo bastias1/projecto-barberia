@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useBarberia } from "@/components/barberia-provider";
 import { XCircle, RefreshCcw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Vidrio } from "@/components/vidrio";
 
 export default function PaymentFailurePage() {
     const { slug } = useBarberia();
     return (
         <main id="contenido" className="flex min-h-[70vh] items-center justify-center">
-            <div className="w-full max-w-md space-y-6 rounded-2xl border border-border bg-card p-8 text-center">
+            <div className="w-full max-w-md space-y-6 tarjeta rounded-2xl border border-border bg-card p-8 text-center">
+              <Vidrio />
                 <span className="mx-auto grid size-14 place-items-center rounded-full bg-destructive/10 text-destructive">
                     <XCircle className="size-7" aria-hidden="true" />
                 </span>

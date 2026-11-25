@@ -8,6 +8,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { AccionesPaso } from "./acciones-paso";
 import { TituloPaso } from "./opcion-card";
+import { Vidrio } from "@/components/vidrio";
 
 interface FormData {
   firstName: string;
@@ -38,7 +39,8 @@ export function ContactForm({ formData, onFormChange, cuenta, usarCuenta, onUsar
       />
       <form onSubmit={onSubmit} className="space-y-4">
         {cuenta && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 tarjeta rounded-xl border border-border bg-card p-4 text-sm">
+            <Vidrio />
             {conCuenta ? (
               <div className="min-w-0">
                 <p className="font-semibold">{cuenta.firstName} {cuenta.lastName}</p>
@@ -79,7 +81,8 @@ export function ContactForm({ formData, onFormChange, cuenta, usarCuenta, onUsar
               onChange={(e) => onFormChange({ ...formData, phone: e.target.value })} placeholder="+56 9 1234 5678" className="h-12 text-base" />
           </div>
 
-          <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
+          <div className="flex items-start gap-3 tarjeta rounded-xl border border-border bg-card p-4">
+            <Vidrio />
             <Checkbox
               id="aceptaPrivacidad"
               checked={formData.aceptaPrivacidad}

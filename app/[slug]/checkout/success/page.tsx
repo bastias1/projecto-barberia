@@ -10,6 +10,7 @@ import { getHorarioResumen, mapaEmbedUrl } from "@/lib/barberia-publica";
 import { parseDireccion } from "@/lib/pedido-estados";
 import { one } from "@/lib/utils";
 import { VaciarCarrito } from "./vaciar-carrito";
+import { Vidrio } from "@/components/vidrio";
 
 type Producto = { nombre: string; imagen_url: string | null };
 type Detalle = { id: number; cantidad: number; precio_unitario: number; subtotal: number; producto: unknown };
@@ -105,6 +106,7 @@ export default async function PaymentSuccessPage({
             {pedido && (
                 <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
                     <Card className="gap-3 py-4">
+                      <Vidrio />
                         <CardHeader className="px-4">
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Package className="h-4 w-4" aria-hidden="true" /> Tu compra
@@ -144,6 +146,7 @@ export default async function PaymentSuccessPage({
 
                     {retiro && (
                         <Card className="gap-3 py-4">
+                          <Vidrio />
                             <CardHeader className="px-4">
                                 <CardTitle className="flex items-center gap-2 text-base">
                                     <Store className="h-4 w-4" aria-hidden="true" /> Retiro en tienda
@@ -199,6 +202,7 @@ export default async function PaymentSuccessPage({
 
                     {pedido.tipo_entrega === "despacho" && (
                         <Card className="gap-3 py-4">
+                          <Vidrio />
                             <CardHeader className="px-4">
                                 <CardTitle className="flex items-center gap-2 text-base">
                                     <Truck className="h-4 w-4" aria-hidden="true" /> Despacho a domicilio

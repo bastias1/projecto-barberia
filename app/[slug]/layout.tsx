@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { AparienciaProvider } from "@/components/apariencia-provider";
 import { BarberiaProvider } from "@/components/barberia-provider";
 import { getAceptaPagosCached, getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
 
@@ -29,5 +30,7 @@ export default async function BarberiaLayout({ children, params }: Props) {
     getAceptaPagosCached(barberia.id_barberia),
   ]);
 
-  return <BarberiaProvider barberia={barberia} modulos={modulos} aceptaPagos={aceptaPagos}>{children}</BarberiaProvider>;
+  return <BarberiaProvider barberia={barberia} modulos={modulos} aceptaPagos={aceptaPagos}>
+    <AparienciaProvider>{children}</AparienciaProvider>
+  </BarberiaProvider>;
 }

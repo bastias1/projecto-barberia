@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, LogIn, LogOut, User, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { getRolApp, isStaffRol, type RolApp } from "@/lib/roles";
 import { useBarberia } from "@/components/barberia-provider";
+import { MuestraContext } from "@/components/apariencia-provider";
 
 interface UserProfile {
     nombre: string | null;
@@ -34,8 +35,11 @@ export function BarberiaUserMenu() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
+    // En las páginas de ejemplo de la vista previa no se consulta la sesión
+    const muestra = useContext(MuestraContext);
 
     useEffect(() => {
+        if (muestra) return;
         async function getUser() {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
@@ -55,7 +59,7 @@ export function BarberiaUserMenu() {
         }
         getUser();
         // eslint-disable-next-line react-hooks/exhaustive-deps -- el cliente de Supabase se crea en cada render
-    }, [id_barberia]);
+    }, [id_barberia, muestra]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -64,6 +68,7 @@ export function BarberiaUserMenu() {
         router.refresh();
     };
 
+    if (muestra) return <div className="size-11 rounded-full bg-muted" aria-hidden="true" />;
     if (loading) return <div className="size-11 animate-pulse rounded-full bg-muted" aria-hidden="true" />;
 
     if (!user) {

@@ -35,7 +35,7 @@ export default function ProfilePage() {
     if (isLoading) {
         return (
             <div className="flex h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
         );
     }
@@ -47,7 +47,7 @@ export default function ProfilePage() {
             <div className="mb-6">
                 <Link
                     href={`/${barberia.slug}`}
-                    className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100 transition-colors"
+                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                     <ArrowLeft className="h-4 w-4" />
                     <span>Volver a {barberia.nombre}</span>

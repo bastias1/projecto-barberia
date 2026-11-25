@@ -8,11 +8,15 @@ import { CSS } from "@dnd-kit/utilities";
 import { Eye, EyeOff, GripVertical, Loader2, Lock, Monitor, RotateCcw, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AparienciaTema } from "@/components/dashboard/apariencia-tema";
 import { createClient } from "@/utils/supabase/client";
+import { useModulos } from "@/components/barberia-provider";
+import { tieneModulo, type ModuloCodigo } from "@/lib/modulos";
 import {
   aparienciaPorDefecto, MENSAJE_BORRADOR, MENSAJE_LISTA, SECCION_NOMBRE,
-  type Apariencia, type SeccionConfig, type SeccionId,
+  type Apariencia, type PaginaPrevia, type SeccionConfig, type SeccionId,
 } from "@/lib/apariencia";
 import { cn } from "@/lib/utils";
 
@@ -61,20 +65,39 @@ function Fila({ seccion, onToggle }: { seccion: SeccionConfig; onToggle: () => v
   );
 }
 
+// Páginas que se pueden mirar en la vista previa (sus botones están desactivados, no se puede navegar)
+const PAGINAS: { id: PaginaPrevia; nombre: string; modulo?: ModuloCodigo }[] = [
+  { id: "inicio", nombre: "Inicio" },
+  { id: "reserva", nombre: "Reservar", modulo: "agenda" },
+  { id: "tienda", nombre: "Tienda", modulo: "ecommerce" },
+];
+
 /** La página real en un iframe; el escritorio se dibuja a 1280 px y se escala al ancho disponible. */
 function VistaPrevia({ slug, apariencia }: { slug: string; apariencia: Apariencia }) {
   const [movil, setMovil] = useState(false);
   const [ancho, setAncho] = useState(0);
+  const [pagina, setPagina] = useState<PaginaPrevia>("inicio");
+  const modulos = useModulos();
   const marco = useRef<HTMLIFrameElement>(null);
   const contenedor = useRef<HTMLDivElement>(null);
 
+  const borrador = useRef({ apariencia, pagina });
+  const envio = useRef<number | undefined>(undefined);
   const enviar = useCallback(() => {
-    marco.current?.contentWindow?.postMessage({ tipo: MENSAJE_BORRADOR, apariencia }, window.location.origin);
-  }, [apariencia]);
+    marco.current?.contentWindow?.postMessage({ tipo: MENSAJE_BORRADOR, ...borrador.current }, window.location.origin);
+  }, []);
+
+  // Arrastrar en el selector de color cambia el borrador en cada movimiento: la página se redibuja a lo más cada 100 ms
+  useEffect(() => {
+    borrador.current = { apariencia, pagina };
+    envio.current ??= window.setTimeout(() => {
+      envio.current = undefined;
+      enviar();
+    }, 100);
+  }, [apariencia, pagina, enviar]);
 
   useEffect(() => {
-    enviar();
-    // la página avisa cuando ya puede recibir (carga inicial y navegación dentro del iframe)
+    // la página avisa cuando ya puede recibir
     const recibir = (e: MessageEvent) => {
       if (e.origin === window.location.origin && e.source === marco.current?.contentWindow && e.data?.tipo === MENSAJE_LISTA) enviar();
     };
@@ -93,7 +116,7 @@ function VistaPrevia({ slug, apariencia }: { slug: string; apariencia: Aparienci
   const alto = 640;
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-3 xl:sticky xl:top-0">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-semibold">Vista previa</h2>
         <div className="flex gap-1">
@@ -105,15 +128,26 @@ function VistaPrevia({ slug, apariencia }: { slug: string; apariencia: Aparienci
           </Button>
         </div>
       </div>
+      <div className="flex gap-1" role="group" aria-label="Página que se muestra">
+        {PAGINAS.filter((p) => !p.modulo || tieneModulo(modulos, p.modulo)).map((p) => (
+          <Button key={p.id} type="button" size="sm" variant={pagina === p.id ? "secondary" : "ghost"} aria-pressed={pagina === p.id} onClick={() => setPagina(p.id)}>
+            {p.nombre}
+          </Button>
+        ))}
+      </div>
       <div ref={contenedor} className="overflow-hidden rounded-xl border border-border" style={{ height: alto }}>
         <iframe
           ref={marco}
           src={`/${slug}`}
           title="Vista previa de tu página"
+          // en pantallas angostas queda bajo los controles: no carga hasta acercarse
+          loading="lazy"
+          tabIndex={-1}
           className="mx-auto block origin-top-left bg-background"
           style={{ width: anchoPagina, height: alto / escala, transform: `scale(${escala})` }}
         />
       </div>
+      <p className="text-xs text-muted-foreground">Es solo una muestra: Reservar y Tienda usan datos de ejemplo y nada se puede pulsar.</p>
     </div>
   );
 }
@@ -159,11 +193,17 @@ export function AparienciaEditor({ idBarberia, slug, inicial }: { idBarberia: st
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
       <Card>
-        <CardHeader>
-          <CardTitle>Secciones</CardTitle>
-          <CardDescription>Arrastra para ordenar. Una sección sin contenido no se muestra.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
+          <Tabs defaultValue="secciones" className="gap-4">
+            <TabsList className="w-full">
+              <TabsTrigger value="secciones">Secciones</TabsTrigger>
+              <TabsTrigger value="tema">Tema</TabsTrigger>
+            </TabsList>
+            <TabsContent value="tema">
+              <AparienciaTema tema={apariencia.tema} onChange={(tema) => setApariencia({ ...apariencia, tema })} />
+            </TabsContent>
+            <TabsContent value="secciones">
+              <p className="mb-3 text-sm text-muted-foreground">Arrastra para ordenar. Una sección sin contenido no se muestra.</p>
           <ul>
             <li className="flex items-center gap-2 border-t border-border py-1">
               <span className="grid size-11 shrink-0 place-items-center text-muted-foreground"><Lock className="size-4" aria-hidden="true" /></span>
@@ -181,9 +221,11 @@ export function AparienciaEditor({ idBarberia, slug, inicial }: { idBarberia: st
               </SortableContext>
             </DndContext>
           </ul>
-          <div className="flex flex-wrap justify-between gap-2">
+            </TabsContent>
+          </Tabs>
+          <div className="mt-4 flex flex-wrap justify-between gap-2 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={() => setApariencia(aparienciaPorDefecto())}>
-              <RotateCcw className="size-4" aria-hidden="true" />Restablecer
+              <RotateCcw className="size-4" aria-hidden="true" />Restablecer todo
             </Button>
             <Button type="button" onClick={guardar} disabled={guardando || sinCambios}>
               {guardando && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}

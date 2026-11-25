@@ -10,6 +10,7 @@ import { getProfesionalesDeSucursal, getSucursalBySlug, getSucursales } from "@/
 import { getBarberiaCached, getModulosCached } from "@/lib/barberia-server";
 import { getHorarioResumen, mapaEmbedUrl } from "@/lib/barberia-publica";
 import { tieneModulo } from "@/lib/modulos";
+import { Vidrio } from "@/components/vidrio";
 
 type Params = Promise<{ slug: string; sucursal: string }>;
 
@@ -93,7 +94,8 @@ export default async function SucursalPage({ params }: { params: Params }) {
 
         <div className="mb-12 grid gap-6 lg:grid-cols-3">
           <div className="space-y-4">
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="tarjeta rounded-2xl border border-border bg-card p-6">
+              <Vidrio />
               <h2 className="mb-3 flex items-center gap-2 font-semibold"><Clock className="size-5" aria-hidden="true" />Horario</h2>
               {horario.length === 0 ? (
                 <p className="text-muted-foreground">Consulta la disponibilidad al agendar.</p>
@@ -110,7 +112,8 @@ export default async function SucursalPage({ params }: { params: Params }) {
             </div>
 
             {telefono && (
-              <div className="rounded-2xl border border-border bg-card p-6">
+              <div className="tarjeta rounded-2xl border border-border bg-card p-6">
+                <Vidrio />
                 <h2 className="mb-3 flex items-center gap-2 font-semibold"><Phone className="size-5" aria-hidden="true" />Contacto</h2>
                 <a href={`tel:${telefono.replace(/\s/g, "")}`} className="inline-flex min-h-11 items-center underline underline-offset-4">
                   {telefono}
@@ -140,7 +143,8 @@ export default async function SucursalPage({ params }: { params: Params }) {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {barberos.map((b) => (
-                <div key={b.id_profesional} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
+                <div key={b.id_profesional} className="flex items-center gap-4 tarjeta rounded-2xl border border-border bg-card p-5">
+                  <Vidrio />
                   <Avatar className="size-14">
                     <AvatarImage src={b.profile_image || undefined} alt="" />
                     <AvatarFallback className="bg-muted font-semibold text-foreground">
