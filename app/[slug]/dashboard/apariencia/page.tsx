@@ -1,5 +1,4 @@
 import { requireStaff } from "@/lib/staff-context";
-import { leerApariencia } from "@/lib/apariencia";
 import { AparienciaEditor } from "@/components/dashboard/apariencia-editor";
 
 export default async function AparienciaPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -13,7 +12,7 @@ export default async function AparienciaPage({ params }: { params: Promise<{ slu
           Elige las secciones, colores, estilo y diseño de tus páginas. Los cambios se publican al guardar.
         </p>
       </div>
-      <AparienciaEditor idBarberia={barberia.id_barberia} slug={barberia.slug} inicial={leerApariencia(barberia.apariencia)} />
+      <AparienciaEditor idBarberia={barberia.id_barberia} slug={barberia.slug} inicial={barberia.apariencia} />
     </div>
   );
 }

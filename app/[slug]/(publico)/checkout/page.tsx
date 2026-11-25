@@ -207,7 +207,7 @@ export default function CheckoutPage() {
                   <RadioGroupItem value="retiro" id="retiro" className="peer sr-only" />
                   <Label
                     htmlFor="retiro"
-                    className="flex min-h-20 flex-col items-center justify-between tarjeta rounded-xl border border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
+                    className="flex min-h-20 flex-col items-center justify-between tarjeta rounded-xl p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
                   >
                     <Store className="mb-3 h-6 w-6" />
                     Retiro en Tienda
@@ -217,7 +217,7 @@ export default function CheckoutPage() {
                   <RadioGroupItem value="despacho" id="despacho" className="peer sr-only" />
                   <Label
                     htmlFor="despacho"
-                    className="flex min-h-20 flex-col items-center justify-between tarjeta rounded-xl border border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
+                    className="flex min-h-20 flex-col items-center justify-between tarjeta rounded-xl p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
                   >
                     <Truck className="mb-3 h-6 w-6" />
                     Despacho a Domicilio

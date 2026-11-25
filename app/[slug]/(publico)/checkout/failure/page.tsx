@@ -9,7 +9,7 @@ export default function PaymentFailurePage() {
     const { slug } = useBarberia();
     return (
         <main id="contenido" className="flex min-h-[70vh] items-center justify-center">
-            <div className="w-full max-w-md space-y-6 tarjeta rounded-2xl border border-border bg-card p-8 text-center">
+            <div className="w-full max-w-md space-y-6 tarjeta rounded-2xl p-8 text-center">
                 <span className="mx-auto grid size-14 place-items-center rounded-full bg-destructive/10 text-destructive">
                     <XCircle className="size-7" aria-hidden="true" />
                 </span>

@@ -14,7 +14,7 @@ export default async function BookingConfirmed({
     <>
       <BarberiaNavbar />
     <main id="contenido" className="min-h-[calc(100dvh-4rem)] flex items-center justify-center p-4 bg-background">
-      <div className="max-w-md w-full tarjeta rounded-2xl border border-border bg-card p-8 text-center">
+      <div className="max-w-md w-full tarjeta rounded-2xl p-8 text-center">
         <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-brand text-brand-foreground">
           <Check className="size-8" aria-hidden="true" />
         </span>

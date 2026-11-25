@@ -4,7 +4,7 @@ import { createContext, useContext, useMemo } from "react";
 import { Fraunces, Inter, Oswald, Playfair_Display, Space_Grotesk } from "next/font/google";
 import { useBarberia } from "@/components/barberia-provider";
 import { PaginaConMuestra, useVistaPrevia } from "@/components/vista-previa";
-import { leerApariencia, type Apariencia, type Tema } from "@/lib/apariencia";
+import type { Apariencia, Tema } from "@/lib/apariencia";
 import { cssTema, modoEfectivo } from "@/lib/apariencia-css";
 
 // Sin preload: solo se descarga la que la barbería usa
@@ -36,14 +36,14 @@ export function AparienciaProvider({ children }: { children: React.ReactNode }) 
   const { apariencia: guardada } = useBarberia();
   const { borrador, pagina } = useVistaPrevia();
 
-  const apariencia = useMemo(() => borrador ?? leerApariencia(guardada), [borrador, guardada]);
+  const apariencia = borrador ?? guardada;
   const { tema } = apariencia;
   const modo = modoEfectivo(tema);
   const css = useMemo(() => cssTema(tema, FAMILIAS[tema.fuente]), [tema]);
 
   return (
     <AparienciaContext.Provider value={apariencia}>
-      {/* Los valores del CSS vienen de listas cerradas y colores #rrggbb (leerApariencia) */}
+      {/* Los valores del CSS vienen de listas cerradas y colores #rrggbb (leerApariencia, aplicada en lib/barberia.ts y en la vista previa) */}
       <style dangerouslySetInnerHTML={{ __html: css }} />
       {/* globals.css lee este marcador para fijar claro u oscuro */}
       {modo && <span data-modo={modo} hidden />}

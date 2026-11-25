@@ -69,7 +69,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
       <Seccion titulo={SECCION_NOMBRE.sucursales}>
         <div className="grid gap-4 md:grid-cols-2">
           {sucursales.map((s) => (
-            <div key={s.id_sucursal} className="flex flex-col gap-4 tarjeta rounded-2xl border border-border bg-card p-6">
+            <div key={s.id_sucursal} className="flex flex-col gap-4 tarjeta rounded-2xl p-6">
               <div>
                 <h3 className="text-xl font-semibold">{s.nombre}</h3>
                 <p className="mt-1 text-muted-foreground">{s.direccion}, {s.comuna}</p>
@@ -94,7 +94,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
       <Seccion titulo={SECCION_NOMBRE.servicios}>
         <ul className="grid gap-4 md:grid-cols-2">
           {servicios.map((s) => (
-            <li key={s.id_servicio} className="flex flex-col gap-3 tarjeta rounded-2xl border border-border bg-card p-6">
+            <li key={s.id_servicio} className="flex flex-col gap-3 tarjeta rounded-2xl p-6">
               <div className="flex justify-between gap-4">
                 <h3 className="font-semibold">{s.nombre}</h3>
                 <p className="tabular shrink-0 font-semibold">{formatCLP(s.precio)}</p>
@@ -118,7 +118,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
       <Seccion titulo={SECCION_NOMBRE.equipo}>
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {barberos.map((b) => (
-            <li key={b.id_profesional} className="flex items-center gap-4 tarjeta rounded-2xl border border-border bg-card p-5">
+            <li key={b.id_profesional} className="flex items-center gap-4 tarjeta rounded-2xl p-5">
               <Avatar className="size-14">
                 <AvatarImage src={b.profile_image ?? undefined} alt="" className="object-cover" />
                 <AvatarFallback>{b.nombre_visible.slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -153,7 +153,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
 
     horario: (
       <Seccion titulo={SECCION_NOMBRE.horario}>
-        <div className="max-w-md tarjeta rounded-2xl border border-border bg-card p-6">
+        <div className="max-w-md tarjeta rounded-2xl p-6">
           {horario.length === 0 ? (
             <p className="text-muted-foreground">Consulta la disponibilidad al agendar.</p>
           ) : (
@@ -172,7 +172,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
 
     ubicacion: principal && (
       <Seccion titulo={SECCION_NOMBRE.ubicacion}>
-        <div className="overflow-hidden tarjeta rounded-2xl border border-border bg-card">
+        <div className="overflow-hidden tarjeta rounded-2xl">
           <ul className="space-y-1 p-6 text-muted-foreground">
             {sucursales.map((s) => (
               <li key={s.id_sucursal}>
@@ -210,7 +210,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
         <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {productos?.map((p) => (
             <li key={p.id_producto}>
-              <Link href={`/${slug}/tienda/${p.id_producto}`} className="lift block h-full overflow-hidden tarjeta rounded-2xl border border-border bg-card">
+              <Link href={`/${slug}/tienda/${p.id_producto}`} className="lift block h-full overflow-hidden tarjeta rounded-2xl">
                 <div className="aspect-square bg-muted">
                   {p.imagen_url && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -234,7 +234,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
 
   // Nombre, eslogan y acciones: se escribe una vez y cada diseño lo ubica
   const encabezado = (
-    <section className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:px-6 md:pb-16 md:pt-16 lg:group-data-[diseno=columna]/home:py-10">
+    <section className="mx-auto max-w-5xl px-4 pb-12 pt-10 sm:px-6 md:pb-16 md:pt-16 lg:en-columna:py-10">
       {barberia.logo_url && (
         <div className="mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element -- los logos pueden venir de cualquier host */}
@@ -245,7 +245,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
           )}
         </div>
       )}
-      <h1 className="display max-w-3xl text-4xl sm:text-5xl lg:text-6xl lg:group-data-[diseno=columna]/home:text-4xl">
+      <h1 className="display max-w-3xl text-4xl sm:text-5xl lg:text-6xl lg:en-columna:text-4xl">
         {barberia.logo_url ? (barberia.eslogan || barberia.nombre) : barberia.nombre}
       </h1>
       {!barberia.logo_url && barberia.eslogan && (
@@ -258,9 +258,9 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
         </p>
       )}
 
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:group-data-[diseno=columna]/home:flex-col">
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:en-columna:flex-col">
         {conAgenda ? (
-          <Button asChild size="lg" className="h-12 w-full px-6 text-base sm:w-auto lg:group-data-[diseno=columna]/home:w-full">
+          <Button asChild size="lg" className="h-12 w-full px-6 text-base sm:w-auto lg:en-columna:w-full">
             <Link href={`/${slug}/agendar`}>Agendar cita <ArrowRight className="size-4" aria-hidden="true" /></Link>
           </Button>
         ) : (
@@ -270,7 +270,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
           </p>
         )}
         {conTienda && (
-          <Button asChild size="lg" variant="outline" className="h-12 w-full px-6 text-base sm:w-auto lg:group-data-[diseno=columna]/home:w-full">
+          <Button asChild size="lg" variant="outline" className="h-12 w-full px-6 text-base sm:w-auto lg:en-columna:w-full">
             <Link href={`/${slug}/tienda`}><ShoppingBag className="size-4" aria-hidden="true" /> Ir a la tienda</Link>
           </Button>
         )}

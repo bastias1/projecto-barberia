@@ -82,7 +82,7 @@ export function StoreClient({ products }: StoreClientProps) {
                     {filteredProducts.map((product) => {
                         const agotado = product.stock <= 0;
                         return (
-                            <li key={product.id} className="lift group flex flex-col overflow-hidden tarjeta rounded-2xl border border-border bg-card">
+                            <li key={product.id} className="lift group flex flex-col overflow-hidden tarjeta rounded-2xl">
                                 <Link href={href(`/tienda/${product.id}`)} className="relative block aspect-square overflow-hidden bg-muted">
                                     <Image
                                         src={product.imagen_url || "/placeholder.svg"}

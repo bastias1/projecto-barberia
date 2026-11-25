@@ -29,7 +29,7 @@ export function ProductCarousel({ products }: ProductCarouselProps) {
     return (
         <ul className="-mx-4 -my-6 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 py-6 sm:-mx-6 sm:scroll-px-6 sm:px-6" tabIndex={0} aria-label="Productos">
             {products.map((product) => (
-                <li key={product.id} className="lift group w-56 shrink-0 snap-start overflow-hidden tarjeta rounded-2xl border border-border bg-card">
+                <li key={product.id} className="lift group w-56 shrink-0 snap-start overflow-hidden tarjeta rounded-2xl">
                     <Link href={href(`/tienda/${product.id}`)} className="relative block h-44 overflow-hidden bg-muted">
                         <Image
                             src={product.imagen_url || "/placeholder.svg"}

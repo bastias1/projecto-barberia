@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aparienciaPorDefecto, leerApariencia, PRESETS, SECCIONES, TEMA_POR_DEFECTO } from "../lib/apariencia";
+import { rutaImagen } from "../lib/imagenes";
 import { contraste, cssTema, modoEfectivo, paleta, textoSobre } from "../lib/apariencia-css";
 
 // Apariencia de la página de una barbería (lib/apariencia*.ts): puro, sin Supabase.
@@ -47,6 +48,14 @@ describe("leerApariencia", () => {
     expect(leerApariencia({ diseno: "columna", portada: buena })).toMatchObject({ diseno: "columna", portada: buena });
     for (const portada of ["https://otro.example/x.jpg", `${base}1b2c/logo/x.jpg`, `${base}1b2c/portada/../../x.jpg`, `${buena}?a="><script>`, "javascript:alert(1)", 5]) {
       expect(leerApariencia({ diseno: "toString", portada })).toMatchObject({ diseno: "clasico", portada: null });
+    }
+  });
+
+  it("acepta como portada lo que genera la subida", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://proyecto.supabase.co";
+    for (const archivo of ["Foto.JPG", "foto sin extension", "a.b.webp"]) {
+      const url = `https://proyecto.supabase.co/storage/v1/object/public/imgs/${rutaImagen("1b2c-3d", "portada", archivo)}`;
+      expect(leerApariencia({ portada: url }).portada).toBe(url);
     }
   });
 

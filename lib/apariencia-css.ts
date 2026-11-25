@@ -179,7 +179,8 @@ export function cssTema(tema: Tema, familia: string | null = null): string {
     css += `@media (prefers-reduced-motion:no-preference){${regla(TARJETA, "transition:transform .2s,box-shadow .2s")}${regla(`${TARJETA}:hover`, HOVERS[tema.hover]!)}}`;
   }
   if (tema.superficie === "vidrio") {
-    const caja = ":is(.tarjeta.bg-card,[data-slot=card])";
+    // La opción elegida (bg-accent) queda sin capa para que se note su relleno
+    const caja = ":is(.tarjeta:not(.bg-accent),[data-slot=card])";
     // Se vacía --card en vez de pisar background-color: así hover y la opción elegida (bg-accent) siguen pintando
     css += regla(caja, "--card:transparent") + regla(`${caja}::before`, VIDRIO);
     // En la capa base para que `sticky` de una tarjeta siga mandando

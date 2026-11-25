@@ -19,8 +19,8 @@ export function OpcionCard({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "tarjeta flex min-h-16 w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors",
-        selected ? "border-primary bg-accent" : "border-border bg-card hover:bg-muted",
+        "tarjeta flex min-h-16 w-full items-center gap-3 rounded-xl p-4 text-left transition-colors",
+        selected ? "border-primary bg-accent" : "hover:bg-muted",
       )}
     >
       <div className="min-w-0 flex-1">{children}</div>

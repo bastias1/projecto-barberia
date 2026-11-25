@@ -66,7 +66,7 @@ export function BookingConfirmation({
         <p className="mt-2 text-muted-foreground">Te enviamos un correo a <span className="break-all text-foreground">{formData.email}</span> con los links para confirmar o cancelar.</p>
       </div>
 
-      <dl className="divide-y divide-border tarjeta rounded-xl border border-border bg-card px-4">
+      <dl className="divide-y divide-border tarjeta rounded-xl px-4">
         {sucursal && (
           <Fila etiqueta="Sucursal">
             {sucursal.nombre}

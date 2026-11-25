@@ -9,7 +9,7 @@ export default function PaymentPendingPage() {
     const { slug } = useBarberia();
     return (
         <main id="contenido" className="flex min-h-[70vh] items-center justify-center">
-            <div className="w-full max-w-md space-y-6 tarjeta rounded-2xl border border-border bg-card p-8 text-center">
+            <div className="w-full max-w-md space-y-6 tarjeta rounded-2xl p-8 text-center">
                 <span className="mx-auto grid size-14 place-items-center rounded-full bg-muted">
                     <Clock className="size-7 text-muted-foreground" aria-hidden="true" />
                 </span>

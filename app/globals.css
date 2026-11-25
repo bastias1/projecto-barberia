@@ -6,6 +6,9 @@
    un navegador sin :has descarta solo esa parte y no la regla entera */
 @custom-variant dark (&:is(.dark:not(:is(:has([data-modo="claro"]), .sin-has)) *, :root:is(:has([data-modo="oscuro"]), .sin-has) *));
 
+/* Inicio de la barbería con el diseño "Dos columnas" (components/diseno-home.tsx) */
+@custom-variant en-columna (&:is([data-diseno="columna"] *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -196,6 +199,14 @@
   line-height: 1.04;
   letter-spacing: -0.035em;
   text-wrap: balance;
+}
+
+/* Tarjeta de las páginas de cliente: el tema de la barbería la reconoce por esta clase (lib/apariencia-css.ts) */
+@utility tarjeta {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border);
+  background-color: var(--card);
 }
 
 @utility tabular {
