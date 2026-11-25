@@ -29,6 +29,7 @@ export interface Database {
         instagram: string | null;
         galeria: string[];
         plazo_cancelacion_min: number; // HU-22
+        apariencia: unknown; // jsonb, ver lib/apariencia.ts
         activa: boolean;
         created_at: string;
         updated_at: string;

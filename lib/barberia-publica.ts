@@ -55,16 +55,6 @@ export async function getHorarioResumen(supabase: SupabaseClient, idBarberia: st
   }));
 }
 
-/** La tienda se muestra solo si la barbería tiene productos a la venta. */
-export async function tieneTienda(supabase: SupabaseClient, idBarberia: string): Promise<boolean> {
-  const { count } = await supabase
-    .from("producto")
-    .select("id_producto", { count: "exact", head: true })
-    .eq("id_barberia", idBarberia)
-    .eq("activo", true);
-  return (count ?? 0) > 0;
-}
-
 /** Mapa embebido de Google Maps a partir de la dirección (no requiere API key). */
 export function mapaEmbedUrl(direccion: string): string {
   return `https://www.google.com/maps?q=${encodeURIComponent(direccion)}&output=embed`;

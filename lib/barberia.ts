@@ -21,6 +21,7 @@ export interface Barberia {
   instagram: string | null;
   galeria: string[];
   plazo_cancelacion_min: number; // HU-22: anticipación mínima para que el cliente cancele o reprograme
+  apariencia: unknown; // se lee con leerApariencia (lib/apariencia.ts)
 }
 
 /** 120 -> "2 horas", 90 -> "90 minutos" */
@@ -43,7 +44,7 @@ export interface Sucursal {
 const SUCURSAL_COLUMNS = "id_sucursal, slug, nombre, direccion, comuna, region, telefono, zona_horaria";
 
 const BARBERIA_COLUMNS =
-  "id_barberia, slug, nombre, telefono, email_contacto, logo_url, logo_oscuro_url, eslogan, descripcion, instagram, galeria, plazo_cancelacion_min";
+  "id_barberia, slug, nombre, telefono, email_contacto, logo_url, logo_oscuro_url, eslogan, descripcion, instagram, galeria, plazo_cancelacion_min, apariencia";
 
 /** Barbería activa por slug (null si no existe o está inactiva: RLS solo muestra las activas). */
 export async function getBarberiaBySlug(supabase: SupabaseClient, slug: string): Promise<Barberia | null> {

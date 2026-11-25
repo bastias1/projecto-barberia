@@ -9,7 +9,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, MessageSquare, ChevronDown, Store, ExternalLink, CreditCard } from "lucide-react";
+import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock, TrendingUp, Home, UserPlus, Package, MessageSquare, ChevronDown, Store, ExternalLink, CreditCard, Palette } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,7 @@ const managementItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { href: "/usuarios", icon: UserPlus, label: "Equipo" },
   { href: "/barberia", icon: Store, label: "Mi Barbería" },
+  { href: "/apariencia", icon: Palette, label: "Apariencia" },
   { href: "/administracion/estadisticas", icon: TrendingUp, label: "Estadísticas", modulo: "bi" },
   { href: "/suscripcion", icon: CreditCard, label: "Suscripción" },
   { href: "/productos", icon: Package, label: "Productos", modulo: "ecommerce" },

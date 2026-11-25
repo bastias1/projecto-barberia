@@ -22,6 +22,7 @@ Functional spec from the thesis report: user stories HU-xx with acceptance crite
   - Tests: spec expects Vitest/Playwright/k6; only Vitest is configured (DB-level tests in `tests/`).
   - Location data (HU-17: dirección, comuna, región, zona horaria) lives on `sucursal`, not `barberia`.
   - Pilot: the spec names Big Cut; production started with BENJVMIN (`/benjvmin`).
+  - Customization: spec §3 puts advanced per-barbería visual customization out of scope; it is being built anyway by decision (Apariencia).
 
 ## Commands
 
@@ -131,6 +132,11 @@ For the software's own administrators: `usuario.rol = 'superadmin'` (grant it fr
 - Pages: Resumen (barberías by state, MRR, payments, trials ending in 7 days), Barberías (filters/search/pagination) and `/admin/barberias/[id]` (extend vigencia, change plan, cortesía, eliminar suscripción (cancels the MP preapproval, row → `cancelada`, payments kept), suspend `barberia.activa`; no entry to its dashboard), Planes (edit/create/archive/delete `plan_suscripcion` — delete only if no `suscripcion` ever used it, otherwise archive; + `plan_modulo` + `plan_limite`; inactive plans are hidden from the landing and Suscripción, existing subscriptions keep `precio_pactado`), Usuarios (search, grant/remove superadmin, suspend), Actividad (audit log).
 - Server actions in `app/admin/actions.ts`: each checks `getSuperadmin()`, applies the change with the superadmin's own session (it has `*_superadmin` ALL policies), logs it with `registrarAccion()` into `auditoria_admin` and revalidates. Subscription state helpers and queries: `lib/admin-datos.ts` (`estadoSuscripcion`, `getBarberiasAdmin`, `calcularMRR`).
 - Exceptions using service role: `usuario.rol`/`deleted_at` (no column grant) and suspending an account (`auth.admin.updateUserById(id, { ban_duration })`). A superadmin cannot remove their own role or suspend themselves. Cortesía is refused when the barbería has a MercadoPago preapproval.
+
+### Apariencia (home page of a barbería)
+- `barberia.apariencia` (jsonb, edited by the admin in Dashboard → Apariencia) holds which home page sections show and in what order. Always read it with `leerApariencia` (`lib/apariencia.ts`): the admin can write any JSON through the API. The header is fixed on top; a section without content renders nothing.
+- `app/[slug]/page.tsx` builds one node per section id and `components/secciones-home.tsx` orders them. The editor (`components/dashboard/apariencia-editor.tsx`) previews the real page in an iframe, sending the unsaved draft with `postMessage` (same origin only).
+- Stage 2 (theme) and stage 3 (layouts) are not built yet.
 
 ### Dashboard agenda (Citas)
 - `/[slug]/dashboard/citas?vista=dia|semana|mes&fecha=YYYY-MM-DD` — state kept in the URL with `history.replaceState`. Day view (HU-03): the selected day's cards with ‹ › to move one day (the same panel is the right side of the month view). Week view: day×hour table on desktop, swipeable day carousel on mobile (edge slides switch week). Keys ←/→ and T.

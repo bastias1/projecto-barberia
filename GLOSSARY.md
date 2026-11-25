@@ -21,3 +21,13 @@ Domain terms used in the code. Names stay in Spanish where the code uses them.
 **Cortesía**: active suscripción with no Mercado Pago charge, granted by a superadmin. Cannot be set while a renovación automática exists.
 
 **Renovación automática**: the suscripción's Mercado Pago preapproval (`id_suscripcion_externa`). Cancelling it, by the owner or by webhook, is one transition: the suscripción stays in force until `fecha_termino` and the owner is told once.
+
+**Apariencia**: how a barbería's public pages look, as chosen by its admin: Secciones, Modo, Tema and Diseño.
+
+**Sección**: one block of the barbería's home page that can be shown, hidden and reordered. The portada (header) is not one: it is always first.
+
+**Modo**: light, dark or automatic (follows the visitor's device). Not part of the Tema.
+
+**Tema**: colors, font and card style of the barbería's public pages.
+
+**Diseño**: how the home page arranges the portada and the Secciones.
