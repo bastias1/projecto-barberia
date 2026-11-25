@@ -62,14 +62,15 @@ export const RADIOS = { recto: ["0px", "0px"], pequeno: ["0.375rem", "0.25rem"],
 export const GROSORES = { fino: "1px", medio: "2px", grueso: "3px" };
 export const SOMBRAS = {
   ninguna: null,
-  suave: "0 10px 30px -14px rgb(0 0 0 / 0.3)",
-  dura: "4px 4px 0 var(--foreground)",
-  brillo: "0 0 28px -8px var(--brand)",
+  // --sombra solo existe si la barbería eligió un color de sombras
+  suave: "0 10px 30px -14px color-mix(in srgb,var(--sombra,#000) 30%,transparent)",
+  dura: "4px 4px 0 var(--sombra,var(--foreground))",
+  brillo: "0 0 28px -8px var(--sombra,var(--brand))",
 };
 const HOVERS = {
   ninguno: null,
   elevar: "transform:translateY(-3px)",
-  brillo: "box-shadow:0 0 28px -4px var(--brand)",
+  brillo: "box-shadow:0 0 28px -4px var(--sombra,var(--brand))",
   presionar: "transform:translate(2px,2px)",
 };
 const linea = "color-mix(in srgb,var(--foreground) 9%,transparent)";
@@ -80,6 +81,19 @@ const MANCHAS = "background-image:" + [
   mancha("22% 82%", "rgb(14 165 233 / 0.35)"),
   mancha("78% 92%", "color-mix(in srgb,var(--brand) 45%,transparent)"),
 ].join(",");
+// Capa esmerilada detrás del contenido de cada tarjeta: brillo diagonal, velo claro y filo en los bordes
+const VIDRIO = [
+  "content:''",
+  "position:absolute",
+  "inset:0",
+  "z-index:-1",
+  "border-radius:inherit",
+  "pointer-events:none",
+  "background:linear-gradient(135deg,light-dark(rgb(255 255 255 / 0.42),rgb(255 255 255 / 0.14)),transparent 42%,transparent 64%,light-dark(rgb(255 255 255 / 0.18),rgb(255 255 255 / 0.05))),light-dark(rgb(255 255 255 / 0.16),rgb(255 255 255 / 0.064))",
+  "-webkit-backdrop-filter:blur(12px) saturate(1.96) brightness(1.04)",
+  "backdrop-filter:blur(12px) saturate(1.96) brightness(1.04)",
+  "box-shadow:inset 0 1px 0 light-dark(rgb(255 255 255 / 0.85),rgb(255 255 255 / 0.3)),inset 0 0 0 1px light-dark(rgb(255 255 255 / 0.35),rgb(255 255 255 / 0.12)),0 8px 24px rgb(17 17 26 / 0.06)",
+].join(";");
 export const PATRONES = {
   ninguno: null,
   degradado: "background-image:linear-gradient(160deg,color-mix(in srgb,var(--brand) 28%,transparent),transparent 60%)",
@@ -131,10 +145,6 @@ export function cssTema(tema: Tema, familia: string | null = null): string {
     }));
     // Dentro de una tarjeta todo se calcula contra su color
     css += regla(TARJETA, `${vars({ ...paleta(caja, acento), "card-foreground": textoSobre(caja) })};color:var(--foreground)`);
-    // Los campos seguros de Mercado Pago escriben en oscuro: necesitan fondo claro
-    if (textoSobre(caja) === BLANCO) {
-      css += regla("#form-checkout__cardNumber,#form-checkout__expirationDate,#form-checkout__securityCode", "background-color:#fff");
-    }
   }
 
   if (acento) {
@@ -143,6 +153,8 @@ export function cssTema(tema: Tema, familia: string | null = null): string {
       : reglasAcento(acento, BASE.claro.fondo, ":root:root", ":root:not(.dark)") +
         reglasAcento(acento, BASE.oscuro.fondo, ":root.dark", ":root.dark");
   }
+
+  if (tema.colorSombra) css += regla(":root:root", `--sombra:${tema.colorSombra}`);
 
   if (familia) css += regla("body[class]", `--font-geist-sans:${familia};--font-host:${familia};font-family:${familia}`);
   if (tema.titulos !== "normal") {
@@ -160,13 +172,11 @@ export function cssTema(tema: Tema, familia: string | null = null): string {
     css += `@media (prefers-reduced-motion:no-preference){${regla(TARJETA, "transition:transform .2s,box-shadow .2s")}${regla(`${TARJETA}:hover`, HOVERS[tema.hover]!)}}`;
   }
   if (tema.superficie === "vidrio") {
-    // Las que llevan GlassSurface (components/vidrio.tsx) dejan ver a través; el resto usa este vidrio en CSS.
-    // La opción elegida (bg-accent) conserva su color.
     const caja = ":is(.tarjeta.bg-card,[data-slot=card])";
-    css += regla(`${caja}:not(:has(>.vidrio))`, "background-color:color-mix(in srgb,var(--card) 65%,transparent);backdrop-filter:blur(12px)");
-    css += regla(`${caja}:has(>.vidrio)`, "background-color:transparent");
+    // Se vacía --card en vez de pisar background-color: así hover y la opción elegida (bg-accent) siguen pintando
+    css += regla(caja, "--card:transparent") + regla(`${caja}::before`, VIDRIO);
     // En la capa base para que `sticky` de una tarjeta siga mandando
-    css += `@layer base{${regla(":where(.tarjeta,[data-slot=card]):has(>.vidrio)", "position:relative;isolation:isolate")}}`;
+    css += `@layer base{${regla(":where(.tarjeta,[data-slot=card])", "position:relative;isolation:isolate")}}`;
   }
   // El vidrio no se nota sobre un color liso: sin otro fondo elegido se ponen manchas de color
   const patron = PATRONES[tema.patron] ?? (tema.superficie === "vidrio" ? MANCHAS : null);

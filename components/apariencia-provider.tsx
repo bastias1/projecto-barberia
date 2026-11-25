@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Fraunces, Inter, Oswald, Playfair_Display, Space_Grotesk } from "next/font/google";
@@ -79,15 +79,16 @@ export function AparienciaProvider({ children }: { children: React.ReactNode }) 
     if (enVistaPrevia) window.scrollTo(0, 0);
   }, [enVistaPrevia, pagina]);
 
-  const apariencia = borrador ?? leerApariencia(guardada);
+  const apariencia = useMemo(() => borrador ?? leerApariencia(guardada), [borrador, guardada]);
   const { tema } = apariencia;
   const conTema = !pathname.startsWith(`/${slug}/dashboard`);
   const modo = modoEfectivo(tema);
+  const css = useMemo(() => cssTema(tema, FAMILIAS[tema.fuente]), [tema]);
 
   return (
     <AparienciaContext.Provider value={apariencia}>
       {/* Los valores del CSS vienen de listas cerradas y colores #rrggbb (leerApariencia) */}
-      {conTema && <style dangerouslySetInnerHTML={{ __html: cssTema(tema, FAMILIAS[tema.fuente]) }} />}
+      {conTema && <style dangerouslySetInnerHTML={{ __html: css }} />}
       {/* globals.css lee este marcador para fijar claro u oscuro */}
       {conTema && modo && <span data-modo={modo} hidden />}
       {/* El inicio queda montado (solo oculto) para no volver a pedir sus datos al cambiar de página */}

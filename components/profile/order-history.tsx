@@ -19,7 +19,6 @@ import { createClient } from "@/utils/supabase/client";
 import { ESTADO_PAGO, ESTADO_PEDIDO, parseDireccion } from "@/lib/pedido-estados";
 import type { EstadoPagoPedido, EstadoPedido } from "@/lib/database.types";
 import { one } from "@/lib/utils";
-import { Vidrio } from "@/components/vidrio";
 
 interface Producto {
     nombre: string;
@@ -136,7 +135,6 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
 
     return (
         <Card>
-          <Vidrio />
             <CardHeader>
                 <CardTitle>Historial de Pedidos</CardTitle>
                 <CardDescription>Revisa el estado de tus compras anteriores.</CardDescription>

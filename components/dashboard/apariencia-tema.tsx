@@ -128,12 +128,13 @@ function Opcion({ campo, etiqueta, opciones, valor, onChange }: {
   );
 }
 
-function Color({ campo, etiqueta, valor, referencia, onChange }: {
+function Color({ campo, etiqueta, valor, referencia, delgado, onChange }: {
   campo: string;
   etiqueta: string;
   valor: string | null;
   /** Color que se muestra mientras no hay uno propio. */
   referencia: string;
+  delgado?: boolean;
   onChange: (valor: string | null) => void;
 }) {
   const color = valor ?? referencia;
@@ -145,7 +146,7 @@ function Color({ campo, etiqueta, valor, referencia, onChange }: {
           <button
             type="button"
             id={`tema-${campo}`}
-            className="h-11 w-14 shrink-0 cursor-pointer rounded-md border border-input"
+            className={`${delgado ? "h-7 w-10" : "h-11 w-14"} shrink-0 cursor-pointer rounded-md border border-input`}
             style={{ background: color }}
           />
         </PopoverTrigger>
@@ -160,16 +161,13 @@ function Color({ campo, etiqueta, valor, referencia, onChange }: {
             prefixed
             className="h-9 w-[200px] rounded-md border border-input bg-transparent px-3 font-mono text-sm uppercase"
           />
+          <Button type="button" variant="outline" size="sm" className="w-full" disabled={!valor} onClick={() => onChange(null)}>
+            Restablecer
+          </Button>
         </PopoverContent>
       </Popover>
       <Label htmlFor={`tema-${campo}`} className="flex-1">{etiqueta}</Label>
-      {valor ? (
-        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)} aria-label={`Quitar ${etiqueta.toLowerCase()}`}>
-          Quitar
-        </Button>
-      ) : (
-        <span className="text-xs text-muted-foreground">Por defecto</span>
-      )}
+      {!valor && <span className="text-xs text-muted-foreground">Por defecto</span>}
     </div>
   );
 }
@@ -231,10 +229,10 @@ export function AparienciaDiseno({ idBarberia, apariencia, onChange }: {
 export function AparienciaTema({ tema, onChange }: { tema: Tema; onChange: (tema: Tema) => void }) {
   const cambiar = (campo: keyof Tema, valor: string | null) => onChange({ ...tema, [campo]: valor } as Tema);
   // En automático los colores de página y tarjeta no se aplican
-  const colores = (Object.keys(COLORES) as (keyof typeof COLORES)[]).filter((c) => c === "acento" || tema.modo !== "auto");
+  const colores = (Object.keys(COLORES) as (keyof typeof COLORES)[]).filter((c) => c !== "colorSombra" && (c === "acento" || tema.modo !== "auto"));
 
   return (
-    <div className="space-y-6" style={tema.acento ? ({ "--brand": tema.acento } as React.CSSProperties) : undefined}>
+    <div className="space-y-6" style={{ ...(tema.acento && { "--brand": tema.acento }), ...(tema.colorSombra && { "--sombra": tema.colorSombra }) } as React.CSSProperties}>
       <fieldset className="space-y-2">
         <legend className="mb-2 text-sm font-medium">Estilos listos</legend>
         <div className="flex flex-wrap gap-2">
@@ -267,7 +265,14 @@ export function AparienciaTema({ tema, onChange }: { tema: Tema; onChange: (tema
 
       <div className="space-y-6">
         {(Object.keys(OPCIONES) as (keyof typeof OPCIONES)[]).map((campo) => (
-          <Opcion key={campo} campo={campo} etiqueta={ETIQUETAS[campo]} opciones={OPCIONES[campo]} valor={tema[campo]} onChange={(v) => cambiar(campo, v)} />
+          <div key={campo} className="space-y-2">
+            <Opcion campo={campo} etiqueta={ETIQUETAS[campo]} opciones={OPCIONES[campo]} valor={tema[campo]} onChange={(v) => cambiar(campo, v)} />
+            {campo === "sombra" && (
+              <div className="rounded-lg border border-border bg-muted/40 px-2 py-1.5">
+                <Color delgado campo="colorSombra" etiqueta={COLORES.colorSombra} valor={tema.colorSombra} referencia={tema.acento ?? "#a1ffcb"} onChange={(v) => cambiar("colorSombra", v)} />
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>

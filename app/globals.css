@@ -1,8 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* data-modo lo pone el tema de una barbería (components/apariencia-provider.tsx) y manda sobre .dark */
-@custom-variant dark (&:is(.dark:not(:has([data-modo="claro"])) *, :root:has([data-modo="oscuro"]) *));
+/* data-modo lo pone el tema de una barbería (components/apariencia-provider.tsx) y manda sobre .dark.
+   :has va siempre en un :is con .sin-has (clase que nadie usa, para que el minificador no quite el :is):
+   un navegador sin :has descarta solo esa parte y no la regla entera */
+@custom-variant dark (&:is(.dark:not(:is(:has([data-modo="claro"]), .sin-has)) *, :root:is(:has([data-modo="oscuro"]), .sin-has) *));
 
 @theme inline {
   --color-background: var(--background);
@@ -52,7 +54,7 @@
 /* Paleta de la plataforma (Sunwalk): blanco y gris neutro, tinta casi negra y un acento menta.
    El menta se usa como relleno con texto oscuro (nunca como texto sobre blanco). */
 :root,
-:root:has([data-modo="claro"]) {
+:root:is(:has([data-modo="claro"]), .sin-has) {
   --radius: 0.625rem;
 
   --background: #ffffff;
@@ -104,8 +106,8 @@
 }
 
 /* El :not es necesario: el compilador iguala el peso de ambos bloques y este va después */
-.dark:not(:has([data-modo="claro"])),
-:root:has([data-modo="oscuro"]) {
+.dark:not(:is(:has([data-modo="claro"]), .sin-has)),
+:root:is(:has([data-modo="oscuro"]), .sin-has) {
   /* Oscuro diseñado, no invertido: las superficies suben de luminosidad y el menta pasa a ser el acento */
   --background: #0d0e0e;
   --foreground: #ececec;

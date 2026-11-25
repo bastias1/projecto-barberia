@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { useBarberiaHref } from "@/components/barberia-provider";
-import { Vidrio } from "@/components/vidrio";
 
 interface Product {
     id: string | number;
@@ -28,10 +27,9 @@ export function ProductCarousel({ products }: ProductCarouselProps) {
     if (!products || products.length === 0) return null;
 
     return (
-        <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0" tabIndex={0} aria-label="Productos">
+        <ul className="-mx-4 -my-6 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 py-6 sm:-mx-6 sm:scroll-px-6 sm:px-6" tabIndex={0} aria-label="Productos">
             {products.map((product) => (
                 <li key={product.id} className="lift group w-56 shrink-0 snap-start overflow-hidden tarjeta rounded-2xl border border-border bg-card">
-                  <Vidrio />
                     <Link href={href(`/tienda/${product.id}`)} className="relative block h-44 overflow-hidden bg-muted">
                         <Image
                             src={product.imagen_url || "/placeholder.svg"}

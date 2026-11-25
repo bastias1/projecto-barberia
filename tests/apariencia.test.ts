@@ -86,6 +86,18 @@ describe("cssTema", () => {
     expect(cssTema({ ...tema, modo: "claro" })).toContain("--background:#101010");
   });
 
+  it("el vidrio no pisa el fondo de hover ni de la opción elegida", () => {
+    const css = cssTema({ ...TEMA_POR_DEFECTO, superficie: "vidrio" });
+    expect(css).toContain("{--card:transparent}");
+    expect(css).toContain("::before{content:''");
+  });
+
+  it("las sombras pueden tener un color distinto del acento", () => {
+    const css = cssTema(leerApariencia({ tema: { acento: "#111111", sombra: "brillo", colorSombra: "#FF0000" } }).tema);
+    expect(css).toContain("--sombra:#ff0000");
+    expect(css).toContain("var(--sombra,var(--brand))");
+  });
+
   it("el vidrio siempre tiene un fondo que dejar ver", () => {
     expect(cssTema({ ...TEMA_POR_DEFECTO, superficie: "vidrio" })).toContain("body{background-image:radial-gradient");
     expect(cssTema({ ...TEMA_POR_DEFECTO, superficie: "vidrio", patron: "puntos" })).toContain("background-size:18px 18px");

@@ -10,7 +10,6 @@ import { AddToCartButton } from "@/components/add-to-cart-button";
 import { Product } from "@/lib/services/product-service";
 import { useBarberiaHref } from "@/components/barberia-provider";
 import { cn } from "@/lib/utils";
-import { Vidrio } from "@/components/vidrio";
 
 interface StoreClientProps {
     products: Product[];
@@ -84,7 +83,6 @@ export function StoreClient({ products }: StoreClientProps) {
                         const agotado = product.stock <= 0;
                         return (
                             <li key={product.id} className="lift group flex flex-col overflow-hidden tarjeta rounded-2xl border border-border bg-card">
-                              <Vidrio />
                                 <Link href={href(`/tienda/${product.id}`)} className="relative block aspect-square overflow-hidden bg-muted">
                                     <Image
                                         src={product.imagen_url || "/placeholder.svg"}

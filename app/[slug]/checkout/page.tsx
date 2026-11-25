@@ -14,7 +14,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FormularioTarjeta, type DatosTarjeta } from "@/components/pagos/formulario-tarjeta";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
-import { Vidrio } from "@/components/vidrio";
 
 type Address = {
   id: string;
@@ -196,7 +195,6 @@ export default function CheckoutPage() {
         <div className="md:col-span-2 space-y-6">
           {/* Step 1: Delivery Method */}
           <Card>
-            <Vidrio />
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Truck className="h-5 w-5" />
@@ -211,7 +209,6 @@ export default function CheckoutPage() {
                     htmlFor="retiro"
                     className="flex min-h-20 flex-col items-center justify-between tarjeta rounded-xl border border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
                   >
-                    <Vidrio />
                     <Store className="mb-3 h-6 w-6" />
                     Retiro en Tienda
                   </Label>
@@ -222,7 +219,6 @@ export default function CheckoutPage() {
                     htmlFor="despacho"
                     className="flex min-h-20 flex-col items-center justify-between tarjeta rounded-xl border border-border bg-card p-4 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-accent [&:has([data-state=checked])]:border-primary cursor-pointer"
                   >
-                    <Vidrio />
                     <Truck className="mb-3 h-6 w-6" />
                     Despacho a Domicilio
                   </Label>
@@ -234,7 +230,6 @@ export default function CheckoutPage() {
           {/* Step 2: Address (Only for Despacho) */}
           {deliveryMethod === 'despacho' && (
             <Card>
-              <Vidrio />
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
@@ -294,7 +289,6 @@ export default function CheckoutPage() {
 
           {/* Step 3: Payment */}
           <Card>
-            <Vidrio />
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
@@ -323,7 +317,6 @@ export default function CheckoutPage() {
         {/* Summary Sidebar */}
         <div className="md:col-span-1">
           <Card className="sticky top-4">
-            <Vidrio />
             <CardHeader>
               <CardTitle>Resumen de Compra</CardTitle>
             </CardHeader>

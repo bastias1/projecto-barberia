@@ -38,9 +38,10 @@ const CAMPOS_SEGUROS = [
 ];
 const ERROR_CAMPOS = "No se pudieron cargar los campos de la tarjeta. Recarga la página o desactiva el bloqueador de anuncios.";
 
-// Host vacío de un iframe seguro: con alto, posición relativa y el iframe ocupando todo
+// Host vacío de un iframe seguro: con alto, posición relativa y el iframe ocupando todo.
+// Fondo blanco en cualquier tema: Mercado Pago escribe en oscuro dentro del iframe
 const secureHost =
-  "relative h-11 w-full overflow-hidden rounded-md border border-input bg-transparent shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30 [&_iframe]:block [&_iframe]:h-full [&_iframe]:w-full";
+  "relative h-11 w-full overflow-hidden rounded-md border border-input bg-white shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 [&_iframe]:block [&_iframe]:h-full [&_iframe]:w-full";
 
 /**
  * Formulario de tarjeta con el CardForm de MercadoPago.js (tienda y suscripción).

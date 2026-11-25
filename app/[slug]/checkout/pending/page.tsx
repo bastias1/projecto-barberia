@@ -4,14 +4,12 @@ import Link from "next/link";
 import { useBarberia } from "@/components/barberia-provider";
 import { Clock, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Vidrio } from "@/components/vidrio";
 
 export default function PaymentPendingPage() {
     const { slug } = useBarberia();
     return (
         <main id="contenido" className="flex min-h-[70vh] items-center justify-center">
             <div className="w-full max-w-md space-y-6 tarjeta rounded-2xl border border-border bg-card p-8 text-center">
-              <Vidrio />
                 <span className="mx-auto grid size-14 place-items-center rounded-full bg-muted">
                     <Clock className="size-7 text-muted-foreground" aria-hidden="true" />
                 </span>

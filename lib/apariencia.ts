@@ -42,7 +42,7 @@ export const OPCIONES = {
   patron: { ninguno: "Liso", degradado: "Degradado", puntos: "Puntos", cuadricula: "Cuadrícula" },
 };
 
-export const COLORES = { acento: "Color de acento", fondo: "Color de la página", tarjeta: "Color de las tarjetas" };
+export const COLORES = { acento: "Color de acento", fondo: "Color de la página", tarjeta: "Color de las tarjetas", colorSombra: "Color de sombras y brillos" };
 
 type Opciones = typeof OPCIONES;
 export type Tema =
@@ -70,7 +70,7 @@ export interface Apariencia {
 }
 
 export const TEMA_POR_DEFECTO: Tema = {
-  modo: "auto", acento: null, fondo: null, tarjeta: null,
+  modo: "auto", acento: null, fondo: null, tarjeta: null, colorSombra: null,
   fuente: "geist", titulos: "normal", radio: "grande", borde: "linea", grosor: "fino",
   sombra: "ninguna", hover: "ninguno", superficie: "solida", patron: "ninguno",
 };
@@ -132,7 +132,7 @@ function leerTema(guardado: unknown): Tema {
 
 // Solo fotos subidas a barberias/<id>/portada/ de nuestro Storage
 function leerPortada(url: unknown): string | null {
-  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/imgs/barberias/`;
+  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "")}/storage/v1/object/public/imgs/barberias/`;
   return typeof url === "string" && url.startsWith(base) && /^[0-9a-f-]+\/portada\/\w+\.\w+$/i.test(url.slice(base.length)) ? url : null;
 }
 

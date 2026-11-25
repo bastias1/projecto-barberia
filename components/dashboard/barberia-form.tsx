@@ -21,7 +21,7 @@ async function subirImagen(idBarberia: string, carpeta: "logo" | "galeria" | "po
   if (file.size > MAX_IMAGEN_MB * 1024 * 1024) throw new Error(`La imagen no puede pesar más de ${MAX_IMAGEN_MB} MB`);
 
   const supabase = createClient();
-  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const ext = file.name.match(/\.([a-z0-9]+)$/i)?.[1].toLowerCase() ?? "png";
   const path = `barberias/${idBarberia}/${carpeta}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
   const { error } = await supabase.storage.from("imgs").upload(path, file);
