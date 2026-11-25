@@ -6,8 +6,9 @@ import type { Tema } from "./apariencia";
 
 const BLANCO = "#ffffff";
 const NEGRO = "#000000";
-// Fondo y tarjeta de cada modo en app/globals.css
-const BASE = { claro: { fondo: BLANCO, tarjeta: BLANCO }, oscuro: { fondo: "#0d0e0e", tarjeta: "#151716" } };
+// Fondo y tarjeta de cada modo, y acento de la plataforma: los mismos de app/globals.css
+export const ACENTO = "#a1ffcb";
+export const BASE = { claro: { fondo: BLANCO, tarjeta: BLANCO }, oscuro: { fondo: "#0d0e0e", tarjeta: "#151716" } };
 
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
@@ -56,6 +57,9 @@ export function paleta(fondo: string, acento: string | null) {
 
 const vars = (v: Record<string, string>) => Object.entries(v).map(([k, valor]) => `--${k}:${valor}`).join(";");
 const regla = (selector: string, cuerpo: string) => `${selector}{${cuerpo}}`;
+type Fondo = { backgroundImage: string; backgroundSize?: string };
+const declaraciones = ({ backgroundImage, backgroundSize }: Fondo) =>
+  `background-image:${backgroundImage}${backgroundSize ? `;background-size:${backgroundSize}` : ""}`;
 
 const TARJETA = ":is(.tarjeta,[data-slot=card])";
 export const RADIOS = { recto: ["0px", "0px"], pequeno: ["0.375rem", "0.25rem"], medio: ["0.75rem", "0.5rem"], grande: null, pildora: ["2rem", "1.5rem"] };
@@ -75,12 +79,14 @@ const HOVERS = {
 };
 const linea = "color-mix(in srgb,var(--foreground) 9%,transparent)";
 const mancha = (posicion: string, color: string) => `radial-gradient(circle at ${posicion},${color},transparent 38%)`;
-const MANCHAS = "background-image:" + [
-  mancha("12% 18%", "color-mix(in srgb,var(--brand) 55%,transparent)"),
-  mancha("88% 42%", "rgb(124 58 237 / 0.4)"),
-  mancha("22% 82%", "rgb(14 165 233 / 0.35)"),
-  mancha("78% 92%", "color-mix(in srgb,var(--brand) 45%,transparent)"),
-].join(",");
+const MANCHAS: Fondo = {
+  backgroundImage: [
+    mancha("12% 18%", "color-mix(in srgb,var(--brand) 55%,transparent)"),
+    mancha("88% 42%", "rgb(124 58 237 / 0.4)"),
+    mancha("22% 82%", "rgb(14 165 233 / 0.35)"),
+    mancha("78% 92%", "color-mix(in srgb,var(--brand) 45%,transparent)"),
+  ].join(","),
+};
 // Capa esmerilada detrás del contenido de cada tarjeta: brillo diagonal, velo claro y filo en los bordes
 const VIDRIO = [
   "content:''",
@@ -94,11 +100,12 @@ const VIDRIO = [
   "backdrop-filter:blur(12px) saturate(1.96) brightness(1.04)",
   "box-shadow:inset 0 1px 0 light-dark(rgb(255 255 255 / 0.85),rgb(255 255 255 / 0.3)),inset 0 0 0 1px light-dark(rgb(255 255 255 / 0.35),rgb(255 255 255 / 0.12)),0 8px 24px rgb(17 17 26 / 0.06)",
 ].join(";");
-export const PATRONES = {
+// Como estilo de React: el editor los dibuja tal cual y cssTema los escribe como CSS
+export const PATRONES: Record<Tema["patron"], Fondo | null> = {
   ninguno: null,
-  degradado: "background-image:linear-gradient(160deg,color-mix(in srgb,var(--brand) 28%,transparent),transparent 60%)",
-  puntos: `background-image:radial-gradient(color-mix(in srgb,var(--foreground) 16%,transparent) 1px,transparent 1px);background-size:18px 18px`,
-  cuadricula: `background-image:linear-gradient(${linea} 1px,transparent 1px),linear-gradient(90deg,${linea} 1px,transparent 1px);background-size:32px 32px`,
+  degradado: { backgroundImage: "linear-gradient(160deg,color-mix(in srgb,var(--brand) 28%,transparent),transparent 60%)" },
+  puntos: { backgroundImage: "radial-gradient(color-mix(in srgb,var(--foreground) 16%,transparent) 1px,transparent 1px)", backgroundSize: "18px 18px" },
+  cuadricula: { backgroundImage: `linear-gradient(${linea} 1px,transparent 1px),linear-gradient(90deg,${linea} 1px,transparent 1px)`, backgroundSize: "32px 32px" },
 };
 
 /** Modo que se fuerza en la página, o null si sigue al visitante. Un fondo propio decide si es claro u oscuro. */
@@ -181,7 +188,8 @@ export function cssTema(tema: Tema, familia: string | null = null): string {
   // El vidrio no se nota sobre un color liso: sin otro fondo elegido se ponen manchas de color
   const patron = PATRONES[tema.patron] ?? (tema.superficie === "vidrio" ? MANCHAS : null);
   if (patron) {
-    css += regla("body", `${patron};background-attachment:fixed`) + regla(".min-h-dvh.bg-background", "background-color:transparent");
+    css += regla("body", `${declaraciones(patron)};background-attachment:fixed`) + // El contenedor de cada página de cliente deja ver el patrón
+    regla(".pagina-barberia", "background-color:transparent");
   }
 
   return css;

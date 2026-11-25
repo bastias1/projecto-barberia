@@ -24,7 +24,7 @@ import { DEFAULT_TZ, formatPlazo } from "@/lib/barberia";
 import { formatCLP, formatFecha, toZoned } from "@/lib/datetime";
 import { getBarberos } from "@/lib/services/barber-service";
 import { one } from "@/lib/utils";
-import { cambiarReserva } from "@/app/[slug]/reprogramar/actions";
+import { cambiarReserva } from "@/app/[slug]/(publico)/reprogramar/actions";
 
 interface Reserva {
     id: number;

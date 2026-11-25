@@ -15,9 +15,10 @@ import { createClient } from "@/utils/supabase/client";
 import { useModulos } from "@/components/barberia-provider";
 import { tieneModulo, type ModuloCodigo } from "@/lib/modulos";
 import {
-  aparienciaPorDefecto, MENSAJE_BORRADOR, MENSAJE_LISTA, SECCION_NOMBRE,
-  type Apariencia, type PaginaPrevia, type SeccionConfig, type SeccionId,
+  aparienciaPorDefecto, SECCION_NOMBRE,
+  type Apariencia, type SeccionConfig, type SeccionId,
 } from "@/lib/apariencia";
+import { MENSAJE_BORRADOR, MENSAJE_LISTA, type PaginaPrevia } from "@/components/vista-previa";
 import { cn } from "@/lib/utils";
 
 const nombreDe = (id: string | number) => SECCION_NOMBRE[id as SeccionId];

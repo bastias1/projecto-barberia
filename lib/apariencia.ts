@@ -155,10 +155,3 @@ export function leerApariencia(json: unknown): Apariencia {
   const diseno = typeof g.diseno === "string" && Object.hasOwn(DISENOS, g.diseno) ? (g.diseno as Apariencia["diseno"]) : "clasico";
   return { secciones: leerSecciones(g.secciones), tema: leerTema(g.tema), diseno, portada: leerPortada(g.portada), encuadre: leerEncuadre(g.encuadre) };
 }
-
-/** Qué muestra la vista previa: el inicio real, o Reservar y Tienda con datos de ejemplo. */
-export type PaginaPrevia = "inicio" | "reserva" | "tienda";
-
-/** Mensajes entre el editor del dashboard y la página en su iframe de vista previa. */
-export const MENSAJE_LISTA = "apariencia-lista";
-export const MENSAJE_BORRADOR = "apariencia-borrador";

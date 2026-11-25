@@ -54,7 +54,7 @@ export default async function SucursalPage({ params }: { params: Params }) {
   const telefono = sucursal.telefono || barberia.telefono;
 
   return (
-    <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
+    <div className="pagina-barberia min-h-dvh overflow-x-clip bg-background text-foreground">
       <BarberiaNavbar
         acciones={tieneModulo(modulos, "agenda") && (
           <Button asChild className="h-11">

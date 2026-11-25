@@ -17,7 +17,7 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { getRolApp, isStaffRol, type RolApp } from "@/lib/roles";
 import { useBarberia } from "@/components/barberia-provider";
-import { MuestraContext } from "@/components/apariencia-provider";
+import { MuestraContext } from "@/components/vista-previa";
 
 interface UserProfile {
     nombre: string | null;

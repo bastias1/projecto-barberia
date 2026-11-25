@@ -10,7 +10,7 @@ import { DateTimeSelection } from "@/components/booking/date-time-selection";
 import { useBarberia } from "@/components/barberia-provider";
 import { getAvailableTimeSlots, type TimeSlot } from "@/lib/services/booking-service";
 import { localDateString } from "@/lib/datetime";
-import { cambiarReserva } from "@/app/[slug]/reprogramar/actions";
+import { cambiarReserva } from "@/app/[slug]/(publico)/reprogramar/actions";
 
 interface Props {
   idReserva: number;

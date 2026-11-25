@@ -287,7 +287,7 @@ export default async function BarberiaHome({ params }: { params: Promise<{ slug:
   );
 
   return (
-    <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
+    <div className="pagina-barberia min-h-dvh overflow-x-clip bg-background text-foreground">
       <BarberiaNavbar
         acciones={conAgenda && (
           <Button asChild className="h-11">

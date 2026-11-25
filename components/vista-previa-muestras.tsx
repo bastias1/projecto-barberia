@@ -7,7 +7,7 @@ import { BarberSelection } from "@/components/booking/barber-selection";
 import { ProgressSteps } from "@/components/booking/progress-steps";
 import { AccionesPaso } from "@/components/booking/acciones-paso";
 import { StoreHeader } from "@/components/shop/store-header";
-import { StoreClient } from "@/app/[slug]/tienda/store-client";
+import { StoreClient } from "@/app/[slug]/(publico)/tienda/store-client";
 import { Button } from "@/components/ui/button";
 import type { Barbero } from "@/lib/services/barber-service";
 import type { Product } from "@/lib/services/product-service";
@@ -31,7 +31,7 @@ const PRODUCTOS: Product[] = [
 
 function Reserva() {
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="pagina-barberia min-h-dvh bg-background">
       <BarberiaNavbar ancho="max-w-2xl" />
       <main className="mx-auto max-w-2xl px-4 pb-28 pt-6">
         <h1 className="display mb-5 text-3xl sm:text-4xl">Agendar cita</h1>
@@ -48,7 +48,7 @@ function Reserva() {
 function Tienda() {
   return (
     <Suspense>
-      <div className="min-h-dvh bg-background text-foreground">
+      <div className="pagina-barberia min-h-dvh bg-background text-foreground">
         <StoreHeader />
         <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
           <StoreClient products={PRODUCTOS} />

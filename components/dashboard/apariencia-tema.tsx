@@ -8,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FAMILIAS } from "@/components/apariencia-provider";
 import { COLORES, DISENOS, ENCUADRE, ENCUADRE_POR_DEFECTO, MODOS, OPCIONES, PRESETS, type Apariencia, type Encuadre, type Tema } from "@/lib/apariencia";
 import { LogoInput } from "@/components/dashboard/barberia-form";
-import { GROSORES, PATRONES, RADIOS, SOMBRAS } from "@/lib/apariencia-css";
+import { ACENTO, BASE, GROSORES, PATRONES, RADIOS, SOMBRAS } from "@/lib/apariencia-css";
 
 const ETIQUETAS: Record<keyof typeof OPCIONES, string> = {
   fuente: "Fuente",
@@ -22,14 +22,8 @@ const ETIQUETAS: Record<keyof typeof OPCIONES, string> = {
   patron: "Fondo de la página",
 };
 
-/** "a:b;c:d" (como lo escribe cssTema) -> estilo de React. */
-const estilo = (css: string) =>
-  Object.fromEntries(css.split(";").map((d) => {
-    const i = d.indexOf(":");
-    return [d.slice(0, i).replace(/-(\w)/g, (_, c: string) => c.toUpperCase()), d.slice(i + 1)];
-  })) as React.CSSProperties;
-
 const CAJA = "h-8 w-12 border border-foreground/40 bg-card";
+// Versión exagerada de los efectos de cssTema, para que se noten en una miniatura
 const EFECTOS: Record<Tema["hover"], string> = {
   ninguno: "",
   elevar: "motion-safe:group-hover:-translate-y-1.5",
@@ -68,7 +62,11 @@ function Muestra({ campo, valor }: { campo: Campo; valor: string }) {
       );
     }
     case "modo": {
-      const fondo = { auto: "linear-gradient(115deg,#fff 50%,#0d0e0e 50%)", claro: "#fff", oscuro: "#0d0e0e" }[valor as Tema["modo"]];
+      const fondo = {
+        auto: `linear-gradient(115deg,${BASE.claro.fondo} 50%,${BASE.oscuro.fondo} 50%)`,
+        claro: BASE.claro.fondo,
+        oscuro: BASE.oscuro.fondo,
+      }[valor as Tema["modo"]];
       return <span className={`${CAJA} rounded-md`} style={{ background: fondo }} />;
     }
     case "fuente":
@@ -93,7 +91,7 @@ function Muestra({ campo, valor }: { campo: Campo; valor: string }) {
       );
     case "patron": {
       const patron = PATRONES[valor as Tema["patron"]];
-      return <span className="h-8 w-12 rounded-md border border-foreground/40" style={patron ? { ...estilo(patron), ...(valor !== "degradado" && { backgroundSize: "8px 8px" }) } : undefined} />;
+      return <span className="h-8 w-12 rounded-md border border-foreground/40" style={patron ? { ...patron, ...(valor !== "degradado" && { backgroundSize: "8px 8px" }) } : undefined} />;
     }
   }
 }
@@ -254,7 +252,7 @@ export function AparienciaTema({ tema, onChange }: { tema: Tema; onChange: (tema
             campo={campo}
             etiqueta={COLORES[campo]}
             valor={tema[campo]}
-            referencia={campo === "acento" ? "#a1ffcb" : tema.modo === "oscuro" ? "#0d0e0e" : "#ffffff"}
+            referencia={campo === "acento" ? ACENTO : BASE[tema.modo === "oscuro" ? "oscuro" : "claro"].fondo}
             onChange={(v) => cambiar(campo, v)}
           />
         ))}
@@ -269,7 +267,7 @@ export function AparienciaTema({ tema, onChange }: { tema: Tema; onChange: (tema
             <Opcion campo={campo} etiqueta={ETIQUETAS[campo]} opciones={OPCIONES[campo]} valor={tema[campo]} onChange={(v) => cambiar(campo, v)} />
             {campo === "sombra" && (
               <div className="rounded-lg border border-border bg-muted/40 px-2 py-1.5">
-                <Color delgado campo="colorSombra" etiqueta={COLORES.colorSombra} valor={tema.colorSombra} referencia={tema.acento ?? "#a1ffcb"} onChange={(v) => cambiar("colorSombra", v)} />
+                <Color delgado campo="colorSombra" etiqueta={COLORES.colorSombra} valor={tema.colorSombra} referencia={tema.acento ?? ACENTO} onChange={(v) => cambiar("colorSombra", v)} />
               </div>
             )}
           </div>
