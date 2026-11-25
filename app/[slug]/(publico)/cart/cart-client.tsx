@@ -50,7 +50,7 @@ export function CartClient({ products }: CartClientProps) {
             <div className="grid gap-8 md:grid-cols-3">
                 <ul className="space-y-3 md:col-span-2">
                     {cart.map((item) => (
-                        <li key={item.id} className="flex gap-4 rounded-2xl border border-border bg-card p-4">
+                        <li key={item.id} className="flex gap-4 tarjeta rounded-2xl p-4">
                             {item.image && (
                                 <div className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-muted">
                                     <Image src={item.image} alt="" fill sizes="96px" className="object-cover" />
@@ -102,7 +102,7 @@ export function CartClient({ products }: CartClientProps) {
                 </ul>
 
                 <aside className="md:col-span-1">
-                    <div className="space-y-5 rounded-2xl border border-border bg-card p-6 md:sticky md:top-24">
+                    <div className="space-y-5 tarjeta rounded-2xl p-6 md:sticky md:top-24">
                         <h2 className="text-lg font-semibold">Resumen</h2>
                         <dl className="space-y-2 text-sm text-muted-foreground">
                             <div className="flex justify-between"><dt>Subtotal (sin IVA)</dt><dd className="tabular">{clp(Math.round(total / 1.19))}</dd></div>

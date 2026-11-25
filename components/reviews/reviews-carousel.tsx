@@ -55,11 +55,12 @@ export function ReviewsCarousel() {
                         align: "start",
                         loop: true,
                     }}
-                    className="w-full"
+                    // clip con margen en vez de hidden: deja salir el brillo de las tarjetas (24px, lo mismo que las separa)
+                    className="w-full [&_[data-slot=carousel-content]]:overflow-clip [&_[data-slot=carousel-content]]:[overflow-clip-margin:1.5rem]"
                 >
-                    <CarouselContent className="-ml-4">
+                    <CarouselContent className="-ml-6">
                         {reviews.map((review) => (
-                            <CarouselItem key={review.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
+                            <CarouselItem key={review.id} className="pl-6 md:basis-1/2 lg:basis-1/3">
                                 <ReviewCard review={review} />
                             </CarouselItem>
                         ))}

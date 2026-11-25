@@ -6,7 +6,7 @@ import { RequiereModulo } from "@/components/requiere-modulo";
 export function TiendaShell({ children }: { children: React.ReactNode }) {
   return (
     <RequiereModulo modulo="ecommerce">
-      <div className="min-h-dvh bg-background text-foreground">
+      <div className="pagina-barberia min-h-dvh bg-background text-foreground">
         <Suspense fallback={<div className="h-16 border-b border-border" />}>
           <StoreHeader />
         </Suspense>

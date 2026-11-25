@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { leerApariencia, type Apariencia } from "./apariencia";
 
 /**
  * La plataforma atiende a varias barberías; cada una vive en /<slug>.
@@ -21,6 +22,7 @@ export interface Barberia {
   instagram: string | null;
   galeria: string[];
   plazo_cancelacion_min: number; // HU-22: anticipación mínima para que el cliente cancele o reprograme
+  apariencia: Apariencia; // ya validada (leerBarberia)
 }
 
 /** 120 -> "2 horas", 90 -> "90 minutos" */
@@ -43,7 +45,11 @@ export interface Sucursal {
 const SUCURSAL_COLUMNS = "id_sucursal, slug, nombre, direccion, comuna, region, telefono, zona_horaria";
 
 const BARBERIA_COLUMNS =
-  "id_barberia, slug, nombre, telefono, email_contacto, logo_url, logo_oscuro_url, eslogan, descripcion, instagram, galeria, plazo_cancelacion_min";
+  "id_barberia, slug, nombre, telefono, email_contacto, logo_url, logo_oscuro_url, eslogan, descripcion, instagram, galeria, plazo_cancelacion_min, apariencia";
+
+// El admin puede escribir cualquier JSON en `apariencia`: aquí se valida para todos
+const leerBarberia = (fila: (Omit<Barberia, "apariencia"> & { apariencia: unknown }) | null): Barberia | null =>
+  fila && { ...fila, apariencia: leerApariencia(fila.apariencia) };
 
 /** Barbería activa por slug (null si no existe o está inactiva: RLS solo muestra las activas). */
 export async function getBarberiaBySlug(supabase: SupabaseClient, slug: string): Promise<Barberia | null> {
@@ -58,7 +64,7 @@ export async function getBarberiaBySlug(supabase: SupabaseClient, slug: string):
     console.error(`Error fetching barbería "${slug}":`, error);
     return null;
   }
-  return data as Barberia | null;
+  return leerBarberia(data);
 }
 
 export async function getBarberiaById(supabase: SupabaseClient, idBarberia: string): Promise<Barberia | null> {
@@ -72,7 +78,7 @@ export async function getBarberiaById(supabase: SupabaseClient, idBarberia: stri
     console.error(`Error fetching barbería ${idBarberia}:`, error);
     return null;
   }
-  return data as Barberia | null;
+  return leerBarberia(data);
 }
 
 export async function getSucursales(supabase: SupabaseClient, idBarberia: string): Promise<Sucursal[]> {

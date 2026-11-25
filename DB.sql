@@ -116,6 +116,8 @@ CREATE TABLE public.barberia (
   galeria         text[]      NOT NULL DEFAULT '{}',
   plazo_cancelacion_min integer NOT NULL DEFAULT 120   -- HU-22: anticipación mínima para que el cliente cancele o reprograme
     CONSTRAINT barberia_plazo_cancelacion_check CHECK (plazo_cancelacion_min >= 0),
+  apariencia     jsonb       NOT NULL DEFAULT '{}'     -- secciones de la página pública (lib/apariencia.ts)
+    CONSTRAINT barberia_apariencia_check CHECK (jsonb_typeof(apariencia) = 'object' AND pg_column_size(apariencia) < 8192),
   activa         boolean     NOT NULL DEFAULT true,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),

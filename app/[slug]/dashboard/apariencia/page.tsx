@@ -1,0 +1,18 @@
+import { requireStaff } from "@/lib/staff-context";
+import { AparienciaEditor } from "@/components/dashboard/apariencia-editor";
+
+export default async function AparienciaPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { barberia } = await requireStaff((await params).slug, { admin: true });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="display text-3xl">Apariencia</h1>
+        <p className="mt-1 text-muted-foreground">
+          Elige las secciones, colores, estilo y diseño de tus páginas. Los cambios se publican al guardar.
+        </p>
+      </div>
+      <AparienciaEditor idBarberia={barberia.id_barberia} slug={barberia.slug} inicial={barberia.apariencia} />
+    </div>
+  );
+}

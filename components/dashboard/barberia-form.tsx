@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
+import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,82 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/utils/supabase/client";
+import { ImagenInput, subirImagen } from "@/components/dashboard/imagen-input";
 import type { Barberia } from "@/lib/barberia";
 
 const MAX_GALERIA = 12;
-const MAX_IMAGEN_MB = 5;
-
-/** Sube una imagen a la carpeta de la barbería (Storage solo deja escribir a su admin). */
-async function subirImagen(idBarberia: string, carpeta: "logo" | "galeria", file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) throw new Error("El archivo debe ser una imagen");
-  if (file.size > MAX_IMAGEN_MB * 1024 * 1024) throw new Error(`La imagen no puede pesar más de ${MAX_IMAGEN_MB} MB`);
-
-  const supabase = createClient();
-  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-  const path = `barberias/${idBarberia}/${carpeta}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-  const { error } = await supabase.storage.from("imgs").upload(path, file);
-  if (error) throw error;
-  return supabase.storage.from("imgs").getPublicUrl(path).data.publicUrl;
-}
-
-function LogoInput({
-  label,
-  descripcion,
-  value,
-  onChange,
-  idBarberia,
-  fondo,
-}: {
-  label: string;
-  descripcion: string;
-  value: string | null;
-  onChange: (url: string | null) => void;
-  idBarberia: string;
-  fondo: "claro" | "oscuro";
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [subiendo, setSubiendo] = useState(false);
-
-  const handleFile = async (file: File | undefined) => {
-    if (!file) return;
-    setSubiendo(true);
-    try {
-      onChange(await subirImagen(idBarberia, "logo", file));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo subir la imagen");
-    } finally {
-      setSubiendo(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className={`h-28 rounded-lg border flex items-center justify-center p-3 ${fondo === "claro" ? "bg-white" : "bg-zinc-950"}`}>
-        {value ? (
-          <img src={value} alt={label} className="max-h-full max-w-full object-contain" />
-        ) : (
-          <span className={`text-xs ${fondo === "claro" ? "text-zinc-500" : "text-zinc-400"}`}>Sin logo</span>
-        )}
-      </div>
-      <p className="text-xs text-muted-foreground">{descripcion}</p>
-      <div className="flex gap-2">
-        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
-        <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={subiendo}>
-          {subiendo ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-          Subir
-        </Button>
-        {value && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)} disabled={subiendo}>
-            Quitar
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export function BarberiaForm({ barberia }: { barberia: Barberia }) {
   const router = useRouter();
@@ -231,7 +159,7 @@ export function BarberiaForm({ barberia }: { barberia: Barberia }) {
           <CardDescription>Si no subes un logo, se muestra el nombre de la barbería.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 md:grid-cols-2">
-          <LogoInput
+          <ImagenInput
             label="Logo"
             descripcion="Para fondo claro (también se usa en modo oscuro si no hay otra versión)."
             value={logo}
@@ -239,7 +167,7 @@ export function BarberiaForm({ barberia }: { barberia: Barberia }) {
             idBarberia={barberia.id_barberia}
             fondo="claro"
           />
-          <LogoInput
+          <ImagenInput
             label="Logo para modo oscuro"
             descripcion="Opcional: versión clara del logo para fondo oscuro."
             value={logoOscuro}

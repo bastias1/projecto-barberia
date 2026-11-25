@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { getStaffContext } from "@/lib/staff-context";
-import { crearReserva, type CrearReservaInput, type CrearReservaResult } from "@/app/[slug]/agendar/actions";
+import { crearReserva, type CrearReservaInput, type CrearReservaResult } from "@/app/[slug]/(publico)/agendar/actions";
 
 export interface CrearCitaManualInput extends CrearReservaInput {
   confirmar: boolean; // el barbero ya habló con el cliente

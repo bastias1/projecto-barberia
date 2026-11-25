@@ -289,7 +289,7 @@ function Agendar() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-background flex items-center justify-center">
+      <div className="pagina-barberia min-h-dvh bg-background flex items-center justify-center">
         <div className="text-center" role="status">
           <Loader2 className="h-10 w-10 animate-spin text-muted-foreground mx-auto mb-4" aria-hidden="true" />
           <p className="text-muted-foreground">Cargando...</p>
@@ -300,7 +300,7 @@ function Agendar() {
 
   if (error) {
     return (
-      <div className="min-h-dvh bg-background flex items-center justify-center p-4">
+      <div className="pagina-barberia min-h-dvh bg-background flex items-center justify-center p-4">
         <div className="text-center max-w-md" role="alert">
           <span className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-destructive/10 text-destructive">
             <AlertTriangle className="size-7" aria-hidden="true" />
@@ -321,7 +321,7 @@ function Agendar() {
   ].filter(Boolean).join(" · ");
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="pagina-barberia min-h-dvh bg-background">
       <BarberiaNavbar ancho="max-w-2xl" />
 
       <main id="contenido" className="mx-auto max-w-2xl px-4 pb-28 pt-6">

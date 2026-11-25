@@ -46,7 +46,7 @@ export default async function ReprogramarPage({
   const modificable = data && servicio && ["pendiente", "confirmada"].includes(data.estado);
 
   return (
-    <main id="contenido" className="min-h-dvh bg-background p-4 py-8 pb-28">
+    <main id="contenido" className="pagina-barberia min-h-dvh bg-background p-4 py-8 pb-28">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-2">Cambiar la hora de tu cita</h1>
         {modificable ? (

@@ -1,7 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* data-modo lo pone el tema de una barbería (components/apariencia-provider.tsx) y manda sobre .dark.
+   :has va siempre en un :is con .sin-has (clase que nadie usa, para que el minificador no quite el :is):
+   un navegador sin :has descarta solo esa parte y no la regla entera */
+@custom-variant dark (&:is(.dark:not(:is(:has([data-modo="claro"]), .sin-has)) *, :root:is(:has([data-modo="oscuro"]), .sin-has) *));
+
+/* Inicio de la barbería con el diseño "Dos columnas" (components/diseno-home.tsx) */
+@custom-variant en-columna (&:is([data-diseno="columna"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -50,7 +56,8 @@
 
 /* Paleta de la plataforma (Sunwalk): blanco y gris neutro, tinta casi negra y un acento menta.
    El menta se usa como relleno con texto oscuro (nunca como texto sobre blanco). */
-:root {
+:root,
+:root:is(:has([data-modo="claro"]), .sin-has) {
   --radius: 0.625rem;
 
   --background: #ffffff;
@@ -101,7 +108,9 @@
   --sidebar-ring: #2f6b4d;
 }
 
-.dark {
+/* El :not es necesario: el compilador iguala el peso de ambos bloques y este va después */
+.dark:not(:is(:has([data-modo="claro"]), .sin-has)),
+:root:is(:has([data-modo="oscuro"]), .sin-has) {
   /* Oscuro diseñado, no invertido: las superficies suben de luminosidad y el menta pasa a ser el acento */
   --background: #0d0e0e;
   --foreground: #ececec;
@@ -151,6 +160,14 @@
   --sidebar-ring: #7fe3ad;
 }
 
+:root:has([data-modo="claro"]) {
+  color-scheme: light !important;
+}
+
+:root:has([data-modo="oscuro"]) {
+  color-scheme: dark !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -182,6 +199,14 @@
   line-height: 1.04;
   letter-spacing: -0.035em;
   text-wrap: balance;
+}
+
+/* Tarjeta de las páginas de cliente: el tema de la barbería la reconoce por esta clase (lib/apariencia-css.ts) */
+@utility tarjeta {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border);
+  background-color: var(--card);
 }
 
 @utility tabular {

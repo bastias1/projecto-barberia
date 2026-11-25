@@ -14,7 +14,7 @@ export default async function BookingCancelledPage({
     <>
       <BarberiaNavbar />
     <main id="contenido" className="min-h-[calc(100dvh-4rem)] bg-background flex items-center justify-center p-4">
-      <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 text-center">
+      <div className="max-w-md w-full tarjeta rounded-2xl p-8 text-center">
         <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-muted">
           <XCircle className="size-8 text-muted-foreground" aria-hidden="true" />
         </span>
