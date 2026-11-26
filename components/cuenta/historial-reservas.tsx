@@ -58,6 +58,7 @@ const ESTADOS: Record<string, string> = {
 export function HistorialReservas({ reservas }: { reservas: ReservaCuenta[] }) {
   const router = useRouter();
   const [cancelando, setCancelando] = useState<number | null>(null);
+  const [ahora] = useState(() => Date.now());
 
   const cancelar = async (id: number) => {
     setCancelando(id);
@@ -79,7 +80,7 @@ export function HistorialReservas({ reservas }: { reservas: ReservaCuenta[] }) {
           {reservas.map((r) => {
             const { fecha, hora } = toZoned(r.fecha_hora_inicio, r.zona_horaria);
             // El plazo para cambiarla lo decide la BD
-            const modificable = r.barberia_activa && ["pendiente", "confirmada"].includes(r.estado) && Date.parse(r.fecha_hora_inicio) > Date.now();
+            const modificable = r.barberia_activa && ["pendiente", "confirmada"].includes(r.estado) && Date.parse(r.fecha_hora_inicio) > ahora;
             return (
               <li key={r.id_reserva} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
                 <div className="min-w-0">
