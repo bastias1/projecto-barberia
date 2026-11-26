@@ -2088,6 +2088,16 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.reservar_con_cuenta(uuid, bigint, uuid, bigint, timestamptz) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.reservar_con_cuenta(uuid, bigint, uuid, bigint, timestamptz) TO authenticated;
 
+-- 5.2c-0 HU-21: la reserva de un invitado es "mía" si su correo es el CONFIRMADO de mi cuenta
+--      (sin confirmar, cualquiera podría registrarse con el correo de otra persona).
+CREATE FUNCTION private.es_mi_invitado(p_guest uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.guest_usuario g
+    JOIN auth.users u ON u.id = auth.uid() AND u.email_confirmed_at IS NOT NULL
+    WHERE g.id_guest = p_guest AND lower(g.correo) = lower(u.email));
+$$;
+
 -- 5.2c HU-22: el cliente cancela (p_nuevo_inicio NULL) o reprograma su reserva, solo hasta
 --      barberia.plazo_cancelacion_min antes de la cita. La llama su dueño con sesión, o el
 --      backend con service role tras verificar el link firmado del correo.
@@ -2100,7 +2110,8 @@ DECLARE
 BEGIN
   SELECT * INTO r FROM public.reserva WHERE id_reserva = p_reserva FOR UPDATE;
   -- coalesce sobre TODA la condición: en una reserva de invitado id_cliente es NULL y la guarda no se disparaba
-  IF NOT FOUND OR NOT coalesce(auth.role() = 'service_role' OR r.id_cliente = auth.uid(), false) THEN
+  IF NOT FOUND OR NOT coalesce(auth.role() = 'service_role' OR r.id_cliente = auth.uid()
+                               OR private.es_mi_invitado(r.id_guest), false) THEN
     RAISE EXCEPTION 'Reserva no encontrada' USING ERRCODE = 'insufficient_privilege';
   END IF;
   IF r.estado NOT IN ('pendiente', 'confirmada') THEN
@@ -2126,6 +2137,36 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.cambiar_reserva_cliente(bigint, timestamptz, bigint) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.cambiar_reserva_cliente(bigint, timestamptz, bigint) TO authenticated, service_role;
 GRANT  UPDATE (plazo_cancelacion_min) ON public.barberia TO authenticated;  -- lo edita el admin (RLS) en Mi Barbería
+
+-- 5.2d HU-21: historial de la cuenta en todas las barberías, incluidas las reservas hechas como
+--      invitado con su correo. SECURITY DEFINER: guest_usuario y barberías inactivas no pasan RLS.
+--      shortcut: máximo 200 filas, sin paginación; paginar si algún cliente llega a ese número.
+CREATE FUNCTION public.mis_reservas(p_reserva bigint DEFAULT NULL)
+RETURNS TABLE (
+  id_reserva bigint, fecha_hora_inicio timestamptz, estado text, monto numeric, es_invitado boolean,
+  id_barberia uuid, barberia text, slug text, barberia_activa boolean, plazo_cancelacion_min integer,
+  id_sucursal bigint, sucursal text, zona_horaria text,
+  id_profesional uuid, barbero text,
+  id_servicio bigint, servicio text, servicio_precio numeric, duracion_min integer)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT r.id_reserva, r.fecha_hora_inicio, r.estado, r.monto::numeric, r.id_guest IS NOT NULL,
+         b.id_barberia, b.nombre::text, b.slug, b.activa, b.plazo_cancelacion_min,
+         su.id_sucursal, su.nombre::text, su.zona_horaria,
+         r.id_profesional, coalesce(p.alias, trim(u.nombre || ' ' || coalesce(u.apellido, '')))::text,
+         se.id_servicio, se.nombre::text, se.precio::numeric, se.duracion_min
+  FROM public.reserva r
+  JOIN public.barberia    b  ON b.id_barberia = r.id_barberia
+  JOIN public.sucursal    su ON su.id_sucursal = r.id_sucursal
+  JOIN public.servicio    se ON se.id_servicio = r.id_servicio
+  JOIN public.profesional p  ON p.id_barberia = r.id_barberia AND p.id_profesional = r.id_profesional
+  LEFT JOIN public.usuario u ON u.id_usuario = r.id_profesional
+  WHERE (p_reserva IS NULL OR r.id_reserva = p_reserva)
+    AND (r.id_cliente = auth.uid() OR (r.id_guest IS NOT NULL AND private.es_mi_invitado(r.id_guest)))
+  ORDER BY r.fecha_hora_inicio DESC
+  LIMIT 200;
+$$;
+REVOKE EXECUTE ON FUNCTION public.mis_reservas(bigint) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.mis_reservas(bigint) TO authenticated;
 
 -- 5.3 Disponibilidad pública: tramos ocupados de un profesional (sin datos del cliente)
 CREATE FUNCTION public.horarios_ocupados(
