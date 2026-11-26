@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LogIn, LogOut, User, CalendarDays } from "lucide-react";
+import { LayoutDashboard, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -111,11 +111,6 @@ export function BarberiaUserMenu() {
                 {isStaffRol(profile?.rol) && (
                     <DropdownMenuItem asChild className="min-h-11">
                         <Link href={`/${slug}/dashboard`}><LayoutDashboard className="mr-2 size-4" aria-hidden="true" />Dashboard</Link>
-                    </DropdownMenuItem>
-                )}
-                {profile?.rol === 'cliente' && (
-                    <DropdownMenuItem asChild className="min-h-11">
-                        <Link href={`/${slug}/profile`}><CalendarDays className="mr-2 size-4" aria-hidden="true" />Mis reservas</Link>
                     </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />

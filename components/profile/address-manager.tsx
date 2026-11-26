@@ -134,9 +134,12 @@ export function AddressManager() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Mis Direcciones</h2>
+        <div className="tarjeta space-y-4 rounded-xl p-6">
+            <div className="flex flex-wrap justify-between items-center gap-3">
+                <div>
+                    <h2 className="font-semibold">Mis direcciones</h2>
+                    <p className="text-sm text-muted-foreground">Sirven para el despacho en cualquier tienda.</p>
+                </div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -165,12 +168,12 @@ export function AddressManager() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>Región</Label>
+                                    <Label htmlFor="region">Región</Label>
                                     <Select
                                         value={newAddress.region}
                                         onValueChange={(val) => setNewAddress({ ...newAddress, region: val, comuna: "" })}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger id="region">
                                             <SelectValue placeholder="Selecciona una región" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -183,13 +186,13 @@ export function AddressManager() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Comuna</Label>
+                                    <Label htmlFor="comuna">Comuna</Label>
                                     <Select
                                         value={newAddress.comuna}
                                         onValueChange={(val) => setNewAddress({ ...newAddress, comuna: val })}
                                         disabled={!newAddress.region}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger id="comuna">
                                             <SelectValue placeholder="Selecciona una comuna" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -275,6 +278,7 @@ export function AddressManager() {
                         <Button
                             variant="ghost"
                             size="icon"
+                            aria-label={`Eliminar ${address.nombre_etiqueta || "dirección"}`}
                             className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50"
                             onClick={() => handleDeleteAddress(address.id)}
                         >
