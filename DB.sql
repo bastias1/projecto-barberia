@@ -2099,7 +2099,8 @@ DECLARE
   v_plazo integer;
 BEGIN
   SELECT * INTO r FROM public.reserva WHERE id_reserva = p_reserva FOR UPDATE;
-  IF NOT FOUND OR NOT (coalesce(auth.role(), '') = 'service_role' OR r.id_cliente = auth.uid()) THEN
+  -- coalesce sobre TODA la condición: en una reserva de invitado id_cliente es NULL y la guarda no se disparaba
+  IF NOT FOUND OR NOT coalesce(auth.role() = 'service_role' OR r.id_cliente = auth.uid(), false) THEN
     RAISE EXCEPTION 'Reserva no encontrada' USING ERRCODE = 'insufficient_privilege';
   END IF;
   IF r.estado NOT IN ('pendiente', 'confirmada') THEN
