@@ -7,9 +7,9 @@
         <h1 style="margin:0 0 20px;font-size:22px">Crea una nueva contraseña</h1>
         <p style="margin:0 0 16px">Recibimos una solicitud para cambiar la contraseña de <strong>{{ .Email }}</strong>. El link es válido por una hora.</p>
         <p style="margin:0 0 20px">
-          <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600">Crear nueva contraseña</a>
+          <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600">Crear nueva contraseña</a>
         </p>
-        <p style="margin:0;font-size:13px;color:#71717a">Si el botón no funciona, copia este link en tu navegador:<br><span style="word-break:break-all">{{ .ConfirmationURL }}</span></p>
+        <p style="margin:0;font-size:13px;color:#71717a">Si el botón no funciona, copia este link en tu navegador:<br><span style="word-break:break-all">{{ .RedirectTo }}?token_hash={{ .TokenHash }}</span></p>
         <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa">Si no pediste este cambio, ignora este mensaje: tu contraseña actual sigue funcionando.</p>
       </td></tr>
     </table>

@@ -62,7 +62,7 @@ function LoginForm() {
     });
   }, [router, slug, next]);
 
-  // Recuperación: llega un correo con un link que abre /cuenta/clave con sesión
+  // Recuperación: el correo enlaza a redirectTo con ?token_hash= (supabase/templates/recuperar-clave.html)
   const handleOlvideClave = async () => {
     const correo = email.trim();
     if (!correo) {
@@ -70,7 +70,7 @@ function LoginForm() {
       return;
     }
     const { error } = await createClient().auth.resetPasswordForEmail(correo, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/cuenta/clave`,
+      redirectTo: `${window.location.origin}/cuenta/clave`,
     });
     if (error) {
       console.error("Reset password error:", error);

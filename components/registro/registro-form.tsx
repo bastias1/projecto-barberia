@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +15,6 @@ import { formatCLP } from "@/lib/datetime";
 import { cn, slugify } from "@/lib/utils";
 
 export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInicial?: number }) {
-  const router = useRouter();
   const [nombre, setNombre] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEditado, setSlugEditado] = useState(false);
@@ -25,7 +23,7 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
   const [direccion, setDireccion] = useState("");
   const [comuna, setComuna] = useState("");
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
-  const [enviando, setEnviando] = useState(false);
+  const [enviando, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [host, setHost] = useState("");
 
@@ -38,36 +36,29 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
     if (!slugEditado) setSlug(slugify(value));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setEnviando(true);
     setError(null);
 
-    try {
-      const result = await registrarBarberia({
-        nombre,
-        slug,
-        idPlan: Number(idPlan),
-        sucursal,
-        direccion,
-        comuna,
-        aceptaTerminos,
-      });
-
-      if (!result.success) {
+    // enviando sigue activo hasta que carga el dashboard (evita enviar dos veces)
+    startTransition(async () => {
+      try {
+        const result = await registrarBarberia({
+          nombre,
+          slug,
+          idPlan: Number(idPlan),
+          sucursal,
+          direccion,
+          comuna,
+          aceptaTerminos,
+        });
         setError(result.error);
-        return;
+      } catch (err) {
+        unstable_rethrow(err); // el redirect de la action llega como excepción
+        console.error("Error registering barbería:", err);
+        setError("Error inesperado al registrar la barbería");
       }
-
-      toast.success("¡Tu barbería está lista! Ahora configura tu equipo y horarios.");
-      router.push(`/${result.slug}/dashboard`);
-      router.refresh();
-    } catch (err) {
-      console.error("Error registering barbería:", err);
-      setError("Error inesperado al registrar la barbería");
-    } finally {
-      setEnviando(false);
-    }
+    });
   };
 
   return (

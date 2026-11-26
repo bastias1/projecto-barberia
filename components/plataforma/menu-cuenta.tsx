@@ -55,8 +55,15 @@ export function useSesion(): Sesion {
         });
       }
     })();
+    // El header no se vuelve a montar al cerrar sesión en la misma página (p. ej. en /)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento !== "SIGNED_OUT") return;
+      activo = false; // que la carga inicial, si sigue en curso, no reponga la sesión
+      setSesion({ cargando: false, destino: null });
+    });
     return () => {
       activo = false;
+      subscription.unsubscribe();
     };
   }, []);
 
