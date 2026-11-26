@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +14,6 @@ import { formatCLP } from "@/lib/datetime";
 import { cn, slugify } from "@/lib/utils";
 
 export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInicial?: number }) {
-  const router = useRouter();
   const [nombre, setNombre] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEditado, setSlugEditado] = useState(false);
@@ -56,16 +53,16 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
 
       if (!result.success) {
         setError(result.error);
+        setEnviando(false);
         return;
       }
 
-      toast.success("¡Tu barbería está lista! Ahora configura tu equipo y horarios.");
-      router.push(`/${result.slug}/dashboard`);
-      router.refresh();
+      // Carga completa: con router.push el formulario se quedaba en pantalla. El botón sigue
+      // deshabilitado hasta que cargue el dashboard (evita enviar dos veces)
+      window.location.assign(`/${result.slug}/dashboard`);
     } catch (err) {
       console.error("Error registering barbería:", err);
       setError("Error inesperado al registrar la barbería");
-    } finally {
       setEnviando(false);
     }
   };
