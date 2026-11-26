@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, KeyRound, Loader2 } from "lucide-react";
@@ -20,12 +20,19 @@ export default function CambiarClavePage() {
   const [confirmacion, setConfirmacion] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [listo, setListo] = useState(false);
+  // Link de recuperación: se canjea recién al guardar (los escáneres de correo abren los links)
+  // y no depende del navegador donde se pidió
+  const tokenHash = useRef<string | null>(null);
 
-  // Sin sesión no se puede cambiar (el link de recuperación crea una al entrar)
+  // Sin sesión ni link de recuperación no se puede cambiar
   useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.replace("/login?next=/cuenta/clave");
-      else setListo(true);
+    tokenHash.current = new URLSearchParams(window.location.search).get("token_hash");
+    const puede = tokenHash.current
+      ? Promise.resolve(true)
+      : createClient().auth.getUser().then(({ data: { user } }) => !!user);
+    puede.then((ok) => {
+      if (ok) setListo(true);
+      else router.replace("/login?next=/cuenta/clave");
     });
   }, [router]);
 
@@ -41,6 +48,15 @@ export default function CambiarClavePage() {
     }
     setGuardando(true);
     const supabase = createClient();
+    if (tokenHash.current) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash.current, type: "recovery" });
+      if (error) {
+        setGuardando(false);
+        toast.error("El link venció o ya se usó. Pide uno nuevo con \"¿Olvidaste tu contraseña?\"");
+        return;
+      }
+      tokenHash.current = null; // de un solo uso: un reintento ya tiene sesión
+    }
     const { data, error } = await supabase.auth.updateUser({ password: clave });
     if (error) {
       setGuardando(false);
