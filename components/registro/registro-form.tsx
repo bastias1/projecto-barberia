@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
   const [direccion, setDireccion] = useState("");
   const [comuna, setComuna] = useState("");
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
-  const [enviando, setEnviando] = useState(false);
+  const [enviando, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [host, setHost] = useState("");
 
@@ -35,36 +36,29 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
     if (!slugEditado) setSlug(slugify(value));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setEnviando(true);
     setError(null);
 
-    try {
-      const result = await registrarBarberia({
-        nombre,
-        slug,
-        idPlan: Number(idPlan),
-        sucursal,
-        direccion,
-        comuna,
-        aceptaTerminos,
-      });
-
-      if (!result.success) {
+    // enviando sigue activo hasta que carga el dashboard (evita enviar dos veces)
+    startTransition(async () => {
+      try {
+        const result = await registrarBarberia({
+          nombre,
+          slug,
+          idPlan: Number(idPlan),
+          sucursal,
+          direccion,
+          comuna,
+          aceptaTerminos,
+        });
         setError(result.error);
-        setEnviando(false);
-        return;
+      } catch (err) {
+        unstable_rethrow(err); // el redirect de la action llega como excepción
+        console.error("Error registering barbería:", err);
+        setError("Error inesperado al registrar la barbería");
       }
-
-      // Carga completa: con router.push el formulario se quedaba en pantalla. El botón sigue
-      // deshabilitado hasta que cargue el dashboard (evita enviar dos veces)
-      window.location.assign(`/${result.slug}/dashboard`);
-    } catch (err) {
-      console.error("Error registering barbería:", err);
-      setError("Error inesperado al registrar la barbería");
-      setEnviando(false);
-    }
+    });
   };
 
   return (

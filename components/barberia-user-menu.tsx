@@ -58,13 +58,17 @@ export function BarberiaUserMenu() {
             setLoading(false);
         }
         getUser();
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((evento) => {
+            if (evento !== "SIGNED_OUT") return;
+            setUser(null);
+            setProfile(null);
+        });
+        return () => subscription.unsubscribe();
         // eslint-disable-next-line react-hooks/exhaustive-deps -- el cliente de Supabase se crea en cada render
     }, [id_barberia, muestra]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        setUser(null);
-        setProfile(null);
         router.refresh();
     };
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,7 +13,17 @@ import { Scissors, Calendar, Users, BarChart3, Settings, LogOut, Menu, X, Clock,
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
-import { ModeToggle } from "@/components/mode-toggle";
+import { useTheme } from "next-themes";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { isAdminRol, ROL_LABEL, type RolApp } from "@/lib/roles";
 import { useBarberiaHref, useModulos } from "@/components/barberia-provider";
 import { tieneModulo, type ModuloCodigo } from "@/lib/modulos";
@@ -79,24 +89,8 @@ export function DashboardSidebar({ barber, rol, barberiaNombre, citasHoy, esProf
   const modulos = useModulos();
   const visible = (item: NavItem) => (!item.modulo || tieneModulo(modulos, item.modulo)) && (!item.profesional || esProfesional);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
   const isAdmin = isAdminRol(rol);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close profile menu on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      // El menú del tema se pinta en <body>: sin esto, elegir una opción cierra este menú antes del click
-      if (e.target instanceof Element && e.target.closest("[data-radix-popper-content-wrapper]")) return;
-      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
-        setProfileMenuOpen(false);
-      }
-    }
-    if (profileMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [profileMenuOpen]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -142,78 +136,68 @@ export function DashboardSidebar({ barber, rol, barberiaNombre, citasHoy, esProf
         )}
       >
         {/* Header with profile menu */}
-        <div className="relative" ref={profileMenuRef}>
-          <button
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="w-full p-6 border-b border-sidebar-border hover:bg-sidebar-accent/50 transition-colors text-left focus:outline-none"
-          >
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 flex-shrink-0">
-                <AvatarImage
-                  src={barber.usuario?.profile_image || undefined}
-                  alt={barber.nombre || "Barbero"}
-                />
-                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs">
-                  {barber.nombre
-                    ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                    : 'BB'
-                  }
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-bold text-sidebar-foreground truncate">
-                  {barber.nombre || "Barbero"}
-                </h2>
-                <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {ROL_LABEL[rol]} · {barberiaNombre}
-                </p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="group w-full p-6 border-b border-sidebar-border hover:bg-sidebar-accent/50 transition-colors text-left focus:outline-none focus-visible:bg-sidebar-accent/50"
+            >
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10 flex-shrink-0">
+                  <AvatarImage
+                    src={barber.usuario?.profile_image || undefined}
+                    alt={barber.nombre || "Barbero"}
+                  />
+                  <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs">
+                    {barber.nombre
+                      ? barber.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                      : 'BB'
+                    }
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm font-bold text-sidebar-foreground truncate">
+                    {barber.nombre || "Barbero"}
+                  </h2>
+                  <p className="text-xs text-sidebar-foreground/60 truncate">
+                    {ROL_LABEL[rol]} · {barberiaNombre}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform group-data-[state=open]:rotate-180" />
               </div>
-              <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", profileMenuOpen && "rotate-180")} />
-            </div>
-          </button>
-
-          {/* Profile dropdown */}
-          {profileMenuOpen && (
-            <div className="absolute left-0 top-full mt-1 w-full bg-popover text-popover-foreground border rounded-md shadow-md p-1 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-(--radix-dropdown-menu-trigger-width)">
+            <DropdownMenuItem asChild>
               <Link
                 href={dashboardHref("/configuracion")}
-                onClick={() => { setProfileMenuOpen(false); setMobileMenuOpen(false); }}
-                className={cn(
-                  "flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors",
-                  pathname === dashboardHref("/configuracion") && "font-medium"
-                )}
+                onClick={() => setMobileMenuOpen(false)}
+                className={cn(pathname === dashboardHref("/configuracion") && "font-medium")}
               >
-                <Settings className="h-4 w-4" />
+                <Settings />
                 Configuración
               </Link>
-
-              <Link
-                href={href()}
-                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <ExternalLink className="h-4 w-4" />
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={href()}>
+                <ExternalLink />
                 Ver página pública
               </Link>
-
-              <div className="bg-border -mx-1 my-1 h-px" />
-
-              <div className="flex items-center justify-between px-2 py-1.5 text-sm text-muted-foreground">
-                <span>Tema</span>
-                <ModeToggle />
-              </div>
-
-              <div className="bg-border -mx-1 my-1 h-px" />
-
-              <button
-                onClick={() => { setProfileMenuOpen(false); handleLogout(); }}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-400 transition-colors cursor-pointer"
-              >
-                <LogOut className="h-4 w-4" />
-                Cerrar Sesión
-              </button>
-            </div>
-          )}
-        </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="font-normal text-muted-foreground">Tema</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+              <DropdownMenuRadioItem value="light">Claro</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark">Oscuro</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="system">Sistema</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+              <LogOut />
+              Cerrar Sesión
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4 px-3">
