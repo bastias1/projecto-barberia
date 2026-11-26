@@ -217,3 +217,5 @@ GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET # HU-24 OAuth client (Web); without them 
 Supabase Storage images are served from the current project (host taken from `NEXT_PUBLIC_SUPABASE_URL`) and the old `iuhmjpqwkueueakybgaz.supabase.co` (logos) — configured in `next.config.ts`. Bucket `imgs`: `productos/<id_barberia>/` and `barberias/<id_barberia>/` (logo, galería) — only that barbería's admin can write; `avatars/<user-id>-*` (owner). Barbería logos and gallery are rendered with `<img>` (any host).
 
 Instead of avoiding RLS Policy issues find a fix for them and implement it after asking for permission.
+
+Consult the advisor before locking a plan, after the same error twice, and before calling a task done.
