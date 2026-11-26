@@ -1,8 +1,11 @@
 "use client"
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowRight, CalendarX2, Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArrowRight, CalendarIcon, CalendarX2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AccionesPaso } from "./acciones-paso";
@@ -50,28 +53,48 @@ export function DateTimeSelection({
   onContinue,
   continueLabel = "Continuar"
 }: DateTimeSelectionProps) {
+  const [abierto, setAbierto] = useState(false);
+
   return (
     <div>
       <TituloPaso titulo="Elige fecha y hora" ayuda={`${selectedService.nombre} · $${selectedService.precio.toLocaleString("es-CL")}`} />
 
-      <div className="tarjeta rounded-xl">
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={onDateSelect}
-          disabled={(date) => {
-            // Domingos cerrados
-            if (date.getDay() === 0) return true;
-            // Antes de hoy (hoy sí se puede)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const checkDate = new Date(date);
-            checkDate.setHours(0, 0, 0, 0);
-            return checkDate < today;
-          }}
-          locale={es}
-          className="mx-auto [--cell-size:2.75rem] sm:[--cell-size:3rem]"
-        />
+      <div className="space-y-2">
+        <Label htmlFor="fecha-cita">Fecha</Label>
+        <Popover open={abierto} onOpenChange={setAbierto}>
+          <PopoverTrigger asChild>
+            <Button id="fecha-cita" type="button" variant="outline" className="h-12 w-full justify-start gap-2 font-normal">
+              <CalendarIcon className="size-4" aria-hidden="true" />
+              {selectedDate
+                ? <span className="first-letter:uppercase">{format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</span>
+                : <span className="text-muted-foreground">Elige una fecha</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto max-h-(--radix-popover-content-available-height) overflow-y-auto p-0" align="start" collisionPadding={8}>
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => {
+                onDateSelect(date);
+                setAbierto(false);
+              }}
+              defaultMonth={selectedDate}
+              disabled={(date) => {
+                // Domingos cerrados
+                if (date.getDay() === 0) return true;
+                // Antes de hoy (hoy sí se puede)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const checkDate = new Date(date);
+                checkDate.setHours(0, 0, 0, 0);
+                return checkDate < today;
+              }}
+              locale={es}
+              weekStartsOn={1}
+              className="[--cell-size:2.5rem]"
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="mt-6" aria-live="polite">

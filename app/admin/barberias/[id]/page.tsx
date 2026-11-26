@@ -34,7 +34,7 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
     supabase.from("sucursal").select("id_sucursal, nombre, direccion, comuna, activa").eq("id_barberia", id).order("id_sucursal"),
     supabase
       .from("usuario_barberia")
-      .select("rol, activo, usuario:usuario!usuario_barberia_id_usuario_fkey (id_usuario, nombre, apellido, email)")
+      .select("rol, activo, usuario:usuario!usuario_barberia_id_usuario_fkey (id_usuario, nombre, apellido, email, telefono)")
       .eq("id_barberia", id)
       .in("rol", ["admin", "profesional"])
       .eq("activo", true),
@@ -55,6 +55,9 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
   const uso = conteos.find((c) => c.id_barberia === id);
   const reservasMes = uso?.reservas_mes ?? 0;
   const productos = uso?.productos_activos ?? 0;
+  const admins = (equipo ?? [])
+    .filter((e) => e.rol === "admin")
+    .flatMap((e) => one<{ id_usuario: string; nombre: string; apellido: string | null; email: string; telefono: string | null }>(e.usuario) ?? []);
 
   return (
     <div className="space-y-6">
@@ -69,11 +72,6 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
             <Badge variant={estado.tono}>{estado.label}</Badge>
           </div>
           <p className="text-muted-foreground font-mono">/{barberia.slug}</p>
-          <p className="text-sm text-muted-foreground">
-            Registrada el {formatFecha(barberia.created_at.slice(0, 10), "d 'de' MMMM yyyy")}
-            {barberia.email_contacto && ` · ${barberia.email_contacto}`}
-            {barberia.telefono && ` · ${barberia.telefono}`}
-          </p>
         </div>
         {barberia.activa && (
           <div className="flex gap-2">
@@ -108,6 +106,30 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
         </Card>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Administrador</CardTitle>
+              <CardDescription>Registrada el {formatFecha(barberia.created_at.slice(0, 10), "d 'de' MMMM yyyy")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {admins.length === 0 && <p className="text-muted-foreground">Sin administradores activos.</p>}
+              {admins.map((u) => (
+                <div key={u.id_usuario}>
+                  <p className="font-medium">{[u.nombre, u.apellido].filter(Boolean).join(" ")}</p>
+                  <p className="break-all text-muted-foreground">{u.email}</p>
+                  {u.telefono && <p className="text-muted-foreground">{u.telefono}</p>}
+                </div>
+              ))}
+              {(barberia.email_contacto || barberia.telefono) && (
+                <div className="border-t border-border pt-3">
+                  <p className="font-medium">Contacto de la barbería</p>
+                  {barberia.email_contacto && <p className="break-all text-muted-foreground">{barberia.email_contacto}</p>}
+                  {barberia.telefono && <p className="text-muted-foreground">{barberia.telefono}</p>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle>Uso</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">

@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BarberiaNavbar } from "@/components/barberia-navbar";
 import { BarberSelection } from "@/components/booking/barber-selection";
@@ -19,7 +19,7 @@ import { crearReserva } from "./actions";
 import { localDateString } from "@/lib/datetime";
 import { getSucursales, type Sucursal } from "@/lib/barberia";
 import { createClient } from "@/utils/supabase/client";
-import { useBarberia } from "@/components/barberia-provider";
+import { useBarberia, useBarberiaHref } from "@/components/barberia-provider";
 import { BlockedClientModal } from "@/components/booking/blocked-client-modal";
 import { RequiereModulo } from "@/components/requiere-modulo";
 import { AlertTriangle, ArrowRight, Loader2, MapPin } from "lucide-react";
@@ -45,6 +45,10 @@ export default function AgendarPage() {
 function Agendar() {
   const barberia = useBarberia();
   const idBarberia = barberia.id_barberia;
+  const router = useRouter();
+  const href = useBarberiaHref();
+  // En el primer paso no hay paso anterior: se vuelve al inicio de la barbería
+  const volverAlInicio = () => router.push(href("/"));
   const sucursalParam = useSearchParams().get("sucursal");
   const [step, setStep] = useState(1);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
@@ -351,7 +355,7 @@ function Agendar() {
           ) : (
             <>
               <SucursalSelection sucursales={sucursales} selected={selectedSucursal} onSelect={handleSucursalSelect} />
-              <AccionesPaso>
+              <AccionesPaso onBack={volverAlInicio} backLabel="Volver">
                 <Button disabled={!selectedSucursal} onClick={() => setStep(1)}>Continuar<ArrowRight className="size-4" aria-hidden="true" /></Button>
               </AccionesPaso>
             </>
@@ -371,7 +375,10 @@ function Agendar() {
                 selectedBarber={selectedBarber}
                 onBarberSelect={handleBarberSelect}
               />
-              <AccionesPaso onBack={sucursales.length > 1 ? () => setStep(0) : undefined}>
+              <AccionesPaso
+                onBack={sucursales.length > 1 ? () => setStep(0) : volverAlInicio}
+                backLabel={sucursales.length > 1 ? "Atrás" : "Volver"}
+              >
                 <Button disabled={!selectedBarber} onClick={() => setStep(2)}>Continuar<ArrowRight className="size-4" aria-hidden="true" /></Button>
               </AccionesPaso>
             </>
