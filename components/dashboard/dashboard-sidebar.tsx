@@ -86,6 +86,8 @@ export function DashboardSidebar({ barber, rol, barberiaNombre, citasHoy, esProf
   // Close profile menu on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      // El menú del tema se pinta en <body>: sin esto, elegir una opción cierra este menú antes del click
+      if (e.target instanceof Element && e.target.closest("[data-radix-popper-content-wrapper]")) return;
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
         setProfileMenuOpen(false);
       }
