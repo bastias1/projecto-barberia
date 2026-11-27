@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { avisarCambioSeguridad } from "@/app/cuenta/actions";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 
 interface ProfileFormProps {
@@ -43,16 +43,6 @@ export function ProfileForm({ userId, barberiaId, isProfesional, initialData }: 
         .eq('id_usuario', userId);
 
       if (userError) throw userError;
-
-      // Update auth email if changed
-      if (formData.correo !== initialData.correo) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: formData.correo,
-        });
-
-        if (emailError) throw emailError;
-        avisarCambioSeguridad("correo", formData.correo).catch(() => {});
-      }
 
       // Update profesional table if user is a barber
       if (isProfesional && formData.especialidad !== undefined) {
@@ -116,9 +106,10 @@ export function ProfileForm({ userId, barberiaId, isProfesional, initialData }: 
             id="correo"
             type="email"
             value={formData.correo}
-            onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
-            required
+            disabled
+            className="bg-muted cursor-not-allowed"
           />
+          <p className="text-xs text-muted-foreground">Se cambia en <Link href="/cuenta" className="underline underline-offset-4">Mi cuenta</Link>.</p>
         </div>
 
         {isProfesional && (

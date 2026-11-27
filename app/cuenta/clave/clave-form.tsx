@@ -13,8 +13,9 @@ import { createClient } from "@/utils/supabase/client";
 import { resolverAcceso } from "@/lib/acceso";
 import { avisarCambioSeguridad } from "@/app/cuenta/actions";
 
-export function ClaveForm({ tokenHash: tokenInicial, conSesion }: { tokenHash?: string; conSesion: boolean }) {
+export function ClaveForm({ tokenHash: tokenInicial, conSesion, pedirActual }: { tokenHash?: string; conSesion: boolean; pedirActual: boolean }) {
   const router = useRouter();
+  const [actual, setActual] = useState("");
   const [clave, setClave] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -45,10 +46,15 @@ export function ClaveForm({ tokenHash: tokenInicial, conSesion }: { tokenHash?: 
       tokenHash.current = undefined;
       window.history.replaceState(null, "", "/cuenta/clave");
     }
-    const { data, error } = await supabase.auth.updateUser({ password: clave });
+    // La actual la comprueba Supabase (Authentication → "Require current password")
+    const { data, error } = await supabase.auth.updateUser({ password: clave, ...(pedirActual && { current_password: actual }) });
     if (error) {
       setGuardando(false);
-      toast.error(error.message.includes("different") ? "La nueva contraseña debe ser distinta a la actual" : "No se pudo cambiar la contraseña");
+      toast.error(
+        error.code === "same_password" ? "La nueva contraseña debe ser distinta a la actual"
+          : error.code === "invalid_credentials" || /current.?password/i.test(error.message) ? "La contraseña actual no es correcta"
+            : "No se pudo cambiar la contraseña",
+      );
       return;
     }
     avisarCambioSeguridad("clave").catch(() => {});
@@ -73,6 +79,12 @@ export function ClaveForm({ tokenHash: tokenInicial, conSesion }: { tokenHash?: 
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {pedirActual && (
+                <div className="space-y-2">
+                  <Label htmlFor="actual">Contraseña actual</Label>
+                  <Input id="actual" type="password" value={actual} onChange={(e) => setActual(e.target.value)} required autoComplete="current-password" />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="clave">Nueva contraseña</Label>
                 <Input id="clave" type="password" value={clave} onChange={(e) => setClave(e.target.value)} required minLength={6} autoComplete="new-password" />

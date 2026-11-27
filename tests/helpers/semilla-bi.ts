@@ -13,7 +13,7 @@ const HORAS_ADMIN = [10, 12];
 
 export const fecha = (diasAtras: number) => new Date(Date.now() - diasAtras * 86_400_000).toISOString().slice(0, 10);
 
-async function enLotes<T>(tabla: string, filas: T[]) {
+async function enLotes(tabla: string, filas: Record<string, unknown>[]) {
   for (let i = 0; i < filas.length; i += 500) ok(await admin.from(tabla).insert(filas.slice(i, i + 500)));
 }
 

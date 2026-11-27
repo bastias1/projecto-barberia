@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { CambiarCorreo } from "@/components/cuenta/cambiar-correo";
 
 export function ProfileForm() {
     const [isLoading, setIsLoading] = useState(true);
@@ -104,8 +105,10 @@ export function ProfileForm() {
 
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" value={formData.email} disabled className="bg-muted" />
-                        <p className="text-xs text-muted-foreground">El email no se puede cambiar.</p>
+                        <div className="flex flex-wrap gap-2">
+                            <Input id="email" value={formData.email} disabled className="min-w-0 flex-1 bg-muted" />
+                            <CambiarCorreo actual={formData.email} />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

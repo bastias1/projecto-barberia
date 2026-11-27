@@ -9,5 +9,7 @@ export default async function CambiarClavePage({ searchParams }: { searchParams:
   const { data: { user } } = await supabase.auth.getUser();
   // Sin sesión ni link de recuperación no se puede cambiar
   if (!user && !token_hash) redirect("/login?next=/cuenta/clave");
-  return <ClaveForm tokenHash={token_hash} conSesion={!!user} />;
+  // Con el link de recuperación no se conoce la actual; una cuenta de Google puede no tener
+  const { data: tengoClave } = user && !token_hash ? await supabase.rpc("tengo_clave") : { data: false };
+  return <ClaveForm tokenHash={token_hash} conSesion={!!user} pedirActual={tengoClave === true} />;
 }

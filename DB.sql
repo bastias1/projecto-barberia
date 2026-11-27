@@ -2168,6 +2168,14 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.mis_reservas(bigint) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.mis_reservas(bigint) TO authenticated;
 
+-- 5.2e HU-21: ¿mi cuenta tiene contraseña? (las que solo entran con Google no) para pedir la actual al cambiarla
+CREATE FUNCTION public.tengo_clave()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT EXISTS (SELECT 1 FROM auth.users WHERE id = auth.uid() AND coalesce(encrypted_password, '') <> '');
+$$;
+REVOKE EXECUTE ON FUNCTION public.tengo_clave() FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.tengo_clave() TO authenticated;
+
 -- 5.3 Disponibilidad pública: tramos ocupados de un profesional (sin datos del cliente)
 CREATE FUNCTION public.horarios_ocupados(
   p_barberia uuid, p_profesional uuid, p_desde timestamptz, p_hasta timestamptz)
