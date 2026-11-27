@@ -6,7 +6,7 @@ export const PLATAFORMA = {
 };
 
 // Versión de /terminos y /privacidad que queda en `consentimiento`. Súbela al cambiar esos textos.
-export const VERSION_POLITICA = "v1.1";
+export const VERSION_POLITICA = "v1.2";
 
 /** Páginas legales enlazadas desde los footers. */
 export const LINKS_LEGALES = [

@@ -120,7 +120,10 @@ export async function notificarCambioReserva(idReserva: number, cambio: "cancela
     `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, ${cancelada ? "cancelamos esta cita y el horario quedó libre:" : "estos son los nuevos datos de tu cita:"}</p>
      ${detalleCita(info)}
      <p style="margin:0">${cancelada
-       ? emailButton(`${getSiteUrl()}/${barberia.slug}/agendar`, "Agendar otra cita")
+       // slug "eliminada-…": la barbería se borró (RPC eliminar_barberia) y ya no tiene página
+       ? barberia.slug.startsWith("eliminada-")
+         ? emailButton(`${getSiteUrl()}/barberias`, "Buscar otra barbería")
+         : emailButton(`${getSiteUrl()}/${barberia.slug}/agendar`, "Agendar otra cita")
        : emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora") + emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "#dc2626")}</p>`,
     barberia.nombre,
   );
@@ -333,11 +336,11 @@ export async function notificarSuscripcion(idBarberia: string, aviso: AvisoSuscr
 }
 
 /** Confirmación al dueño que registra una barbería (prueba de 14 días). */
-export async function notificarBarberiaRegistrada(correo: string, nombre: string, slug: string): Promise<void> {
+export async function notificarBarberiaRegistrada(correo: string, nombre: string, slug: string, conPrueba: boolean): Promise<void> {
   const base = `${getSiteUrl()}/${slug}`;
   const html = emailLayout(
     `${nombre} ya está en ${PLATAFORMA.nombre}`,
-    `<p style="margin:0 0 16px">Tu barbería quedó registrada con 14 días de prueba. Para empezar:</p>
+    `<p style="margin:0 0 16px">Tu barbería quedó registrada ${conPrueba ? "con 14 días de prueba" : "y se activa al pagar la suscripción"}. Para empezar:</p>
      <ol style="margin:0 0 20px;padding-left:20px"><li>Agrega tus servicios y barberos.</li><li>Define tus horarios de atención.</li><li>Comparte tu página: ${escapeHtml(base)}</li></ol>
      <p style="margin:0">${emailButton(`${base}/dashboard`, "Ir a mi panel")}</p>`,
     PLATAFORMA.nombre,

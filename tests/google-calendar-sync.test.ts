@@ -57,6 +57,7 @@ async function sembrar() {
     p_sucursal: "Central", p_direccion: "Calle Falsa 123", p_comuna: "Valdivia", p_zona_horaria: "America/Santiago",
   })) as string;
   const b = { id_barberia: idBarberia };
+  ok(await admin.from("suscripcion").update({ estado: "activa", fecha_termino: null }).eq("id_barberia", idBarberia));
   const idSucursal = (ok(await admin.from("sucursal").select("id_sucursal").eq("id_barberia", idBarberia).single())).id_sucursal as number;
   ok(await admin.from("usuario_barberia").insert({ ...b, id_usuario: barbero.id, rol: "profesional" }));
   ok(await admin.from("profesional").insert({ ...b, id_profesional: barbero.id }));

@@ -23,7 +23,7 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
 
   const { data: barberia } = await supabase
     .from("barberia")
-    .select("id_barberia, nombre, slug, activa, telefono, email_contacto, created_at")
+    .select("id_barberia, nombre, slug, activa, eliminada_at, id_propietario, telefono, email_contacto, created_at")
     .eq("id_barberia", id)
     .maybeSingle();
   if (!barberia) notFound();
@@ -50,14 +50,20 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
   ]);
 
   const suscripcion = sus ? ({ ...sus, precio_pactado: Number(sus.precio_pactado) } as SuscripcionResumen & { fecha_inicio: string }) : null;
-  const estado = estadoSuscripcion(suscripcion, barberia.activa);
+  const estadoBase = estadoSuscripcion(suscripcion, barberia.activa);
+  const estado = barberia.eliminada_at ? { ...estadoBase, label: "Eliminada" } : estadoBase;
   const plan = planes.find((p) => p.id_plan === suscripcion?.id_plan);
   const uso = conteos.find((c) => c.id_barberia === id);
   const reservasMes = uso?.reservas_mes ?? 0;
   const productos = uso?.productos_activos ?? 0;
+  const { data: propietario } = barberia.id_propietario
+    ? await supabase.from("usuario").select("id_usuario, nombre, apellido, email, telefono").eq("id_usuario", barberia.id_propietario).maybeSingle()
+    : { data: null };
   const admins = (equipo ?? [])
     .filter((e) => e.rol === "admin")
     .flatMap((e) => one<{ id_usuario: string; nombre: string; apellido: string | null; email: string; telefono: string | null }>(e.usuario) ?? []);
+  // El propietario va primero, aunque ya no sea miembro activo (barbería eliminada)
+  const contactos = propietario ? [propietario, ...admins.filter((a) => a.id_usuario !== propietario.id_usuario)] : admins;
 
   return (
     <div className="space-y-6">
@@ -92,16 +98,20 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <BarberiaAcciones
-              idBarberia={barberia.id_barberia}
-              nombre={barberia.nombre}
-              activa={barberia.activa}
-              idPlan={suscripcion?.id_plan ?? null}
-              fechaTermino={suscripcion?.fecha_termino ?? null}
-              cobroAutomatico={!!suscripcion?.id_suscripcion_externa}
-              puedeEliminar={!!suscripcion && (suscripcion.estado !== "cancelada" || !!suscripcion.id_suscripcion_externa)}
-              planes={planes.map((p) => ({ id_plan: p.id_plan, nombre: p.nombre, precio: p.precio_mensual, activo: p.activo }))}
-            />
+            {barberia.eliminada_at ? (
+              <p className="text-sm text-muted-foreground">Su propietario la eliminó el {formatFecha(barberia.eliminada_at.slice(0, 10), "d 'de' MMMM yyyy")}.</p>
+            ) : (
+              <BarberiaAcciones
+                idBarberia={barberia.id_barberia}
+                nombre={barberia.nombre}
+                activa={barberia.activa}
+                idPlan={suscripcion?.id_plan ?? null}
+                fechaTermino={suscripcion?.fecha_termino ?? null}
+                cobroAutomatico={!!suscripcion?.id_suscripcion_externa}
+                puedeEliminar={!!suscripcion && (suscripcion.estado !== "cancelada" || !!suscripcion.id_suscripcion_externa)}
+                planes={planes.map((p) => ({ id_plan: p.id_plan, nombre: p.nombre, precio: p.precio_mensual, activo: p.activo }))}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -112,10 +122,13 @@ export default async function AdminBarberiaDetalle({ params }: { params: Promise
               <CardDescription>Registrada el {formatFecha(barberia.created_at.slice(0, 10), "d 'de' MMMM yyyy")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {admins.length === 0 && <p className="text-muted-foreground">Sin administradores activos.</p>}
-              {admins.map((u) => (
+              {contactos.length === 0 && <p className="text-muted-foreground">Sin administradores activos.</p>}
+              {contactos.map((u) => (
                 <div key={u.id_usuario}>
-                  <p className="font-medium">{[u.nombre, u.apellido].filter(Boolean).join(" ")}</p>
+                  <p className="flex flex-wrap items-center gap-2 font-medium">
+                    {[u.nombre, u.apellido].filter(Boolean).join(" ")}
+                    {u.id_usuario === propietario?.id_usuario && <Badge variant="secondary">Propietario</Badge>}
+                  </p>
                   <p className="break-all text-muted-foreground">{u.email}</p>
                   {u.telefono && <p className="text-muted-foreground">{u.telefono}</p>}
                 </div>

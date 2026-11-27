@@ -81,7 +81,7 @@ export async function getBarberiasAdmin(supabase: SupabaseClient): Promise<FilaB
   const [{ data: barberias }, { data: planes }, { data: equipo }, { data: profesionales }, reservas] = await Promise.all([
     supabase
       .from("barberia")
-      .select(`id_barberia, nombre, slug, activa, created_at,
+      .select(`id_barberia, nombre, slug, activa, eliminada_at, created_at,
         suscripcion:suscripcion!suscripcion_id_barberia_fkey (id_suscripcion, id_plan, estado, fecha_termino, precio_pactado, id_suscripcion_externa)`)
       .order("created_at", { ascending: false }),
     supabase.from("plan_suscripcion").select("id_plan, nombre"),
@@ -116,7 +116,8 @@ export async function getBarberiasAdmin(supabase: SupabaseClient): Promise<FilaB
       created_at: b.created_at,
       suscripcion: sus,
       plan: sus ? nombrePlan.get(sus.id_plan) ?? null : null,
-      estado: estadoSuscripcion(sus, b.activa),
+      // Una eliminada se filtra como suspendida, con su propia etiqueta
+      estado: b.eliminada_at ? { ...estadoSuscripcion(sus, false), label: "Eliminada" } : estadoSuscripcion(sus, b.activa),
       duenos: (equipo ?? [])
         .filter((e) => e.id_barberia === b.id_barberia)
         .map((e) => one<{ nombre: string; apellido: string | null; email: string }>(e.usuario))

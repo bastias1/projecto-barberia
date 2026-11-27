@@ -70,7 +70,7 @@ export default function TerminosPage() {
 
       <h2>6. Suscripción de las barberías</h2>
       <ul>
-        <li>Cada barbería nueva tiene {DIAS_PRUEBA} días de prueba sin ingresar tarjeta. Al terminar la prueba no se cobra nada automáticamente.</li>
+        <li>Cada cuenta tiene una única prueba gratis de {DIAS_PRUEBA} días, sin ingresar tarjeta y solo en el plan Pro. Los demás planes, y las barberías que registres después, se activan al pagar. Al terminar la prueba no se cobra nada automáticamente.</li>
         <li>Si la barbería elige un plan y lo paga, el cobro es mensual y automático a la tarjeta que ingresó, por el precio que se muestra al pagar. [COMPLETAR: confirmar si los precios incluyen IVA.]</li>
         <li>La suscripción se cancela en cualquier momento desde el panel (Suscripción → Cancelar suscripción). Se deja de cobrar y el plan sigue vigente hasta el fin del período pagado.</li>
         <li>Si un cobro falla o la suscripción vence, las funciones del plan se desactivan hasta regularizar el pago. Los datos de la barbería se conservan.</li>

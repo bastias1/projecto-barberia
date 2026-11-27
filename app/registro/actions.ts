@@ -17,9 +17,9 @@ export interface RegistrarBarberiaInput {
 }
 
 /**
- * Crea la barbería (RPC registrar_barberia): suscripción en prueba, el usuario
- * como admin y la primera sucursal, todo en una transacción. Si resulta,
- * redirige al dashboard; solo devuelve cuando hay un error.
+ * Crea la barbería (RPC registrar_barberia): suscripción, el usuario como admin
+ * y la primera sucursal, todo en una transacción. Si resulta, redirige al
+ * dashboard (con prueba) o a pagar (sin prueba); solo devuelve cuando hay un error.
  */
 export async function registrarBarberia(input: RegistrarBarberiaInput): Promise<{ error: string }> {
   const supabase = await createClient();
@@ -45,7 +45,7 @@ export async function registrarBarberia(input: RegistrarBarberiaInput): Promise<
     return { error: "La dirección web debe tener entre 3 y 40 letras minúsculas, números o guiones" };
   }
 
-  const { error } = await supabase.rpc("registrar_barberia", {
+  const { data: idBarberia, error } = await supabase.rpc("registrar_barberia", {
     p_nombre: nombre,
     p_slug: slug,
     p_id_plan: input.idPlan,
@@ -81,7 +81,11 @@ export async function registrarBarberia(input: RegistrarBarberiaInput): Promise<
   });
   if (errorConsentimiento) console.error("Error saving consentimiento:", errorConsentimiento);
 
-  if (user.email) await notificarBarberiaRegistrada(user.email, nombre, slug).catch((e) => console.error("[registro] correo de bienvenida:", e));
+  // La RPC decide si hubo prueba (plan de prueba y primera vez de la cuenta)
+  const { data: suscripcion } = await supabase.from("suscripcion").select("estado").eq("id_barberia", idBarberia).maybeSingle();
+  const conPrueba = suscripcion?.estado === "prueba";
 
-  redirect(`/${slug}/dashboard`);
+  if (user.email) await notificarBarberiaRegistrada(user.email, nombre, slug, conPrueba).catch((e) => console.error("[registro] correo de bienvenida:", e));
+
+  redirect(conPrueba ? `/${slug}/dashboard` : `/${slug}/dashboard/suscripcion/pagar?plan=${input.idPlan}`);
 }

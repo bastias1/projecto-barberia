@@ -7,11 +7,12 @@ export interface Plan {
   descripcion: string | null;
   precio_mensual: number;
   activo: boolean;
+  es_plan_prueba: boolean;              // el único con prueba gratis, una vez por cuenta
   modulos: string[];                    // códigos: 'ecommerce', 'bi'
   limites: Record<string, number | null>; // max_sucursales, max_profesionales, max_productos (null = sin límite)
 }
 
-// Días de prueba que da registrar_barberia por defecto
+// Días de prueba que da registrar_barberia (solo el plan de prueba y una vez por cuenta)
 export const DIAS_PRUEBA = 14;
 
 /** Mercado Pago no acepta preapprovals menores a este monto en CLP. */
@@ -30,7 +31,7 @@ export async function getPlanes(supabase: SupabaseClient, { incluirInactivos = f
   let query = supabase
     .from("plan_suscripcion")
     .select(`
-      id_plan, nombre, descripcion, precio_mensual, activo,
+      id_plan, nombre, descripcion, precio_mensual, activo, es_plan_prueba,
       plan_modulo (modulo (codigo)),
       plan_limite (valor, tipo_limite (codigo))
     `)
@@ -51,6 +52,7 @@ export async function getPlanes(supabase: SupabaseClient, { incluirInactivos = f
     descripcion: p.descripcion,
     precio_mensual: Number(p.precio_mensual),
     activo: p.activo,
+    es_plan_prueba: p.es_plan_prueba,
     modulos: (p.plan_modulo ?? []).flatMap((pm) => {
       const codigo = first<{ codigo: string }>(pm.modulo)?.codigo;
       return codigo ? [codigo] : [];

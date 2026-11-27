@@ -14,7 +14,7 @@ import { caracteristicasPlan, type Plan } from "@/lib/planes";
 import { formatCLP } from "@/lib/datetime";
 import { cn, slugify } from "@/lib/utils";
 
-export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInicial?: number }) {
+export function RegistroForm({ planes, planInicial, pruebaDisponible }: { planes: Plan[]; planInicial?: number; pruebaDisponible: boolean }) {
   const [nombre, setNombre] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEditado, setSlugEditado] = useState(false);
@@ -124,6 +124,7 @@ export function RegistroForm({ planes, planInicial }: { planes: Plan[]; planInic
               >
                 <span className="font-bold">{plan.nombre}</span>
                 <span className="text-sm text-muted-foreground font-normal">{formatCLP(plan.precio_mensual)}/mes</span>
+                {pruebaDisponible && plan.es_plan_prueba && <span className="text-xs font-semibold">14 días gratis</span>}
               </Label>
             </div>
           ))}

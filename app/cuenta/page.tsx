@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { HeaderPlataforma } from "@/components/plataforma/header";
 import { ResponderInvitacion } from "@/components/cuenta/responder-invitacion";
 import { CerrarSesion } from "@/components/cuenta/cerrar-sesion";
+import { EliminarBarberia } from "@/components/cuenta/eliminar-barberia";
 import { createClient } from "@/utils/supabase/server";
 import { resolverAcceso } from "@/lib/acceso";
 import { ROL_LABEL } from "@/lib/roles";
@@ -51,6 +52,11 @@ export default async function CuentaPage() {
       .order("id_pedido", { ascending: false })
       .limit(100),
   ]);
+  const { data: propias } = await supabase
+    .from("barberia")
+    .select("id_barberia, nombre, slug, activa")
+    .eq("id_propietario", user.id)
+    .is("eliminada_at", null);
   if (errorReservas) console.error("[cuenta] reservas:", errorReservas);
   if (errorPedidos) console.error("[cuenta] pedidos:", errorPedidos);
   const misPedidos = (pedidos ?? []).map((o) => ({
@@ -61,6 +67,8 @@ export default async function CuentaPage() {
 
   const trabajo = membresias.filter((m) => m.rol !== "cliente");
   const cliente = membresias.filter((m) => m.rol === "cliente");
+  // Una suspendida no está entre las membresías, pero su propietario igual puede eliminarla
+  const suspendidas = (propias ?? []).filter((b) => !b.activa);
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -109,19 +117,31 @@ export default async function CuentaPage() {
           </Card>
         )}
 
-        {membresias.length > 0 && (
+        {(membresias.length > 0 || suspendidas.length > 0) && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Store className="h-5 w-5" />Mis barberías</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {trabajo.map((m) => (
-                <div key={m.slug} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div key={m.slug} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{m.nombre}</span>
                     <Badge variant="secondary">{ROL_LABEL[m.rol]}</Badge>
                   </div>
-                  <Button asChild size="sm"><Link href={`/${m.slug}/dashboard`}>Ir al dashboard</Link></Button>
+                  <div className="flex items-center gap-1">
+                    {propias?.filter((b) => b.slug === m.slug).map((b) => <EliminarBarberia key={b.id_barberia} idBarberia={b.id_barberia} nombre={b.nombre} />)}
+                    <Button asChild size="sm"><Link href={`/${m.slug}/dashboard`}>Ir al dashboard</Link></Button>
+                  </div>
+                </div>
+              ))}
+              {suspendidas.map((b) => (
+                <div key={b.id_barberia} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{b.nombre}</span>
+                    <Badge variant="outline">Suspendida</Badge>
+                  </div>
+                  <EliminarBarberia idBarberia={b.id_barberia} nombre={b.nombre} />
                 </div>
               ))}
               {cliente.map((m) => (
@@ -148,7 +168,7 @@ export default async function CuentaPage() {
                 <Scissors className="h-5 w-5" />
                 <div>
                   <p className="font-medium">¿Tienes tu propia barbería?</p>
-                  <p className="text-xs text-muted-foreground">Regístrala y prueba gratis</p>
+                  <p className="text-xs text-muted-foreground">Regístrala en minutos</p>
                 </div>
               </CardContent>
             </Card>

@@ -36,6 +36,8 @@ export async function sembrarBarberiaBI() {
     p_sucursal: "Central", p_direccion: "Calle Falsa 123", p_comuna: "Valdivia", p_zona_horaria: "UTC",
   })) as string;
   const b = { id_barberia: idBarberia };
+  // Los usuarios de prueba se reutilizan y ya gastaron su prueba gratis
+  ok(await admin.from("suscripcion").update({ estado: "activa", fecha_termino: null }).eq("id_barberia", idBarberia));
   const idSucursal = (ok(await admin.from("sucursal").select("id_sucursal").eq("id_barberia", idBarberia).single())).id_sucursal as number;
 
   ok(await admin.from("usuario_barberia").insert([
