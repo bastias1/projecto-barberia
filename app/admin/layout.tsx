@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { House, Scissors } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { cookies } from "next/headers";
 import { ModeToggle } from "@/components/mode-toggle";
-import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminSidebar, TituloSeccion } from "@/components/admin/admin-nav";
 import { CerrarSesion } from "@/components/cuenta/cerrar-sesion";
+import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { requireSuperadmin } from "@/lib/superadmin";
 import { PLATAFORMA } from "@/lib/plataforma";
 
@@ -14,30 +14,24 @@ export const dynamic = "force-dynamic";
 /** Panel de la plataforma: solo administradores (usuario.rol = 'superadmin'). */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireSuperadmin();
+  // Cookie que escribe SidebarProvider al plegar la barra
+  const abierta = (await cookies()).get("sidebar_state")?.value !== "false";
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <Link href="/admin" className="flex items-center gap-2 font-black tracking-tight">
-            <span className="h-8 w-8 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center">
-              <Scissors className="h-4 w-4 text-white dark:text-zinc-900" />
-            </span>
-            <span>{PLATAFORMA.nombre}</span>
-            <span className="hidden sm:inline text-xs font-medium text-muted-foreground">Panel de plataforma</span>
-          </Link>
-          <AdminNav />
-          <div className="flex items-center gap-2">
-            <span className="hidden lg:inline text-sm text-muted-foreground">{admin.nombre}</span>
-            <Button asChild variant="ghost" size="sm" className="gap-2">
-              <Link href="/" aria-label="Volver al inicio"><House className="h-4 w-4" /><span className="hidden lg:inline">Inicio</span></Link>
-            </Button>
+    <SidebarProvider defaultOpen={abierta}>
+      <AdminSidebar nombre={admin.nombre} />
+      <SidebarInset>
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
+          <SidebarTrigger className="-ml-1" aria-label="Mostrar u ocultar menú" />
+          <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
+          <TituloSeccion />
+          <div className="ml-auto flex items-center gap-1">
             <ModeToggle />
             <CerrarSesion />
           </div>
-        </div>
-      </header>
-      <main id="contenido" className="max-w-7xl mx-auto p-4 pb-24 md:p-6 lg:p-8">{children}</main>
-    </div>
+        </header>
+        <main id="contenido" className="mx-auto w-full max-w-7xl p-4 md:p-6 lg:p-8">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
