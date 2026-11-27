@@ -89,12 +89,7 @@ export default async function AdminUsuarios({
       <Suspense>
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <Buscador placeholder="Buscar por correo o nombre" />
-          <div className="flex flex-wrap items-center gap-2">
-            <FiltroFacetado param="tipo" titulo="Estado" opciones={TIPOS} />
-            <FiltroFacetado param="membresia" titulo="Barberías" opciones={MEMBRESIAS} />
-            <FiltroFechas titulo="Registro" />
-            <LimpiarFiltros params={["q", "tipo", "membresia", "desde", "hasta"]} />
-          </div>
+          <LimpiarFiltros params={["q", "tipo", "membresia", "desde", "hasta"]} />
         </div>
       </Suspense>
 
@@ -106,9 +101,9 @@ export default async function AdminUsuarios({
             <TableHeader>
               <TableRow>
                 <TableHead>Usuario</TableHead>
-                <TableHead>Barberías</TableHead>
-                <TableHead>Registro</TableHead>
-                <TableHead>Estado</TableHead>
+                <TableHead><Suspense><FiltroFacetado columna param="membresia" titulo="Barberías" opciones={MEMBRESIAS} /></Suspense></TableHead>
+                <TableHead><Suspense><FiltroFechas columna titulo="Registro" /></Suspense></TableHead>
+                <TableHead><Suspense><FiltroFacetado columna param="tipo" titulo="Estado" opciones={TIPOS} /></Suspense></TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>

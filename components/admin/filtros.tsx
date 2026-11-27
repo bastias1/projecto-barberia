@@ -5,7 +5,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { es } from "date-fns/locale";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarIcon, Check, CirclePlus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarIcon, Check, CirclePlus, ListFilter, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,28 @@ function useParametros() {
   };
 }
 
+/** Orden de una columna: `?orden=campo&dir=asc|desc`. Elegir el mismo sentido otra vez lo quita. */
+function useOrden(campo?: string) {
+  const { searchParams, cambiar } = useParametros();
+  const dir = campo && searchParams.get("orden") === campo ? searchParams.get("dir") : null;
+  return {
+    dir,
+    ordenar: (nuevo: "asc" | "desc") => cambiar(nuevo === dir ? { orden: null, dir: null } : { orden: campo!, dir: nuevo }),
+  };
+}
+
+/** Botón de encabezado de columna que abre su filtro: el ícono se marca si hay filtro u orden puesto. */
+function DisparadorColumna({ titulo, filtrado, sentido: dir, ...props }: { titulo: string; filtrado: boolean; sentido: string | null } & React.ComponentProps<typeof Button>) {
+  const Icono = dir === "asc" ? ArrowUp : dir === "desc" ? ArrowDown : ListFilter;
+  return (
+    <Button variant="ghost" size="sm" className={cn("-ml-3 h-8", (filtrado || dir) && "text-foreground")} aria-label={`Filtrar ${titulo}`} {...props}>
+      {titulo}
+      <Icono className={cn("size-3.5", !filtrado && !dir && "opacity-50")} aria-hidden="true" />
+      {filtrado && <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />}
+    </Button>
+  );
+}
+
 export interface OpcionFiltro {
   valor: string;
   label: string;
@@ -43,8 +65,17 @@ export interface OpcionFiltro {
 }
 
 /** Selección múltiple: `?param=a,b`. */
-export function FiltroFacetado({ param, titulo, opciones }: { param: string; titulo: string; opciones: OpcionFiltro[] }) {
+export function FiltroFacetado({ param, titulo, opciones, columna = false, orden }: {
+  param: string;
+  titulo: string;
+  opciones: OpcionFiltro[];
+  /** En el encabezado de la tabla en vez de la barra de filtros */
+  columna?: boolean;
+  /** Campo de orden de la columna, si se puede ordenar */
+  orden?: string;
+}) {
   const { searchParams, cambiar } = useParametros();
+  const { dir, ordenar } = useOrden(orden);
   const elegidos = new Set(searchParams.get(param)?.split(",").filter(Boolean) ?? []);
   const alternar = (valor: string) => {
     const nuevos = new Set(elegidos);
@@ -56,6 +87,7 @@ export function FiltroFacetado({ param, titulo, opciones }: { param: string; tit
   return (
     <Popover>
       <PopoverTrigger asChild>
+        {columna ? <DisparadorColumna titulo={titulo} filtrado={elegidos.size > 0} sentido={dir} /> : (
         <Button variant="outline" size="sm" className="h-9 border-dashed">
           <CirclePlus aria-hidden="true" />
           {titulo}
@@ -75,13 +107,23 @@ export function FiltroFacetado({ param, titulo, opciones }: { param: string; tit
             </>
           )}
         </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-60 p-0" align="start">
         <Command>
-          <CommandInput placeholder={titulo} />
+          {opciones.length > 6 && <CommandInput placeholder={titulo} />}
           <CommandList>
             <CommandEmpty>Sin resultados.</CommandEmpty>
-            <CommandGroup>
+            {orden && (
+              <>
+                <CommandGroup heading="Ordenar">
+                  <CommandItem onSelect={() => ordenar("asc")}><ArrowUp aria-hidden="true" />Ascendente{dir === "asc" && <Check className="ml-auto" aria-hidden="true" />}</CommandItem>
+                  <CommandItem onSelect={() => ordenar("desc")}><ArrowDown aria-hidden="true" />Descendente{dir === "desc" && <Check className="ml-auto" aria-hidden="true" />}</CommandItem>
+                </CommandGroup>
+                <CommandSeparator />
+              </>
+            )}
+            <CommandGroup heading={columna ? "Mostrar" : undefined}>
               {opciones.map((o) => {
                 const elegido = elegidos.has(o.valor);
                 return (
@@ -119,8 +161,15 @@ export function FiltroFacetado({ param, titulo, opciones }: { param: string; tit
 }
 
 /** Rango de fechas: `?desde=YYYY-MM-DD&hasta=YYYY-MM-DD`. */
-export function FiltroFechas({ titulo, desde = "desde", hasta = "hasta" }: { titulo: string; desde?: string; hasta?: string }) {
+export function FiltroFechas({ titulo, desde = "desde", hasta = "hasta", columna = false, orden }: {
+  titulo: string;
+  desde?: string;
+  hasta?: string;
+  columna?: boolean;
+  orden?: string;
+}) {
   const { searchParams, cambiar } = useParametros();
+  const { dir, ordenar } = useOrden(orden);
   const d = searchParams.get(desde);
   const h = searchParams.get(hasta);
   const aFecha = (s: string | null) => (s ? new Date(`${s}T12:00:00`) : undefined);
@@ -131,6 +180,7 @@ export function FiltroFechas({ titulo, desde = "desde", hasta = "hasta" }: { tit
   return (
     <Popover onOpenChange={(abierto) => abierto && setRango({ from: aFecha(d), to: aFecha(h) })}>
       <PopoverTrigger asChild>
+        {columna ? <DisparadorColumna titulo={titulo} filtrado={!!texto} sentido={dir} /> : (
         <Button variant="outline" size="sm" className={cn("h-9", !texto && "border-dashed")}>
           <CalendarIcon aria-hidden="true" />
           {titulo}
@@ -141,8 +191,19 @@ export function FiltroFechas({ titulo, desde = "desde", hasta = "hasta" }: { tit
             </>
           )}
         </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
+        {orden && (
+          <div className="flex gap-1 border-b p-2">
+            <Button variant={dir === "asc" ? "secondary" : "ghost"} size="sm" className="flex-1" aria-pressed={dir === "asc"} onClick={() => ordenar("asc")}>
+              <ArrowUp aria-hidden="true" />Ascendente
+            </Button>
+            <Button variant={dir === "desc" ? "secondary" : "ghost"} size="sm" className="flex-1" aria-pressed={dir === "desc"} onClick={() => ordenar("desc")}>
+              <ArrowDown aria-hidden="true" />Descendente
+            </Button>
+          </div>
+        )}
         <Calendar
           mode="range"
           selected={rango}

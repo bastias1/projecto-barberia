@@ -12,7 +12,7 @@ import { filtrarBarberias, GRUPOS_ESTADO, type ParamsBarberias } from "@/lib/adm
 import { formatFecha } from "@/lib/datetime";
 
 const POR_PAGINA = 20;
-const FILTROS = ["q", "estado", "plan", "region", "desde", "hasta"];
+const FILTROS = ["q", "estado", "plan", "desde", "hasta", "orden", "dir"];
 
 export default async function AdminBarberias({
   searchParams,
@@ -24,11 +24,10 @@ export default async function AdminBarberias({
   const todas = await getBarberiasAdmin(await createClient());
 
   const filtradas = filtrarBarberias(todas, params);
-  // Cuántas de cada estado/plan/región quedan con el resto de filtros puestos
+  // Cuántas de cada estado quedan con el resto de filtros puestos
   const sinEstado = filtrarBarberias(todas, params, { sinEstado: true });
   const contar = (f: (b: (typeof todas)[number]) => boolean, base = todas) => base.filter(f).length;
   const planes = [...new Set(todas.map((b) => b.plan).filter((p): p is string => !!p))].sort();
-  const regiones = [...new Set(todas.flatMap((b) => b.regiones))].sort();
 
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
   const pagina = Math.min(totalPaginas, Math.max(1, Number(paginaParam) || 1));
@@ -46,19 +45,7 @@ export default async function AdminBarberias({
       <Suspense>
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <Buscador placeholder="Buscar por nombre, slug o correo del dueño" />
-          <div className="flex flex-wrap items-center gap-2">
-            <FiltroFacetado
-              param="estado"
-              titulo="Estado"
-              opciones={GRUPOS_ESTADO.map((g) => ({ valor: g.clave, label: g.label, cantidad: contar((b) => g.incluye.includes(b.estado.clave), sinEstado) }))}
-            />
-            <FiltroFacetado param="plan" titulo="Plan" opciones={planes.map((p) => ({ valor: p, label: p, cantidad: contar((b) => b.plan === p) }))} />
-            {regiones.length > 0 && (
-              <FiltroFacetado param="region" titulo="Región" opciones={regiones.map((r) => ({ valor: r, label: r, cantidad: contar((b) => b.regiones.includes(r)) }))} />
-            )}
-            <FiltroFechas titulo="Vence" />
-            <LimpiarFiltros params={FILTROS} />
-          </div>
+          <LimpiarFiltros params={FILTROS} />
         </div>
       </Suspense>
 
@@ -69,9 +56,18 @@ export default async function AdminBarberias({
               <TableHeader>
                 <TableRow>
                   <TableHead><EncabezadoOrden campo="nombre">Barbería</EncabezadoOrden></TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead><EncabezadoOrden campo="vence">Vence</EncabezadoOrden></TableHead>
+                  <TableHead>
+                    <FiltroFacetado columna param="plan" titulo="Plan" opciones={planes.map((p) => ({ valor: p, label: p, cantidad: contar((b) => b.plan === p) }))} />
+                  </TableHead>
+                  <TableHead>
+                    <FiltroFacetado
+                      columna
+                      param="estado"
+                      titulo="Estado"
+                      opciones={GRUPOS_ESTADO.map((g) => ({ valor: g.clave, label: g.label, cantidad: contar((b) => g.incluye.includes(b.estado.clave), sinEstado) }))}
+                    />
+                  </TableHead>
+                  <TableHead><FiltroFechas columna orden="vence" titulo="Vence" /></TableHead>
                   <TableHead>Dueño</TableHead>
                   <TableHead className="text-right"><EncabezadoOrden campo="barberos" className="ml-auto -mr-3">Barberos</EncabezadoOrden></TableHead>
                   <TableHead className="text-right"><EncabezadoOrden campo="reservas" className="ml-auto -mr-3">Reservas del mes</EncabezadoOrden></TableHead>

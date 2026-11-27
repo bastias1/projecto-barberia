@@ -54,7 +54,6 @@ export interface FilaBarberia {
   duenos: { nombre: string; email: string }[];
   barberos: number;
   reservasMes: number;
-  regiones: string[];
 }
 
 /** Inicio del mes actual (UTC ISO) según la zona de la plataforma. */
@@ -82,7 +81,7 @@ export async function getBarberiasAdmin(supabase: SupabaseClient): Promise<FilaB
   const [{ data: barberias }, { data: planes }, { data: equipo }, { data: profesionales }, reservas] = await Promise.all([
     supabase
       .from("barberia")
-      .select(`id_barberia, nombre, slug, activa, eliminada_at, created_at, sucursal (region, activa),
+      .select(`id_barberia, nombre, slug, activa, eliminada_at, created_at,
         suscripcion:suscripcion!suscripcion_id_barberia_fkey (id_suscripcion, id_plan, estado, fecha_termino, precio_pactado, id_suscripcion_externa)`)
       .order("created_at", { ascending: false }),
     supabase.from("plan_suscripcion").select("id_plan, nombre"),
@@ -126,7 +125,6 @@ export async function getBarberiasAdmin(supabase: SupabaseClient): Promise<FilaB
         .map((u) => ({ nombre: [u.nombre, u.apellido].filter(Boolean).join(" "), email: u.email })),
       barberos: barberos.get(b.id_barberia) ?? 0,
       reservasMes: reservasMes.get(b.id_barberia) ?? 0,
-      regiones: [...new Set(((b.sucursal ?? []) as { region: string | null; activa: boolean }[]).filter((s) => s.activa && s.region).map((s) => s.region!))],
     };
   });
 }

@@ -15,13 +15,12 @@ const fila = (nombre: string, extra: Partial<FilaBarberia> = {}): FilaBarberia =
   duenos: [],
   barberos: 0,
   reservasMes: 0,
-  regiones: [],
   ...extra,
 });
 const sus = (fecha_termino: string | null) => ({ id_suscripcion: 1, id_plan: 1, estado: "activa", fecha_termino, precio_pactado: 0, id_suscripcion_externa: null });
 
-const a = fila("Alfa", { plan: "Pro", regiones: ["Los Ríos"], estado: { clave: "prueba", label: "", tono: "secondary" }, suscripcion: sus("2026-12-10"), reservasMes: 5 });
-const b = fila("Beta", { plan: "Base", regiones: ["Metropolitana"], estado: { clave: "activa_mp", label: "", tono: "default" }, suscripcion: sus("2026-12-01"), reservasMes: 9 });
+const a = fila("Alfa", { plan: "Pro", estado: { clave: "prueba", label: "", tono: "secondary" }, suscripcion: sus("2026-12-10"), reservasMes: 5 });
+const b = fila("Beta", { plan: "Base", estado: { clave: "activa_mp", label: "", tono: "default" }, suscripcion: sus("2026-12-01"), reservasMes: 9 });
 const c = fila("Gama", { duenos: [{ nombre: "X", email: "dueno@gama.cl" }] });
 const todas = [a, b, c];
 const nombres = (f: FilaBarberia[]) => f.map((x) => x.nombre);
@@ -31,13 +30,13 @@ describe("filtrarBarberias", () => {
     expect(nombres(filtrarBarberias(todas, {}))).toEqual(["Alfa", "Beta", "Gama"]);
   });
   it("estado agrupa claves y admite varios", () => {
-    expect(nombres(filtrarBarberias(todas, { estado: "pagando" }))).toEqual(["Beta"]);
-    expect(nombres(filtrarBarberias(todas, { estado: "pagando,prueba" }))).toEqual(["Alfa", "Beta"]);
-    expect(nombres(filtrarBarberias(todas, { estado: "pagando" }, { sinEstado: true }))).toHaveLength(3);
+    expect(nombres(filtrarBarberias(todas, { estado: "activa" }))).toEqual(["Alfa", "Beta"]);
+    expect(nombres(filtrarBarberias(todas, { estado: "vencida" }))).toEqual(["Gama"]);
+    expect(nombres(filtrarBarberias(todas, { estado: "activa,vencida" }))).toHaveLength(3);
+    expect(nombres(filtrarBarberias(todas, { estado: "suspendida" }, { sinEstado: true }))).toHaveLength(3);
   });
-  it("plan, región y texto (también correo del dueño)", () => {
+  it("plan y texto (también correo del dueño)", () => {
     expect(nombres(filtrarBarberias(todas, { plan: "Pro" }))).toEqual(["Alfa"]);
-    expect(nombres(filtrarBarberias(todas, { region: "Metropolitana,Los Ríos" }))).toEqual(["Alfa", "Beta"]);
     expect(nombres(filtrarBarberias(todas, { q: "GAMA.cl" }))).toEqual(["Gama"]);
   });
   it("rango de vencimiento deja fuera las que no vencen", () => {

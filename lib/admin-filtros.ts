@@ -3,18 +3,16 @@ import type { EstadoClave, FilaBarberia } from "./admin-datos";
 /* Filtros y orden de la tabla de barberías del panel (/admin/barberias), leídos de la URL. */
 
 export const GRUPOS_ESTADO: { clave: string; label: string; incluye: EstadoClave[] }[] = [
-  { clave: "pagando", label: "Pagando", incluye: ["activa_mp", "activa"] },
-  { clave: "prueba", label: "En prueba", incluye: ["prueba"] },
-  { clave: "cortesia", label: "Cortesía", incluye: ["cortesia"] },
-  { clave: "vencidas", label: "Vencidas", incluye: ["vencida", "sin"] },
-  { clave: "suspendidas", label: "Suspendidas", incluye: ["suspendida"] },
+  // Activa = vigente por cualquier motivo (prueba, pago o cortesía); una eliminada cuenta como suspendida
+  { clave: "activa", label: "Activa", incluye: ["prueba", "activa_mp", "activa", "cortesia"] },
+  { clave: "vencida", label: "Vencida", incluye: ["vencida", "sin"] },
+  { clave: "suspendida", label: "Suspendida", incluye: ["suspendida"] },
 ];
 
 export interface ParamsBarberias {
   q?: string;
   estado?: string;
   plan?: string;
-  region?: string;
   desde?: string;
   hasta?: string;
   orden?: string;
@@ -36,14 +34,12 @@ export function filtrarBarberias(filas: FilaBarberia[], p: ParamsBarberias, { si
   const texto = (p.q ?? "").trim().toLowerCase();
   const estados = new Set(GRUPOS_ESTADO.filter((g) => lista(p.estado).includes(g.clave)).flatMap((g) => g.incluye));
   const planes = lista(p.plan);
-  const regiones = lista(p.region);
 
   const filtradas = filas.filter((b) => {
     const vence = b.suscripcion?.fecha_termino ?? null;
     return (
       (sinEstado || estados.size === 0 || estados.has(b.estado.clave)) &&
       (planes.length === 0 || (b.plan !== null && planes.includes(b.plan))) &&
-      (regiones.length === 0 || b.regiones.some((r) => regiones.includes(r))) &&
       // Con rango de fechas, las que no vencen quedan fuera
       (!p.desde || (vence !== null && vence.slice(0, 10) >= p.desde)) &&
       (!p.hasta || (vence !== null && vence.slice(0, 10) <= p.hasta)) &&
