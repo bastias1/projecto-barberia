@@ -1521,7 +1521,7 @@ BEGIN
 END $$;
 
 CREATE TRIGGER reserva_encolar_google
-  AFTER INSERT OR UPDATE OF estado, fecha_hora_inicio, fecha_hora_fin, id_profesional, id_sucursal ON public.reserva
+  AFTER INSERT OR UPDATE OF estado, fecha_hora_inicio, fecha_hora_fin, id_profesional, id_sucursal, id_servicio ON public.reserva
   FOR EACH ROW EXECUTE FUNCTION private.encolar_evento_google();
 
 -- Job cada minuto que vacía la cola. Se crea DESACTIVADO (lo activa T3 al desplegar la ruta).
@@ -2701,7 +2701,7 @@ RETURNS SETOF public.reserva_evento_google LANGUAGE sql SECURITY DEFINER SET sea
       AND (e.intentos < 20 OR e.updated_at < now() - interval '1 hour')
       AND (public.barberia_tiene_modulo(e.id_barberia, 'calendario')
            -- quitar un evento no depende del módulo: si no, al eliminar la barbería quedan citas fantasma
-           OR EXISTS (SELECT 1 FROM public.reserva r WHERE r.id_reserva = e.id_reserva AND r.estado IN ('cancelada','no_asistio')))
+           OR EXISTS (SELECT 1 FROM public.reserva r WHERE r.id_reserva = e.id_reserva AND r.estado = 'cancelada'))
     ORDER BY e.updated_at
     LIMIT p_limite
     FOR UPDATE OF e SKIP LOCKED

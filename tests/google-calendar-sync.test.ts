@@ -5,11 +5,10 @@ import { borrarBarberia } from "./helpers/semilla-bi";
 
 describe("HU-24 · accionEvento", () => {
   it.each([
-    ["pendiente", null, "crear"], ["confirmada", null, "crear"],
+    ["pendiente", null, "crear"], ["confirmada", null, "crear"], ["completada", null, "crear"], ["no_asistio", null, "crear"],
     ["pendiente", "e1", "actualizar"], ["confirmada", "e1", "actualizar"],
-    ["cancelada", "e1", "borrar"], ["no_asistio", "e1", "borrar"],
-    ["cancelada", null, "nada"], ["no_asistio", null, "nada"],
-    ["completada", "e1", "nada"], ["completada", null, "nada"],
+    ["completada", "e1", "actualizar"], ["no_asistio", "e1", "actualizar"],
+    ["cancelada", "e1", "borrar"], ["cancelada", null, "nada"],
   ])("%s con evento %s → %s", (estado, eventId, esperado) => {
     expect(accionEvento({ estado }, eventId)).toBe(esperado);
   });
@@ -112,14 +111,14 @@ describe("HU-24 · sincronizarPendientes", () => {
     expect(token?.body).toMatchObject({ grant_type: "refresh_token", refresh_token: "refresh-de-prueba", client_id: "cliente-prueba" });
     const crear = llamadas.find((l) => l.metodo === "POST" && l.url.endsWith("/calendars/primary/events"));
     expect(crear?.body).toMatchObject({
-      summary: "Corte · Pedro G.", location: "Calle Falsa 123",
+      summary: "Pendiente · Corte · Pedro G.", colorId: "5", location: "Calle Falsa 123",
       start: { timeZone: "America/Santiago" }, end: { timeZone: "America/Santiago" },
     });
     expect(new Date((crear?.body?.start as { dateTime: string }).dateTime).getTime()).toBe(new Date(r.fecha_hora_inicio).getTime());
     expect(await cola(r.id_reserva)).toMatchObject({ pendiente: false, event_id: "evt-nuevo", ultimo_error: null });
   });
 
-  it("reprogramar mueve el evento y cancelar lo borra", async () => {
+  it("reprogramar mueve el evento, completar cambia su estado y cancelar lo borra", async () => {
     const r = await s.reservar();
     responder = googleOk;
     await sincronizar();
@@ -132,6 +131,11 @@ describe("HU-24 · sincronizarPendientes", () => {
     expect(patch?.url).toMatch(/\/calendars\/primary\/events\/evt-nuevo$/);
     expect(new Date((patch?.body?.start as { dateTime: string }).dateTime).toISOString()).toBe(nueva);
     expect(await cola(r.id_reserva)).toMatchObject({ pendiente: false, event_id: "evt-nuevo" });
+
+    ok(await admin.from("reserva").update({ estado: "completada" }).eq("id_reserva", r.id_reserva));
+    llamadas = [];
+    await sincronizar();
+    expect(llamadas.find((l) => l.metodo === "PATCH")?.body).toMatchObject({ summary: "Completada · Corte · Pedro G.", colorId: "8" });
 
     ok(await admin.from("reserva").update({ estado: "cancelada" }).eq("id_reserva", r.id_reserva));
     llamadas = [];
