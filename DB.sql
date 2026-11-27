@@ -2376,6 +2376,58 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.admin_conteos_barberias(timestamptz) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.admin_conteos_barberias(timestamptz) TO authenticated;
 
+-- Usuarios del panel /admin con filtros y página. Correo confirmado solo está en auth.users.
+-- p_tipo (cualquiera de): superadmin, suspendida, eliminada, sin_confirmar
+-- p_membresia (cualquiera de): staff (admin/profesional activo), cliente (solo cliente), ninguna
+CREATE FUNCTION public.admin_buscar_usuarios(
+  p_q text DEFAULT NULL,
+  p_tipo text[] DEFAULT NULL,
+  p_membresia text[] DEFAULT NULL,
+  p_desde date DEFAULT NULL,
+  p_hasta date DEFAULT NULL,
+  p_limite integer DEFAULT 20,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (id_usuario uuid, nombre text, apellido text, email text, rol text,
+               created_at timestamptz, deleted_at timestamptz, email_confirmado boolean, total bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NOT private.es_superadmin() THEN
+    RAISE EXCEPTION 'Solo un administrador de la plataforma' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN QUERY
+  WITH base AS (
+    SELECT u.id_usuario, u.nombre::text, u.apellido::text, u.email::text, u.rol::text, u.created_at, u.deleted_at,
+           (a.email_confirmed_at IS NOT NULL) AS email_confirmado,
+           u.email LIKE '%@anon.invalid' AS eliminada,  -- correo que deja eliminarDatosPersona
+           EXISTS (SELECT 1 FROM public.usuario_barberia m WHERE m.id_usuario = u.id_usuario AND m.activo AND m.rol IN ('admin', 'profesional')) AS es_staff,
+           EXISTS (SELECT 1 FROM public.usuario_barberia m WHERE m.id_usuario = u.id_usuario AND m.activo) AS tiene_membresia
+    FROM public.usuario u
+    LEFT JOIN auth.users a ON a.id = u.id_usuario
+    WHERE (coalesce(trim(p_q), '') = ''
+           OR strpos(lower(u.email), lower(trim(p_q))) > 0
+           OR strpos(lower(coalesce(u.nombre, '') || ' ' || coalesce(u.apellido, '')), lower(trim(p_q))) > 0)
+      AND (p_desde IS NULL OR (u.created_at AT TIME ZONE 'America/Santiago')::date >= p_desde)
+      AND (p_hasta IS NULL OR (u.created_at AT TIME ZONE 'America/Santiago')::date <= p_hasta)
+  )
+  SELECT b.id_usuario, b.nombre, b.apellido, b.email, b.rol, b.created_at, b.deleted_at, b.email_confirmado,
+         count(*) OVER ()
+  FROM base b
+  WHERE (p_tipo IS NULL OR cardinality(p_tipo) = 0
+         OR ('superadmin' = ANY (p_tipo) AND b.rol = 'superadmin')
+         OR ('suspendida' = ANY (p_tipo) AND b.deleted_at IS NOT NULL AND NOT b.eliminada)
+         OR ('eliminada' = ANY (p_tipo) AND b.eliminada)
+         OR ('sin_confirmar' = ANY (p_tipo) AND NOT b.email_confirmado))
+    AND (p_membresia IS NULL OR cardinality(p_membresia) = 0
+         OR ('staff' = ANY (p_membresia) AND b.es_staff)
+         OR ('cliente' = ANY (p_membresia) AND b.tiene_membresia AND NOT b.es_staff)
+         OR ('ninguna' = ANY (p_membresia) AND NOT b.tiene_membresia))
+  ORDER BY b.created_at DESC, b.id_usuario
+  LIMIT least(greatest(p_limite, 1), 100) OFFSET greatest(p_offset, 0);
+END $$;
+REVOKE EXECUTE ON FUNCTION public.admin_buscar_usuarios(text, text[], text[], date, date, integer, integer) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.admin_buscar_usuarios(text, text[], text[], date, date, integer, integer) TO authenticated;
+
 REVOKE EXECUTE ON FUNCTION public.anonimizar_usuario(uuid) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.anonimizar_guest(uuid)   FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.anonimizar_usuario(uuid) TO authenticated;

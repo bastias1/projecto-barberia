@@ -22,8 +22,8 @@ export function Paginacion({
     <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
       <span>Página {pagina} de {totalPaginas}</span>
       <div className="flex gap-2">
-        {pagina > 1 ? <Link href={href(pagina - 1)}><Button variant="outline" size="sm">Anterior</Button></Link> : <Button variant="outline" size="sm" disabled>Anterior</Button>}
-        {pagina < totalPaginas ? <Link href={href(pagina + 1)}><Button variant="outline" size="sm">Siguiente</Button></Link> : <Button variant="outline" size="sm" disabled>Siguiente</Button>}
+        {pagina > 1 ? <Button asChild variant="outline" size="sm"><Link href={href(pagina - 1)}>Anterior</Link></Button> : <Button variant="outline" size="sm" disabled>Anterior</Button>}
+        {pagina < totalPaginas ? <Button asChild variant="outline" size="sm"><Link href={href(pagina + 1)}>Siguiente</Link></Button> : <Button variant="outline" size="sm" disabled>Siguiente</Button>}
       </div>
     </div>
   );

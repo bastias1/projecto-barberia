@@ -54,19 +54,19 @@ export default async function AdminResumen() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Resumen</h1>
+        <h1 className="display text-3xl">Resumen</h1>
         <p className="text-muted-foreground">Estado de la plataforma</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {tarjetas.map((t) => (
-          <Card key={t.titulo} className="shadow-sm">
+          <Card key={t.titulo} className="gap-2">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t.titulo}</CardTitle>
-              <t.icon className="h-4 w-4 text-muted-foreground" />
+              <span aria-hidden="true" className="grid size-8 place-items-center rounded-lg bg-accent"><t.icon className="size-4" /></span>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{t.valor}</div>
+              <div className="display text-3xl tabular-nums">{t.valor}</div>
               <p className="text-xs text-muted-foreground mt-1">{t.detalle}</p>
             </CardContent>
           </Card>
@@ -76,7 +76,7 @@ export default async function AdminResumen() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Pruebas por vencer (7 días)</CardTitle>
+            <CardTitle className="flex items-center gap-2"><AlertTriangle className="size-5 text-muted-foreground" aria-hidden="true" />Pruebas por vencer (7 días)</CardTitle>
             <CardDescription>Buen momento para contactarlas.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -106,7 +106,7 @@ export default async function AdminResumen() {
               {nuevasPorMes.map((m) => (
                 <div key={m.mes} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-xs font-medium">{m.total}</span>
-                  <div className="w-full rounded-t bg-primary/80" style={{ height: `${(m.total / maxNuevas) * 80 + 4}px` }} />
+                  <div className="w-full rounded-t bg-brand" style={{ height: `${(m.total / maxNuevas) * 80 + 4}px` }} />
                   <span className="text-[10px] text-muted-foreground capitalize">{formatFecha(`${m.mes}-01`, "MMM")}</span>
                 </div>
               ))}

@@ -77,7 +77,7 @@ export function UsuarioAcciones({ idUsuario, email, superadmin, suspendido, esYo
 
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button size="sm" variant={suspendido ? "default" : "ghost"} disabled={enCurso} className={suspendido ? "gap-1" : "gap-1 text-red-600"}>
+          <Button size="sm" variant={suspendido ? "default" : "ghost"} disabled={enCurso} className={suspendido ? "gap-1" : "gap-1 text-destructive hover:text-destructive"}>
             {suspendido ? <UserCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
             {suspendido ? "Reactivar" : "Suspender"}
           </Button>

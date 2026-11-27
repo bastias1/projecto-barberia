@@ -192,6 +192,7 @@ Shop orders are paid with **Checkout API via Orders API** (card form on the site
 
 ### Key Conventions
 - **Dates**: Bookings are `timestamptz`. Convert with `lib/datetime.ts` (`toZoned`, `fromZoned`, `todayIn`) using the sucursal timezone (`America/Santiago`) — the server runs in UTC. For dates picked in a calendar use `localDateString()`; never `.toISOString()` for a calendar date.
+- **UI components**: never build a UI primitive or pattern from scratch. First use what's in `components/ui`; else add it with `pnpm dlx shadcn@latest add <name>` (components or blocks); only if shadcn lacks it, take it from a shadcn-compatible registry (e.g. Origin UI, Magic UI) through the shadcn CLI. No other UI libraries. Then restyle it only with the semantic tokens so it keeps the look. Existing custom components stay until a page using them is reworked.
 - **UI language**: All user-facing text is in Spanish (es_CL).
 - **Toasts**: `sonner` (`<Toaster />` in root layout). Import `toast` from `"sonner"`.
 - **Accessibility**: each page marks its main content `<main id="contenido">` (target of the "Saltar al contenido" link in `app/layout.tsx`). Use `<Button asChild><Link/></Button>`, never a `<Button>` inside a `<Link>`. Every input needs a `<Label htmlFor>`.
