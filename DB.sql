@@ -2038,7 +2038,7 @@ BEGIN
 END $$;
 
 -- 5.1b Borrado lógico de una barbería por su propietario. La llama el backend (service_role) después de
---      cancelar el cobro y desvincular Mercado Pago (lib/eliminar-barberia.ts). No borra filas.
+--      cortar el cobro automático (lib/eliminar-barberia.ts). No borra filas, salvo el vínculo de Mercado Pago.
 CREATE FUNCTION public.eliminar_barberia(p_barberia uuid, p_usuario uuid)
 RETURNS SETOF bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
@@ -2056,6 +2056,9 @@ BEGIN
   UPDATE public.barberia
   SET activa = false, eliminada_at = now(), slug = 'eliminada-' || replace(p_barberia::text, '-', '')
   WHERE id_barberia = p_barberia;
+  UPDATE public.suscripcion SET estado = 'cancelada', id_suscripcion_externa = NULL
+  WHERE id_barberia = p_barberia AND (estado IN ('prueba','activa') OR id_suscripcion_externa IS NOT NULL);
+  PERFORM public.mp_borrar(p_barberia);  -- se define más abajo (plpgsql la resuelve al ejecutar)
   UPDATE public.invitacion SET estado = 'cancelada' WHERE id_barberia = p_barberia AND estado = 'pendiente';
   UPDATE public.profesional SET activo = false WHERE id_barberia = p_barberia AND activo;
   UPDATE public.usuario_barberia SET activo = false WHERE id_barberia = p_barberia AND activo;
@@ -2692,14 +2695,16 @@ CREATE FUNCTION public.gcal_reclamar(p_limite integer)
 RETURNS SETOF public.reserva_evento_google LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
   UPDATE public.reserva_evento_google q SET bloqueada_hasta = now() + interval '2 minutes'
   FROM (
-    SELECT id_reserva FROM public.reserva_evento_google
-    WHERE pendiente
-      AND (bloqueada_hasta IS NULL OR bloqueada_hasta < now())
-      AND (intentos < 20 OR updated_at < now() - interval '1 hour')
-      AND public.barberia_tiene_modulo(id_barberia, 'calendario')
-    ORDER BY updated_at
+    SELECT e.id_reserva FROM public.reserva_evento_google e
+    WHERE e.pendiente
+      AND (e.bloqueada_hasta IS NULL OR e.bloqueada_hasta < now())
+      AND (e.intentos < 20 OR e.updated_at < now() - interval '1 hour')
+      AND (public.barberia_tiene_modulo(e.id_barberia, 'calendario')
+           -- quitar un evento no depende del módulo: si no, al eliminar la barbería quedan citas fantasma
+           OR EXISTS (SELECT 1 FROM public.reserva r WHERE r.id_reserva = e.id_reserva AND r.estado IN ('cancelada','no_asistio')))
+    ORDER BY e.updated_at
     LIMIT p_limite
-    FOR UPDATE SKIP LOCKED
+    FOR UPDATE OF e SKIP LOCKED
   ) c
   WHERE q.id_reserva = c.id_reserva
   RETURNING q.*;

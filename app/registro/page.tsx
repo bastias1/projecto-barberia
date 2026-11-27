@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { HeaderPlataforma } from "@/components/plataforma/header";
 import { RegistroForm } from "@/components/registro/registro-form";
 import { createClient } from "@/utils/supabase/server";
-import { getPlanes, DIAS_PRUEBA } from "@/lib/planes";
+import { getPlanes, planesRegistrables, DIAS_PRUEBA } from "@/lib/planes";
 import { resolverAcceso } from "@/lib/acceso";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export default async function RegistroPage({
               <CardDescription>Podrás cambiar el logo, la descripción y agregar sucursales después.</CardDescription>
             </CardHeader>
             <CardContent>
-              <RegistroForm planes={planes} planInicial={Number(plan) || planPrueba?.id_plan} pruebaDisponible={pruebaDisponible} />
+              <RegistroForm planes={planesRegistrables(planes, pruebaDisponible)} planInicial={Number(plan) || planPrueba?.id_plan} pruebaDisponible={pruebaDisponible} />
             </CardContent>
           </Card>
         ) : (

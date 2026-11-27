@@ -26,6 +26,11 @@ export const MODULO_LABEL: Record<ModuloCodigo, string> = {
   pronostico: "Pronóstico de demanda",
 };
 
+/** Planes elegibles al registrar: sin prueba hay que poder pagarlo, o la barbería no tendría cómo activarse. */
+export function planesRegistrables(planes: Plan[], pruebaDisponible: boolean): Plan[] {
+  return planes.filter((p) => p.precio_mensual >= MONTO_MINIMO_SUSCRIPCION || (pruebaDisponible && p.es_plan_prueba));
+}
+
 /** Planes con sus módulos y límites. Por defecto solo los activos (catálogo público). */
 export async function getPlanes(supabase: SupabaseClient, { incluirInactivos = false } = {}): Promise<Plan[]> {
   let query = supabase

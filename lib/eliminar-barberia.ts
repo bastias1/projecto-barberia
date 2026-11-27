@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notificarCambioReserva } from "./notifications";
-import { eliminarSuscripcion, ultimaSuscripcion, type OpcionesSuscripcion } from "./suscripcion";
+import { cancelar, ultimaSuscripcion, type OpcionesSuscripcion } from "./suscripcion";
 import type { ResultadoAccion } from "./utils";
 
 const NO_PROPIETARIO = "Solo el propietario puede eliminar la barbería";
@@ -9,7 +9,8 @@ const FALLO = "No se pudo eliminar la barbería";
 
 /**
  * Borrado lógico de una barbería (RPC eliminar_barberia). `admin` es service role: quien llama ya
- * autenticó a `idUsuario`. El orden importa: primero se corta el cobro; si falla, no se toca nada.
+ * autenticó a `idUsuario`. Primero se corta el cobro automático (si falla, no se toca nada); la
+ * suscripción, el vínculo de Mercado Pago y el resto cambian juntos en la RPC, o nada.
  */
 export async function eliminarBarberiaDe(
   admin: SupabaseClient,
@@ -29,16 +30,11 @@ export async function eliminarBarberiaDe(
   if (errorPedidos) return { success: false, error: FALLO };
   if (count) return { success: false, error: PENDIENTES };
 
-  const sus = await ultimaSuscripcion(admin, idBarberia);
-  if (sus && (sus.id_suscripcion_externa || ["prueba", "activa"].includes(sus.estado))) {
-    const cancelada = await eliminarSuscripcion(admin, idBarberia, opts);
-    if (!cancelada.ok) return { success: false, error: cancelada.error };
-  }
-
-  const { error: errorMp } = await admin.rpc("mp_borrar", { p_barberia: idBarberia });
-  if (errorMp) {
-    console.error("[eliminar barbería] mp_borrar:", errorMp);
-    return { success: false, error: FALLO };
+  const conCobro = await ultimaSuscripcion(admin, idBarberia, { conCobro: true });
+  if (conCobro?.id_suscripcion_externa) {
+    // Corta solo la renovación: si lo que sigue falla, la barbería conserva su vigencia
+    const corte = await cancelar(admin, idBarberia, opts);
+    if (!corte.ok) return { success: false, error: corte.error };
   }
 
   const { data: citas, error } = await admin.rpc("eliminar_barberia", { p_barberia: idBarberia, p_usuario: idUsuario });
