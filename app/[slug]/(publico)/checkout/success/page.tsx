@@ -89,7 +89,7 @@ export default async function PaymentSuccessPage({
                 <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
                     {pedido && (
                         <Button asChild variant="outline">
-                            <Link href="/cuenta">Ver mis pedidos</Link>
+                            <Link href="/cuenta/compras">Ver mis compras</Link>
                         </Button>
                     )}
                     <Button asChild className="group">

@@ -31,6 +31,6 @@ export async function eliminarBarberia(idBarberia: string, confirmacion: string)
   if (confirmacion.trim() !== barberia.nombre.trim()) return { success: false, error: "El nombre no coincide" }
 
   const result = await eliminarBarberiaDe(createServiceRoleClient(), { idBarberia, idUsuario: user.id })
-  if (result.success) revalidatePath("/cuenta")
+  if (result.success) revalidatePath("/cuenta", "layout")
   return result
 }

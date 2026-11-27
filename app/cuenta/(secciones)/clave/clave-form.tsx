@@ -63,18 +63,15 @@ export function ClaveForm({ tokenHash: tokenInicial, conSesion, pedirActual }: {
     router.push((await resolverAcceso(supabase, data.user.id)).destino);
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-md space-y-4">
-        <Button asChild variant="ghost" className="gap-2">
-          <Link href={conSesion ? "/cuenta" : "/login"}><ArrowLeft className="h-4 w-4" />{conSesion ? "Mi cuenta" : "Iniciar sesión"}</Link>
-        </Button>
-        <Card className="border shadow-xl">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-2">
-              <KeyRound className="h-6 w-6" />
-            </div>
-            <CardTitle>Nueva contraseña</CardTitle>
+  const tarjeta = (
+        <Card className={conSesion ? undefined : "border shadow-xl"}>
+          <CardHeader className={conSesion ? undefined : "text-center"}>
+            {!conSesion && (
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
+                <KeyRound className="h-6 w-6" aria-hidden="true" />
+              </div>
+            )}
+            <CardTitle>{conSesion ? "Cambiar contraseña" : "Nueva contraseña"}</CardTitle>
             <CardDescription>Elige una contraseña de al menos 6 caracteres.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -93,14 +90,24 @@ export function ClaveForm({ tokenHash: tokenInicial, conSesion, pedirActual }: {
                 <Label htmlFor="confirmacion">Repite la contraseña</Label>
                 <Input id="confirmacion" type="password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} required minLength={6} autoComplete="new-password" />
               </div>
-              <Button type="submit" className="w-full" disabled={guardando}>
+              <Button type="submit" className={conSesion ? undefined : "w-full"} disabled={guardando}>
                 {guardando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Guardar contraseña
               </Button>
             </form>
           </CardContent>
         </Card>
-      </div>
+  );
+  // Con sesión va dentro del marco de la cuenta; sin ella (link de recuperación), sola
+  if (conSesion) return tarjeta;
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
+      <main id="contenido" className="w-full max-w-md space-y-4">
+        <Button asChild variant="ghost" className="gap-2">
+          <Link href="/login"><ArrowLeft className="h-4 w-4" />Iniciar sesión</Link>
+        </Button>
+        {tarjeta}
+      </main>
     </div>
   );
 }

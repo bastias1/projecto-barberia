@@ -4,10 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarClock } from "lucide-react";
+import { CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +21,8 @@ import {
 import { formatPlazo } from "@/lib/barberia";
 import { formatCLP, formatFecha, toZoned } from "@/lib/datetime";
 import { cambiarReserva } from "@/app/[slug]/(publico)/reprogramar/actions";
+import { esModificable } from "@/lib/reservas-cuenta";
+import { cn } from "@/lib/utils";
 
 /** Fila de la RPC mis_reservas. */
 export interface ReservaCuenta {
@@ -54,8 +55,8 @@ const ESTADOS: Record<string, string> = {
   no_asistio: "No asistió",
 };
 
-/** HU-22: reservas de la cuenta en todas las barberías, con cancelar y cambiar la hora. */
-export function HistorialReservas({ reservas }: { reservas: ReservaCuenta[] }) {
+/** HU-22: reservas de la cuenta; las modificables con cambiar la hora y cancelar, las demás con reservar de nuevo. */
+export function ListaReservas({ reservas }: { reservas: ReservaCuenta[] }) {
   const router = useRouter();
   const [cancelando, setCancelando] = useState<number | null>(null);
   const [ahora] = useState(() => Date.now());
@@ -70,19 +71,13 @@ export function HistorialReservas({ reservas }: { reservas: ReservaCuenta[] }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5" />Mis reservas</CardTitle>
-        <CardDescription>Reservas hechas con tu cuenta o con tu correo.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="max-h-[32rem] space-y-2 overflow-y-auto">
+        <ul className="space-y-2">
           {reservas.map((r) => {
             const { fecha, hora } = toZoned(r.fecha_hora_inicio, r.zona_horaria);
-            // El plazo para cambiarla lo decide la BD
-            const modificable = r.barberia_activa && ["pendiente", "confirmada"].includes(r.estado) && Date.parse(r.fecha_hora_inicio) > ahora;
+            const modificable = esModificable(r, ahora);
+            const inactiva = r.estado === "cancelada" || r.estado === "no_asistio";
             return (
-              <li key={r.id_reserva} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+              <li key={r.id_reserva} className={cn("tarjeta flex flex-wrap items-center justify-between gap-3 rounded-lg p-4", inactiva && "opacity-60")}>
                 <div className="min-w-0">
                   <p className="font-semibold">{r.servicio} con {r.barbero}</p>
                   <p className="text-sm text-muted-foreground">
@@ -93,7 +88,7 @@ export function HistorialReservas({ reservas }: { reservas: ReservaCuenta[] }) {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={r.estado === "cancelada" || r.estado === "no_asistio" ? "outline" : "secondary"}>
+                  <Badge variant={inactiva ? "outline" : "secondary"}>
                     {ESTADOS[r.estado] ?? r.estado}
                   </Badge>
                   {modificable && (
@@ -120,12 +115,15 @@ export function HistorialReservas({ reservas }: { reservas: ReservaCuenta[] }) {
                       </AlertDialog>
                     </>
                   )}
+                  {!modificable && r.barberia_activa && (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/${r.slug}/agendar`}><CalendarPlus className="size-4" aria-hidden="true" />Reservar de nuevo</Link>
+                    </Button>
+                  )}
                 </div>
               </li>
             );
           })}
         </ul>
-      </CardContent>
-    </Card>
   );
 }

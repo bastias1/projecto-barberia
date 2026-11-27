@@ -10,7 +10,11 @@ Domain terms used in the code. Names stay in Spanish where the code uses them.
 
 **Destino**: the path a user lands on after signing in. Rules, in order: a safe internal `?next=`; else with an origin barbería, its dashboard for its staff and its public page for everyone else; else `/admin` for a superadmin, the dashboard for staff of exactly one barbería, and `/cuenta` for the rest.
 
-**Personal** (staff): `admin` or `profesional` members of a barbería. A superadmin is staff everywhere (see `getRolApp` in `lib/roles.ts`).
+**Personal** (staff): `admin` or `profesional` members of a barbería. A superadmin is not staff of any barbería, to protect its clients' privacy.
+
+**Cuenta**: the signed-in user's own area, shared across every barbería: profile, reservas, compras, direcciones, barberías and seguridad. Not tied to one barbería.
+
+**Compra**: a pedido as its buyer sees it. Same record; "pedido" is the barbería's word, "compra" the client's.
 
 **Suscripción** (`suscripcion`, `lib/suscripcion.ts`): a barbería's contract with a plan. The current one is the most recent row (`ultimaSuscripcion`); callers never query it themselves.
 
