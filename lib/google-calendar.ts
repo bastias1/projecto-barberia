@@ -9,12 +9,19 @@ import { one } from "./utils";
  */
 export type AccionEvento = "crear" | "actualizar" | "borrar" | "nada";
 
-/** Reservas activas tienen evento; canceladas/no_asistio lo pierden; completadas se dejan como están. */
+/** Toda reserva tiene evento que muestra su estado, salvo las canceladas, que lo pierden. */
 export function accionEvento(reserva: { estado: string }, eventId: string | null): AccionEvento {
-  if (reserva.estado === "pendiente" || reserva.estado === "confirmada") return eventId ? "actualizar" : "crear";
-  if (reserva.estado === "cancelada" || reserva.estado === "no_asistio") return eventId ? "borrar" : "nada";
-  return "nada";
+  if (reserva.estado === "cancelada") return eventId ? "borrar" : "nada";
+  return eventId ? "actualizar" : "crear";
 }
+
+// Prefijo del título y colorId de Google (Banana, Basil, Graphite, Tomato) por estado
+const ESTADO_EVENTO: Record<string, { prefijo?: string; colorId: string }> = {
+  pendiente: { prefijo: "Pendiente", colorId: "5" },
+  confirmada: { colorId: "10" },
+  completada: { prefijo: "Completada", colorId: "8" },
+  no_asistio: { prefijo: "No asistió", colorId: "11" },
+};
 
 const EVENTOS = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 
@@ -39,8 +46,10 @@ function evento(fila: FilaCola, r: Reserva) {
   const cliente = [persona?.nombre, persona?.apellido ? `${persona.apellido[0]}.` : null].filter(Boolean).join(" ");
   const sucursal = one<{ direccion: string; zona_horaria: string }>(r.sucursal);
   const timeZone = sucursal?.zona_horaria ?? "America/Santiago";
+  const estado = ESTADO_EVENTO[r.estado];
   return {
-    summary: [one<{ nombre: string }>(r.servicio)?.nombre, cliente].filter(Boolean).join(" · "),
+    summary: [estado?.prefijo, one<{ nombre: string }>(r.servicio)?.nombre, cliente].filter(Boolean).join(" · "),
+    colorId: estado?.colorId,
     location: sucursal?.direccion,
     description: `Reserva en ${one<{ nombre: string }>(fila.barberia)?.nombre ?? "la barbería"}`,
     start: { dateTime: r.fecha_hora_inicio, timeZone },

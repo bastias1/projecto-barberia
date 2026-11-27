@@ -3,11 +3,12 @@ import { getStaffContext } from "@/lib/staff-context";
 import { canjearCodigo, leerState } from "@/lib/google-calendar-oauth";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { todasLasFilas } from "@/lib/utils";
+import { fromZoned, todayIn } from "@/lib/datetime";
 import { volverAConfiguracion } from "../volver";
 
 /**
  * HU-24: vuelta de Google. Guarda el refresh token en Vault, crea el vínculo `calendario_google`
- * y encola las reservas futuras activas del barbero (las nuevas las encola el trigger de `reserva`).
+ * y encola las reservas no canceladas del barbero desde hoy (las nuevas las encola el trigger de `reserva`).
  */
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -32,12 +33,12 @@ export async function GET(request: NextRequest) {
     });
     if (errVinculo) throw errVinculo;
 
-    // Backfill: reservas futuras activas (como el trigger, sin mirar el módulo: el worker salta las barberías sin él)
+    // Backfill: desde hoy (Santiago), todo estado salvo cancelada (como el trigger, sin mirar el módulo: el worker salta las barberías sin él)
     const { data: reservas, error: errReservas } = await todasLasFilas(() => admin.from("reserva")
       .select("id_reserva, id_barberia")
       .eq("id_profesional", userId)
-      .in("estado", ["pendiente", "confirmada"])
-      .gte("fecha_hora_inicio", ahora)
+      .neq("estado", "cancelada")
+      .gte("fecha_hora_inicio", fromZoned(todayIn(), "00:00").toISOString())
       .order("id_reserva"));
     if (errReservas) throw errReservas;
     const filas = reservas.map((r) => ({
