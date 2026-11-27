@@ -15,9 +15,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       // El perfil por barbería se unificó en /cuenta
-      { source: '/profile', destination: '/cuenta', permanent: false },
+      { source: '/profile', destination: '/cuenta/perfil', permanent: false },
       // sin "api": /api/profile es la ruta de datos del perfil
-      { source: '/:slug((?!api/)[^/]+)/profile', destination: '/cuenta', permanent: false },
+      { source: '/:slug((?!api/)[^/]+)/profile', destination: '/cuenta/perfil', permanent: false },
       ...RUTAS_ANTIGUAS.flatMap((ruta) => [
         { source: `/${ruta}`, destination: `/benjvmin/${ruta}`, permanent: false },
         { source: `/${ruta}/:path*`, destination: `/benjvmin/${ruta}/:path*`, permanent: false },

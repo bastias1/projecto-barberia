@@ -109,7 +109,7 @@ export function ProfileForm({ userId, barberiaId, isProfesional, initialData }: 
             disabled
             className="bg-muted cursor-not-allowed"
           />
-          <p className="text-xs text-muted-foreground">Se cambia en <Link href="/cuenta" className="underline underline-offset-4">Mi cuenta</Link>.</p>
+          <p className="text-xs text-muted-foreground">Se cambia en <Link href="/cuenta/perfil" className="underline underline-offset-4">Mi cuenta</Link>.</p>
         </div>
 
         {isProfesional && (

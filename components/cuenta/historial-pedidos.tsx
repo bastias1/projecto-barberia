@@ -1,8 +1,5 @@
 "use client";
 
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,10 +9,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Package, Eye, Truck, ShoppingBag, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Package, Eye, Truck, ShoppingBag, CheckCircle2, Clock, XCircle } from "lucide-react";
 import Image from "next/image";
 import { ESTADO_PAGO, ESTADO_PEDIDO, parseDireccion } from "@/lib/pedido-estados";
 import type { EstadoPagoPedido, EstadoPedido } from "@/lib/database.types";
+import { formatCLP, formatFecha, toZoned } from "@/lib/datetime";
 
 interface Producto {
     nombre: string;
@@ -75,21 +73,19 @@ export function HistorialPedidos({ orders }: { orders: PedidoCuenta[] }) {
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" />Mis compras</CardTitle>
-                <CardDescription>Pedidos hechos con tu cuenta.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                    <div className="max-h-[32rem] space-y-3 overflow-y-auto">
+                    <div className="space-y-3">
                         {orders.map((order) => (
                             <div
                                 key={order.id}
-                                className="flex flex-wrap items-center justify-between gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                                className="tarjeta flex flex-wrap items-center justify-between gap-3 rounded-lg p-4"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 bg-muted rounded-lg flex items-center justify-center">
-                                        <Package className="h-6 w-6 text-muted-foreground" />
+                                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted flex items-center justify-center">
+                                        {order.detalle_pedido[0]?.producto?.imagen_url ? (
+                                            <Image src={order.detalle_pedido[0].producto.imagen_url} alt="" fill sizes="56px" className="object-cover" />
+                                        ) : (
+                                            <Package className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+                                        )}
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
@@ -99,7 +95,7 @@ export function HistorialPedidos({ orders }: { orders: PedidoCuenta[] }) {
                                         <p className="text-sm text-muted-foreground">{order.barberia ?? "Barbería no disponible"}</p>
                                         <div className="flex flex-wrap items-center gap-2 mt-1">
                                             <span className="text-sm text-muted-foreground">
-                                                {format(new Date(order.created_at), "dd MMM yyyy", { locale: es })}
+                                                {formatFecha(toZoned(order.created_at).fecha)}
                                             </span>
                                             <span className="text-muted-foreground">•</span>
                                             {getDeliveryIcon(order.tipo_entrega)}
@@ -111,7 +107,7 @@ export function HistorialPedidos({ orders }: { orders: PedidoCuenta[] }) {
 
                                 <div className="flex items-center gap-4">
                                     <span className="font-bold text-lg">
-                                        ${Number(order.monto_total).toLocaleString("es-CL")}
+                                        {formatCLP(order.monto_total)}
                                     </span>
                                     <Dialog>
                                         <DialogTrigger asChild>
@@ -161,7 +157,7 @@ export function HistorialPedidos({ orders }: { orders: PedidoCuenta[] }) {
                                                                     </p>
                                                                 </div>
                                                                 <span className="text-sm font-medium">
-                                                                    ${Number(detalle.subtotal).toLocaleString("es-CL")}
+                                                                    {formatCLP(detalle.subtotal)}
                                                                 </span>
                                                             </div>
                                                         ))}
@@ -185,7 +181,7 @@ export function HistorialPedidos({ orders }: { orders: PedidoCuenta[] }) {
                                                     <div className="flex justify-between items-center">
                                                         <span className="font-bold">Total</span>
                                                         <span className="text-xl font-bold">
-                                                            ${Number(order.monto_total).toLocaleString("es-CL")}
+                                                            {formatCLP(order.monto_total)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -196,7 +192,5 @@ export function HistorialPedidos({ orders }: { orders: PedidoCuenta[] }) {
                             </div>
                         ))}
                     </div>
-            </CardContent>
-        </Card>
     );
 }
