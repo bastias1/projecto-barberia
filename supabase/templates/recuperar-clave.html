@@ -6,9 +6,13 @@
     <meta name="x-apple-disable-message-reformatting">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="format-detection" content="telephone=no,address=no,email=no,url=no">
+    <!-- Solo modo claro: así Gmail/Outlook no invierten los colores -->
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light">
+    <style>:root{color-scheme:light only;supported-color-schemes:light}</style>
     <title>Crea una nueva contraseña</title>
   </head>
-  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:'Geist',Arial,Helvetica,sans-serif;color:#232323;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+  <body style="margin:0;padding:24px 0;background:#f4f4f5;font-family:'Geist',Arial,Helvetica,sans-serif;color:#232323;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
     <!--[if mso]>
     <noscript>
       <xml>
@@ -33,15 +37,15 @@
                 <p style="margin:0 0 16px;color:#232323">Recibimos una solicitud para cambiar la contraseña de <strong>{{ .Email }}</strong>. El link es válido por una hora.</p>
                 <!-- Bulletproof button -->
                 <!--[if mso]>
-                <v:rect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}" style="height:44px;v-text-anchor:middle;width:240px;" stroke="f" fillcolor="#18181b">
-                  <v:textbox inset="0,0,0,0"><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:600;">Crear nueva contraseña</center></v:textbox>
-                </v:rect>
+                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}" style="height:48px;v-text-anchor:middle;width:464px;" arcsize="17%" strokecolor="#a1ffcb" fillcolor="#a1ffcb">
+                  <center style="color:#0f2a1c;font-family:Arial,sans-serif;font-size:16px;font-weight:600;">Crear nueva contraseña</center>
+                </v:roundrect>
                 <![endif]-->
                 <!--[if !mso]><!-->
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
                   <tr>
-                    <td style="border-radius:8px;background:#18181b;" bgcolor="#18181b">
-                      <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 22px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;line-height:1.2;border-radius:8px;" role="button">Crear nueva contraseña</a>
+                    <td align="center" bgcolor="#a1ffcb" style="border-radius:8px;background:#a1ffcb;border:1px solid #a1ffcb;">
+                      <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}" target="_blank" rel="noopener noreferrer" style="display:block;padding:14px 22px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;line-height:1.2;color:#0f2a1c;text-decoration:none;text-align:center;border-radius:8px;">Crear nueva contraseña</a>
                     </td>
                   </tr>
                 </table>

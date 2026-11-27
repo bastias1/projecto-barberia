@@ -62,6 +62,8 @@ export async function sendEmail({ to, subject, html, fromName, replyTo }: EmailM
       subject,
       html,
       text: htmlATexto(html),
+      // Valor único por envío: Gmail no agrupa los correos en una conversación ni oculta lo repetido tras "…"
+      headers: { "X-Entity-Ref-ID": crypto.randomUUID() },
       ...(replyTo ? { replyTo } : {}),
     });
     if (error) {
@@ -83,31 +85,29 @@ export function escapeHtml(value: string | null | undefined): string {
     .replace(/"/g, "&quot;");
 }
 
+const BOTON = {
+  principal: { fondo: "#a1ffcb", texto: "#0f2a1c", borde: "#a1ffcb" }, // --brand / --brand-foreground de la web
+  secundario: { fondo: "#ffffff", texto: "#232323", borde: "#e6e6e6" }, // variante outline de la web
+} as const;
+
 /**
- * Bulletproof button para email: tabla anidada + VML para Outlook.
- * Usa el color de marca oscura (#18181b) para accesibilidad (AA sobre blanco).
- * El menta (#a1ffcb) solo se usa como acento decorativo (bordes, badges).
+ * Botón de ancho completo (tabla + VML para Outlook). Es un bloque: va en un <div>, nunca dentro de un <p>.
+ * Varios botones seguidos quedan apilados.
  */
-export function emailButton(href: string, label: string, color = "#18181b"): string {
+export function emailButton(href: string, label: string, variante: keyof typeof BOTON = "principal"): string {
   const safeLabel = escapeHtml(label);
   const safeHref = escapeHtml(href);
-  const bg = escapeHtml(color);
-  const fg = color === "#dc2626" ? "#ffffff" : "#ffffff"; // texto blanco en botones oscuros/rojos
-
-  // VML para Outlook (mso) — botón relleno que no se rompe
-  const vml = `<!--[if mso]>
-  <v:rect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${safeHref}" style="height:44px;v-text-anchor:middle;width:200px;" stroke="f" fillcolor="${bg}">
-    <v:textbox inset="0,0,0,0"><center style="color:${fg};font-family:Arial,sans-serif;font-size:16px;font-weight:600;">${safeLabel}</center></v:textbox>
-  </v:rect>
-<![endif]-->`;
-
-  // HTML estándar para el resto de clientes
-  return `${vml}
+  const c = BOTON[variante];
+  return `<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${safeHref}" style="height:48px;v-text-anchor:middle;width:464px;" arcsize="17%" strokecolor="${c.borde}" fillcolor="${c.fondo}">
+  <center style="color:${c.texto};font-family:Arial,sans-serif;font-size:16px;font-weight:600;">${safeLabel}</center>
+</v:roundrect>
+<![endif]-->
 <!--[if !mso]><!-->
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:4px 6px 4px 0;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 12px;">
   <tr>
-    <td style="border-radius:8px;background:${bg};" bgcolor="${bg}">
-      <a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 22px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;color:${fg};text-decoration:none;line-height:1.2;border-radius:8px;" role="button">${safeLabel}</a>
+    <td align="center" bgcolor="${c.fondo}" style="border-radius:8px;background:${c.fondo};border:1px solid ${c.borde};">
+      <a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="display:block;padding:14px 22px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;line-height:1.2;color:${c.texto};text-decoration:none;text-align:center;border-radius:8px;">${safeLabel}</a>
     </td>
   </tr>
 </table>
@@ -157,10 +157,14 @@ export function emailLayout(
     <meta name="x-apple-disable-message-reformatting">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="format-detection" content="telephone=no,address=no,email=no,url=no">
-    ${preheader ? `<meta name="preheader" content="${preheader}"><div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;font-size:1px;line-height:1px">${preheader}</div>` : ""}
+    <!-- Solo modo claro: así Gmail/Outlook no invierten los colores -->
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light">
+    <style>:root{color-scheme:light only;supported-color-schemes:light}</style>
     <title>${safeTitulo}</title>
   </head>
-  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:'Geist',Arial,Helvetica,sans-serif;color:#232323;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+  <body style="margin:0;padding:24px 0;background:#f4f4f5;font-family:'Geist',Arial,Helvetica,sans-serif;color:#232323;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+    ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;font-size:1px;line-height:1px">${preheader}</div>` : ""}
     <!--[if mso]>
     <noscript>
       <xml>
@@ -206,14 +210,4 @@ export function emailDetalle(filas: Array<[string, string]>): string {
     .map(([k, v]) => `<tr><td style="padding:8px 0;color:#71717a;font-size:14px">${escapeHtml(k)}</td><td style="padding:8px 0;text-align:right;font-weight:600;font-size:14px;color:#232323">${escapeHtml(v)}</td></tr>`)
     .join("");
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f4f5;border-radius:8px;padding:16px;margin:0 0 20px">${rows}</table>`;
-}
-
-/** Badge decorativo con acento menta (para etiquetas de estado, etc.) */
-export function emailBadge(texto: string): string {
-  return `<span style="display:inline-block;padding:4px 10px;background:#a1ffcb;color:#0f2a1c;font-size:12px;font-weight:600;border-radius:9999px;font-family:'Geist',Arial,Helvetica,sans-serif;line-height:1">${escapeHtml(texto)}</span>`;
-}
-
-/** Divisor horizontal sutil */
-export function emailDivider(): string {
-  return `<hr style="border:0;border-top:1px solid #e6e6e6;margin:20px 0">`;
 }
