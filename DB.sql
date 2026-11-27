@@ -1653,6 +1653,16 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT coalesce(private.rol_en_barberia(p_barberia) IN ('admin','profesional'), false);
 $$;
 
+-- Propietario (quien la registró; solo esa cuenta puede eliminarla) y borrado lógico
+ALTER TABLE public.barberia
+  ADD COLUMN id_propietario uuid REFERENCES public.usuario(id_usuario) ON DELETE SET NULL,
+  ADD COLUMN eliminada_at   timestamptz;
+CREATE INDEX barberia_propietario_idx ON public.barberia (id_propietario);
+-- Una sola prueba gratis por cuenta, y solo en el plan marcado (en producción: Pro)
+ALTER TABLE public.plan_suscripcion ADD COLUMN es_plan_prueba boolean NOT NULL DEFAULT false;
+CREATE UNIQUE INDEX plan_suscripcion_un_plan_prueba ON public.plan_suscripcion (es_plan_prueba) WHERE es_plan_prueba;
+ALTER TABLE public.usuario ADD COLUMN prueba_usada_at timestamptz;  -- sin GRANT de columna: la escribe registrar_barberia
+
 -- =====================================================================
 -- 2. ACTIVAR RLS EN TODAS LAS TABLAS
 --    Sin una política que lo permita, una tabla no entrega ni acepta filas.
@@ -1688,6 +1698,19 @@ CREATE POLICY barberia_select_publico ON public.barberia FOR SELECT TO anon, aut
   USING (activa OR private.es_admin(id_barberia));
 CREATE POLICY barberia_update_admin ON public.barberia FOR UPDATE TO authenticated
   USING (private.es_admin(id_barberia)) WITH CHECK (private.es_admin(id_barberia));
+
+-- activa, propietario y eliminación: solo la plataforma (superadmin, backend o SQL directo).
+-- Es un trigger y no un REVOKE porque el superadmin suspende con su propia sesión.
+CREATE FUNCTION private.proteger_barberia() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF (NEW.activa, NEW.id_propietario, NEW.eliminada_at) IS DISTINCT FROM (OLD.activa, OLD.id_propietario, OLD.eliminada_at)
+     AND auth.uid() IS NOT NULL AND NOT private.es_superadmin() THEN
+    RAISE EXCEPTION 'Solo la plataforma puede cambiar el estado de la barbería' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER barberia_proteger BEFORE UPDATE OF activa, id_propietario, eliminada_at ON public.barberia
+  FOR EACH ROW EXECUTE FUNCTION private.proteger_barberia();
 
 -- sucursal
 CREATE POLICY sucursal_select_publico ON public.sucursal FOR SELECT TO anon, authenticated
@@ -1976,16 +1999,25 @@ DECLARE
   v_usuario  uuid := auth.uid();
   v_barberia uuid;
   v_precio   numeric;
+  v_es_plan_prueba boolean;
+  v_con_prueba     boolean := false;
 BEGIN
   IF v_usuario IS NULL THEN
     RAISE EXCEPTION 'Debe iniciar sesión para registrar una barbería' USING ERRCODE = 'insufficient_privilege';
   END IF;
-  SELECT precio_mensual INTO v_precio FROM public.plan_suscripcion WHERE id_plan = p_id_plan AND activo;
+  SELECT precio_mensual, es_plan_prueba INTO v_precio, v_es_plan_prueba
+  FROM public.plan_suscripcion WHERE id_plan = p_id_plan AND activo;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'El plan no existe o no está disponible' USING ERRCODE = 'check_violation';
   END IF;
 
-  INSERT INTO public.barberia (nombre, slug) VALUES (p_nombre, p_slug)
+  -- Una prueba por cuenta y solo en el plan de prueba. El UPDATE es el candado: dos altas a la vez, una gana
+  IF v_es_plan_prueba THEN
+    UPDATE public.usuario SET prueba_usada_at = now() WHERE id_usuario = v_usuario AND prueba_usada_at IS NULL;
+    v_con_prueba := FOUND;
+  END IF;
+
+  INSERT INTO public.barberia (nombre, slug, id_propietario) VALUES (p_nombre, p_slug, v_usuario)
   RETURNING id_barberia INTO v_barberia;
 
   INSERT INTO public.suscripcion (id_barberia, id_plan, precio_pactado, estado, fecha_termino)
@@ -1997,8 +2029,45 @@ BEGIN
   INSERT INTO public.sucursal (id_barberia, nombre, direccion, comuna, zona_horaria)
   VALUES (v_barberia, p_sucursal, p_direccion, p_comuna, p_zona_horaria);
 
+  -- Sin prueba queda sin pagar. Recién ahora: sin suscripción vigente el límite de sucursales es 0
+  IF NOT v_con_prueba THEN
+    UPDATE public.suscripcion SET estado = 'vencida', fecha_termino = public.hoy_chile() WHERE id_barberia = v_barberia;
+  END IF;
+
   RETURN v_barberia;
 END $$;
+
+-- 5.1b Borrado lógico de una barbería por su propietario. La llama el backend (service_role) después de
+--      cancelar el cobro y desvincular Mercado Pago (lib/eliminar-barberia.ts). No borra filas.
+CREATE FUNCTION public.eliminar_barberia(p_barberia uuid, p_usuario uuid)
+RETURNS SETOF bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  PERFORM 1 FROM public.barberia
+  WHERE id_barberia = p_barberia AND id_propietario = p_usuario AND eliminada_at IS NULL FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Solo el propietario puede eliminar la barbería' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.pedido WHERE id_barberia = p_barberia
+             AND estado_pago = 'pagado' AND estado NOT IN ('entregado','cancelado')) THEN
+    RAISE EXCEPTION 'PEDIDOS_PENDIENTES' USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- El slug queda libre para otra barbería
+  UPDATE public.barberia
+  SET activa = false, eliminada_at = now(), slug = 'eliminada-' || replace(p_barberia::text, '-', '')
+  WHERE id_barberia = p_barberia;
+  UPDATE public.invitacion SET estado = 'cancelada' WHERE id_barberia = p_barberia AND estado = 'pendiente';
+  UPDATE public.profesional SET activo = false WHERE id_barberia = p_barberia AND activo;
+  UPDATE public.usuario_barberia SET activo = false WHERE id_barberia = p_barberia AND activo;
+
+  -- Devuelve las reservas futuras canceladas para avisarles a los clientes
+  RETURN QUERY
+  UPDATE public.reserva SET estado = 'cancelada'
+  WHERE id_barberia = p_barberia AND estado IN ('pendiente','confirmada') AND fecha_hora_inicio > now()
+  RETURNING id_reserva;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.eliminar_barberia(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.eliminar_barberia(uuid, uuid) TO service_role;
 
 -- 5.2 Reserva sin cuenta: crea o reutiliza el invitado, registra su
 --     consentimiento y crea la reserva (validada por el trigger).
