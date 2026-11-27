@@ -435,7 +435,7 @@ $$;
 CREATE OR REPLACE FUNCTION private.slug_sucursal_reservado(p_slug text)
 RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
   SELECT p_slug = ANY (ARRAY['agendar','tienda','cart','carrito','checkout','profile','dashboard',
-                             'booking-confirmed','booking-cancelled','reprogramar'])
+                             'booking-confirmed','booking-cancelled','reprogramar','cita'])
 $$;
 
 -- La página de la sucursal es /<barberia>/<slug>; si no se indica se genera desde el nombre

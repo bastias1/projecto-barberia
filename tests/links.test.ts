@@ -6,7 +6,7 @@ vi.mock("../lib/barberia", () => ({ getBarberiaById: vi.fn() }));
 
 import { createServiceRoleClient } from "../utils/supabase/service-role";
 import { getBarberiaById } from "../lib/barberia";
-import { linkAccion, paginaAviso } from "../lib/link-actions";
+import { linkAccion } from "../lib/link-actions";
 import { purposeResena, reviewUrl, signLink, verifyLink } from "../lib/signed-links";
 
 // Links firmados de los correos (lib/signed-links.ts) y su GET/POST (lib/link-actions.ts). Sin Supabase.
@@ -41,7 +41,7 @@ describe("purposeResena", () => {
 
 describe("linkAccion", () => {
   const ejecutar = vi.fn();
-  const handlers = linkAccion({ purpose: "confirmar-reserva", titulo: "¿Confirmas?", boton: "Sí", color: "#16a34a", exito: "booking-confirmed", ejecutar });
+  const handlers = linkAccion({ purpose: "confirmar-reserva", accion: "confirmar", ejecutar });
   const url = (id: string | number, token: string) => `http://localhost/api/confirm-booking?id=${id}&token=${token}`;
   const valido = () => url(12, signLink("confirmar-reserva", 12));
   const invalido = () => url(12, signLink("cancelar-reserva", 12)); // firmado para otra acción
@@ -53,17 +53,17 @@ describe("linkAccion", () => {
   }
 
   beforeEach(() => {
-    ejecutar.mockReset().mockResolvedValue(null);
+    ejecutar.mockReset().mockResolvedValue(true);
     vi.mocked(getBarberiaById).mockReset().mockResolvedValue({ slug: "mi-barberia" } as never);
     reserva({ id_barberia: "b1" });
   });
 
-  it("GET con link válido muestra el botón y no ejecuta nada (los filtros de correo abren los links)", async () => {
+  const pagina = (extra = "") => `http://localhost/mi-barberia/cita?id=12&token=${signLink("confirmar-reserva", 12)}&accion=confirmar${extra}`;
+
+  it("GET con link válido lleva a la página de la cita y no ejecuta nada (los filtros de correo abren los links)", async () => {
     const res = await handlers.GET(new Request(valido()));
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("¿Confirmas?");
-    expect(html).toContain('method="post"');
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe(pagina());
     expect(ejecutar).not.toHaveBeenCalled();
   });
 
@@ -76,19 +76,17 @@ describe("linkAccion", () => {
     expect(ejecutar).not.toHaveBeenCalled();
   });
 
-  it("POST válido ejecuta con el id numérico y va a la página de resultado de la barbería", async () => {
+  it("POST válido ejecuta con el id numérico y vuelve a la página de la cita", async () => {
     const res = await handlers.POST(new Request(valido(), { method: "POST" }));
-    expect(ejecutar).toHaveBeenCalledWith(expect.anything(), 12, expect.any(Request));
+    expect(ejecutar).toHaveBeenCalledWith(expect.anything(), 12);
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("http://localhost/mi-barberia/booking-confirmed");
+    expect(res.headers.get("location")).toBe(pagina());
   });
 
-  it("si la acción falla, devuelve su respuesta y no redirige", async () => {
-    ejecutar.mockResolvedValue(paginaAviso("No se pudo", "fuera de plazo"));
+  it("si la acción falla, vuelve a la página de la cita con error=1", async () => {
+    ejecutar.mockResolvedValue(false);
     const res = await handlers.POST(new Request(valido(), { method: "POST" }));
-    expect(res.status).toBe(409);
-    expect(await res.text()).toContain("fuera de plazo");
-    expect(getBarberiaById).not.toHaveBeenCalled();
+    expect(res.headers.get("location")).toBe(pagina("&error=1"));
   });
 
   it("si la reserva ya no existe, va al inicio", async () => {
