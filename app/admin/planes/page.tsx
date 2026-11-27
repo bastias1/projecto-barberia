@@ -2,7 +2,8 @@ import { Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlanEditor } from "@/components/admin/plan-editor";
-import { PlanAcciones } from "@/components/admin/plan-acciones";import { createClient } from "@/utils/supabase/server";
+import { PlanAcciones } from "@/components/admin/plan-acciones";
+import { createClient } from "@/utils/supabase/server";
 import { caracteristicasPlan, getPlanes } from "@/lib/planes";
 import { getBarberiasAdmin } from "@/lib/admin-datos";
 import { formatCLP } from "@/lib/datetime";
@@ -22,7 +23,7 @@ export default async function AdminPlanes() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Planes y precios</h1>
+          <h1 className="display text-3xl">Planes y precios</h1>
           <p className="text-muted-foreground">Lo que ven las barberías en la portada y al pagar su suscripción.</p>
         </div>
         <PlanEditor plan={null} />
@@ -43,13 +44,13 @@ export default async function AdminPlanes() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <span className="text-3xl font-black">{formatCLP(p.precio_mensual)}</span>
+                <span className="display text-3xl">{formatCLP(p.precio_mensual)}</span>
                 <span className="text-muted-foreground"> /mes</span>
               </div>
               <ul className="space-y-1.5">
                 {caracteristicasPlan(p).map((c) => (
                   <li key={c} className="flex items-start gap-2 text-sm">
-                    <Check className="h-4 w-4 mt-0.5 text-green-600 dark:text-green-400 shrink-0" />
+                    <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     {c}
                   </li>
                 ))}
