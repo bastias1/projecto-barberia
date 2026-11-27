@@ -13,7 +13,7 @@ const HORAS_ADMIN = [10, 12];
 
 export const fecha = (diasAtras: number) => new Date(Date.now() - diasAtras * 86_400_000).toISOString().slice(0, 10);
 
-async function enLotes<T>(tabla: string, filas: T[]) {
+async function enLotes(tabla: string, filas: Record<string, unknown>[]) {
   for (let i = 0; i < filas.length; i += 500) ok(await admin.from(tabla).insert(filas.slice(i, i + 500)));
 }
 
@@ -36,6 +36,8 @@ export async function sembrarBarberiaBI() {
     p_sucursal: "Central", p_direccion: "Calle Falsa 123", p_comuna: "Valdivia", p_zona_horaria: "UTC",
   })) as string;
   const b = { id_barberia: idBarberia };
+  // Los usuarios de prueba se reutilizan y ya gastaron su prueba gratis
+  ok(await admin.from("suscripcion").update({ estado: "activa", fecha_termino: null }).eq("id_barberia", idBarberia));
   const idSucursal = (ok(await admin.from("sucursal").select("id_sucursal").eq("id_barberia", idBarberia).single())).id_sucursal as number;
 
   ok(await admin.from("usuario_barberia").insert([

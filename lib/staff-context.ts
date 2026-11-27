@@ -81,7 +81,7 @@ export async function requireStaff(slug: string, { admin = false } = {}): Promis
 
   const ctx = await getStaffContext(slug);
   if (!ctx) redirect(`/login?barberia=${slug}&next=/${slug}/dashboard`);
-  if (!ctx.isStaff) redirect(`/${slug}/profile`);
+  if (!ctx.isStaff) redirect("/cuenta");
   if (admin && !ctx.isAdmin) redirect(`/${slug}/dashboard`);
   return ctx;
 }

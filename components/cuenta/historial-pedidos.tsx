@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,10 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Package, Eye, Truck, ShoppingBag, CheckCircle2, Clock, XCircle } from "lucide-react";
 import Image from "next/image";
-import { createClient } from "@/utils/supabase/client";
 import { ESTADO_PAGO, ESTADO_PEDIDO, parseDireccion } from "@/lib/pedido-estados";
 import type { EstadoPagoPedido, EstadoPedido } from "@/lib/database.types";
-import { one } from "@/lib/utils";
 
 interface Producto {
     nombre: string;
@@ -33,8 +30,9 @@ interface DetallePedido {
     producto: Producto | null;
 }
 
-interface Pedido {
+export interface PedidoCuenta {
     id: number;
+    barberia: string | null; // null: la barbería ya no está activa
     created_at: string;
     monto_total: number;
     estado: EstadoPedido;
@@ -44,56 +42,7 @@ interface Pedido {
     detalle_pedido: DetallePedido[];
 }
 
-export function OrderHistory({ idBarberia }: { idBarberia: string }) {
-    const [orders, setOrders] = useState<Pedido[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const supabase = createClient();
-
-    useEffect(() => {
-        fetchOrders();
-    }, []);
-
-    const fetchOrders = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data, error } = await supabase
-                .from("pedido")
-                .select(`
-                    id:id_pedido, created_at, monto_total, estado, estado_pago, tipo_entrega, direccion_envio,
-                    detalle_pedido!detalle_pedido_pedido_fkey (
-                        id:id_detalle, cantidad, subtotal,
-                        producto:producto!detalle_pedido_producto_fkey (
-                            nombre,
-                            precio,
-                            imagen_url
-                        )
-                    )
-                `)
-                .eq("id_cliente", user.id)
-                .eq("id_barberia", idBarberia)
-                .order("id_pedido", { ascending: false });
-
-            if (error) {
-                console.error("Error fetching orders:", error);
-                return;
-            }
-
-            type PedidoRow = Omit<Pedido, "detalle_pedido"> & {
-                detalle_pedido: Array<Omit<DetallePedido, "producto"> & { producto: unknown }> | null;
-            };
-            setOrders(((data || []) as unknown as PedidoRow[]).map((o) => ({
-                ...o,
-                detalle_pedido: (o.detalle_pedido ?? []).map((d) => ({ ...d, producto: one<Producto>(d.producto) })),
-            })));
-        } catch (error) {
-            console.error("Error:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+export function HistorialPedidos({ orders }: { orders: PedidoCuenta[] }) {
     const getStatusBadge = (status: EstadoPedido) => {
         const estado = ESTADO_PEDIDO[status];
         if (!estado) return <Badge variant="secondary">{status}</Badge>;
@@ -125,35 +74,18 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
         );
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-        );
-    }
-
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Historial de Pedidos</CardTitle>
-                <CardDescription>Revisa el estado de tus compras anteriores.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" />Mis compras</CardTitle>
+                <CardDescription>Pedidos hechos con tu cuenta.</CardDescription>
             </CardHeader>
             <CardContent>
-                {orders.length === 0 ? (
-                    <div className="text-center py-12">
-                        <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                        <h3 className="text-lg font-semibold mb-2">No tienes pedidos</h3>
-                        <p className="text-muted-foreground text-sm">
-                            Cuando realices una compra, aparecerá aquí.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
+                    <div className="max-h-[32rem] space-y-3 overflow-y-auto">
                         {orders.map((order) => (
                             <div
                                 key={order.id}
-                                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                                className="flex flex-wrap items-center justify-between gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="h-12 w-12 bg-muted rounded-lg flex items-center justify-center">
@@ -164,7 +96,8 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
                                             <span className="font-semibold">Pedido #{order.id}</span>
                                             {getStatusBadge(order.estado)}
                                         </div>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-sm text-muted-foreground">{order.barberia ?? "Barbería no disponible"}</p>
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
                                             <span className="text-sm text-muted-foreground">
                                                 {format(new Date(order.created_at), "dd MMM yyyy", { locale: es })}
                                             </span>
@@ -263,7 +196,6 @@ export function OrderHistory({ idBarberia }: { idBarberia: string }) {
                             </div>
                         ))}
                     </div>
-                )}
             </CardContent>
         </Card>
     );

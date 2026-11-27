@@ -31,6 +31,8 @@ export interface Database {
         plazo_cancelacion_min: number; // HU-22
         apariencia: unknown; // jsonb, ver lib/apariencia.ts
         activa: boolean;
+        id_propietario: string | null; // quien la registró; solo esa cuenta la elimina
+        eliminada_at: string | null; // borrado lógico
         created_at: string;
         updated_at: string;
       }, "nombre" | "slug">;
@@ -60,6 +62,7 @@ export interface Database {
         created_at: string;
         updated_at: string;
         deleted_at: string | null;
+        prueba_usada_at: string | null; // la única prueba gratis de la cuenta
       }, "id_usuario" | "nombre" | "email">;
       usuario_barberia: Table<{
         id_usuario: string;

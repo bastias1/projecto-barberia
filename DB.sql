@@ -1653,6 +1653,16 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT coalesce(private.rol_en_barberia(p_barberia) IN ('admin','profesional'), false);
 $$;
 
+-- Propietario (quien la registró; solo esa cuenta puede eliminarla) y borrado lógico
+ALTER TABLE public.barberia
+  ADD COLUMN id_propietario uuid REFERENCES public.usuario(id_usuario) ON DELETE SET NULL,
+  ADD COLUMN eliminada_at   timestamptz;
+CREATE INDEX barberia_propietario_idx ON public.barberia (id_propietario);
+-- Una sola prueba gratis por cuenta, y solo en el plan marcado (en producción: Pro)
+ALTER TABLE public.plan_suscripcion ADD COLUMN es_plan_prueba boolean NOT NULL DEFAULT false;
+CREATE UNIQUE INDEX plan_suscripcion_un_plan_prueba ON public.plan_suscripcion (es_plan_prueba) WHERE es_plan_prueba;
+ALTER TABLE public.usuario ADD COLUMN prueba_usada_at timestamptz;  -- sin GRANT de columna: la escribe registrar_barberia
+
 -- =====================================================================
 -- 2. ACTIVAR RLS EN TODAS LAS TABLAS
 --    Sin una política que lo permita, una tabla no entrega ni acepta filas.
@@ -1688,6 +1698,19 @@ CREATE POLICY barberia_select_publico ON public.barberia FOR SELECT TO anon, aut
   USING (activa OR private.es_admin(id_barberia));
 CREATE POLICY barberia_update_admin ON public.barberia FOR UPDATE TO authenticated
   USING (private.es_admin(id_barberia)) WITH CHECK (private.es_admin(id_barberia));
+
+-- activa, propietario y eliminación: solo la plataforma (superadmin, backend o SQL directo).
+-- Es un trigger y no un REVOKE porque el superadmin suspende con su propia sesión.
+CREATE FUNCTION private.proteger_barberia() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF (NEW.activa, NEW.id_propietario, NEW.eliminada_at) IS DISTINCT FROM (OLD.activa, OLD.id_propietario, OLD.eliminada_at)
+     AND auth.uid() IS NOT NULL AND NOT private.es_superadmin() THEN
+    RAISE EXCEPTION 'Solo la plataforma puede cambiar el estado de la barbería' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER barberia_proteger BEFORE UPDATE OF activa, id_propietario, eliminada_at ON public.barberia
+  FOR EACH ROW EXECUTE FUNCTION private.proteger_barberia();
 
 -- sucursal
 CREATE POLICY sucursal_select_publico ON public.sucursal FOR SELECT TO anon, authenticated
@@ -1976,16 +1999,25 @@ DECLARE
   v_usuario  uuid := auth.uid();
   v_barberia uuid;
   v_precio   numeric;
+  v_es_plan_prueba boolean;
+  v_con_prueba     boolean := false;
 BEGIN
   IF v_usuario IS NULL THEN
     RAISE EXCEPTION 'Debe iniciar sesión para registrar una barbería' USING ERRCODE = 'insufficient_privilege';
   END IF;
-  SELECT precio_mensual INTO v_precio FROM public.plan_suscripcion WHERE id_plan = p_id_plan AND activo;
+  SELECT precio_mensual, es_plan_prueba INTO v_precio, v_es_plan_prueba
+  FROM public.plan_suscripcion WHERE id_plan = p_id_plan AND activo;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'El plan no existe o no está disponible' USING ERRCODE = 'check_violation';
   END IF;
 
-  INSERT INTO public.barberia (nombre, slug) VALUES (p_nombre, p_slug)
+  -- Una prueba por cuenta y solo en el plan de prueba. El UPDATE es el candado: dos altas a la vez, una gana
+  IF v_es_plan_prueba THEN
+    UPDATE public.usuario SET prueba_usada_at = now() WHERE id_usuario = v_usuario AND prueba_usada_at IS NULL;
+    v_con_prueba := FOUND;
+  END IF;
+
+  INSERT INTO public.barberia (nombre, slug, id_propietario) VALUES (p_nombre, p_slug, v_usuario)
   RETURNING id_barberia INTO v_barberia;
 
   INSERT INTO public.suscripcion (id_barberia, id_plan, precio_pactado, estado, fecha_termino)
@@ -1997,8 +2029,48 @@ BEGIN
   INSERT INTO public.sucursal (id_barberia, nombre, direccion, comuna, zona_horaria)
   VALUES (v_barberia, p_sucursal, p_direccion, p_comuna, p_zona_horaria);
 
+  -- Sin prueba queda sin pagar. Recién ahora: sin suscripción vigente el límite de sucursales es 0
+  IF NOT v_con_prueba THEN
+    UPDATE public.suscripcion SET estado = 'vencida', fecha_termino = public.hoy_chile() WHERE id_barberia = v_barberia;
+  END IF;
+
   RETURN v_barberia;
 END $$;
+
+-- 5.1b Borrado lógico de una barbería por su propietario. La llama el backend (service_role) después de
+--      cortar el cobro automático (lib/eliminar-barberia.ts). No borra filas, salvo el vínculo de Mercado Pago.
+CREATE FUNCTION public.eliminar_barberia(p_barberia uuid, p_usuario uuid)
+RETURNS SETOF bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  PERFORM 1 FROM public.barberia
+  WHERE id_barberia = p_barberia AND id_propietario = p_usuario AND eliminada_at IS NULL FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Solo el propietario puede eliminar la barbería' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.pedido WHERE id_barberia = p_barberia
+             AND estado_pago = 'pagado' AND estado NOT IN ('entregado','cancelado')) THEN
+    RAISE EXCEPTION 'PEDIDOS_PENDIENTES' USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- El slug queda libre para otra barbería
+  UPDATE public.barberia
+  SET activa = false, eliminada_at = now(), slug = 'eliminada-' || replace(p_barberia::text, '-', '')
+  WHERE id_barberia = p_barberia;
+  UPDATE public.suscripcion SET estado = 'cancelada', id_suscripcion_externa = NULL
+  WHERE id_barberia = p_barberia AND (estado IN ('prueba','activa') OR id_suscripcion_externa IS NOT NULL);
+  PERFORM public.mp_borrar(p_barberia);  -- se define más abajo (plpgsql la resuelve al ejecutar)
+  UPDATE public.invitacion SET estado = 'cancelada' WHERE id_barberia = p_barberia AND estado = 'pendiente';
+  UPDATE public.profesional SET activo = false WHERE id_barberia = p_barberia AND activo;
+  UPDATE public.usuario_barberia SET activo = false WHERE id_barberia = p_barberia AND activo;
+
+  -- Devuelve las reservas futuras canceladas para avisarles a los clientes
+  RETURN QUERY
+  UPDATE public.reserva SET estado = 'cancelada'
+  WHERE id_barberia = p_barberia AND estado IN ('pendiente','confirmada') AND fecha_hora_inicio > now()
+  RETURNING id_reserva;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.eliminar_barberia(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.eliminar_barberia(uuid, uuid) TO service_role;
 
 -- 5.2 Reserva sin cuenta: crea o reutiliza el invitado, registra su
 --     consentimiento y crea la reserva (validada por el trigger).
@@ -2088,6 +2160,16 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.reservar_con_cuenta(uuid, bigint, uuid, bigint, timestamptz) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.reservar_con_cuenta(uuid, bigint, uuid, bigint, timestamptz) TO authenticated;
 
+-- 5.2c-0 HU-21: la reserva de un invitado es "mía" si su correo es el CONFIRMADO de mi cuenta
+--      (sin confirmar, cualquiera podría registrarse con el correo de otra persona).
+CREATE FUNCTION private.es_mi_invitado(p_guest uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.guest_usuario g
+    JOIN auth.users u ON u.id = auth.uid() AND u.email_confirmed_at IS NOT NULL
+    WHERE g.id_guest = p_guest AND lower(g.correo) = lower(u.email));
+$$;
+
 -- 5.2c HU-22: el cliente cancela (p_nuevo_inicio NULL) o reprograma su reserva, solo hasta
 --      barberia.plazo_cancelacion_min antes de la cita. La llama su dueño con sesión, o el
 --      backend con service role tras verificar el link firmado del correo.
@@ -2099,7 +2181,9 @@ DECLARE
   v_plazo integer;
 BEGIN
   SELECT * INTO r FROM public.reserva WHERE id_reserva = p_reserva FOR UPDATE;
-  IF NOT FOUND OR NOT (coalesce(auth.role(), '') = 'service_role' OR r.id_cliente = auth.uid()) THEN
+  -- coalesce sobre TODA la condición: en una reserva de invitado id_cliente es NULL y la guarda no se disparaba
+  IF NOT FOUND OR NOT coalesce(auth.role() = 'service_role' OR r.id_cliente = auth.uid()
+                               OR private.es_mi_invitado(r.id_guest), false) THEN
     RAISE EXCEPTION 'Reserva no encontrada' USING ERRCODE = 'insufficient_privilege';
   END IF;
   IF r.estado NOT IN ('pendiente', 'confirmada') THEN
@@ -2125,6 +2209,44 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.cambiar_reserva_cliente(bigint, timestamptz, bigint) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.cambiar_reserva_cliente(bigint, timestamptz, bigint) TO authenticated, service_role;
 GRANT  UPDATE (plazo_cancelacion_min) ON public.barberia TO authenticated;  -- lo edita el admin (RLS) en Mi Barbería
+
+-- 5.2d HU-21: historial de la cuenta en todas las barberías, incluidas las reservas hechas como
+--      invitado con su correo. SECURITY DEFINER: guest_usuario y barberías inactivas no pasan RLS.
+--      shortcut: máximo 200 filas, sin paginación; paginar si algún cliente llega a ese número.
+CREATE FUNCTION public.mis_reservas(p_reserva bigint DEFAULT NULL)
+RETURNS TABLE (
+  id_reserva bigint, fecha_hora_inicio timestamptz, estado text, monto numeric, es_invitado boolean,
+  id_barberia uuid, barberia text, slug text, barberia_activa boolean, plazo_cancelacion_min integer,
+  id_sucursal bigint, sucursal text, zona_horaria text,
+  id_profesional uuid, barbero text,
+  id_servicio bigint, servicio text, servicio_precio numeric, duracion_min integer)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT r.id_reserva, r.fecha_hora_inicio, r.estado, r.monto::numeric, r.id_guest IS NOT NULL,
+         b.id_barberia, b.nombre::text, b.slug, b.activa, b.plazo_cancelacion_min,
+         su.id_sucursal, su.nombre::text, su.zona_horaria,
+         r.id_profesional, coalesce(p.alias, trim(u.nombre || ' ' || coalesce(u.apellido, '')))::text,
+         se.id_servicio, se.nombre::text, se.precio::numeric, se.duracion_min
+  FROM public.reserva r
+  JOIN public.barberia    b  ON b.id_barberia = r.id_barberia
+  JOIN public.sucursal    su ON su.id_sucursal = r.id_sucursal
+  JOIN public.servicio    se ON se.id_servicio = r.id_servicio
+  JOIN public.profesional p  ON p.id_barberia = r.id_barberia AND p.id_profesional = r.id_profesional
+  LEFT JOIN public.usuario u ON u.id_usuario = r.id_profesional
+  WHERE (p_reserva IS NULL OR r.id_reserva = p_reserva)
+    AND (r.id_cliente = auth.uid() OR (r.id_guest IS NOT NULL AND private.es_mi_invitado(r.id_guest)))
+  ORDER BY r.fecha_hora_inicio DESC
+  LIMIT 200;
+$$;
+REVOKE EXECUTE ON FUNCTION public.mis_reservas(bigint) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.mis_reservas(bigint) TO authenticated;
+
+-- 5.2e HU-21: ¿mi cuenta tiene contraseña? (las que solo entran con Google no) para pedir la actual al cambiarla
+CREATE FUNCTION public.tengo_clave()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT EXISTS (SELECT 1 FROM auth.users WHERE id = auth.uid() AND coalesce(encrypted_password, '') <> '');
+$$;
+REVOKE EXECUTE ON FUNCTION public.tengo_clave() FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.tengo_clave() TO authenticated;
 
 -- 5.3 Disponibilidad pública: tramos ocupados de un profesional (sin datos del cliente)
 CREATE FUNCTION public.horarios_ocupados(
@@ -2573,14 +2695,16 @@ CREATE FUNCTION public.gcal_reclamar(p_limite integer)
 RETURNS SETOF public.reserva_evento_google LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
   UPDATE public.reserva_evento_google q SET bloqueada_hasta = now() + interval '2 minutes'
   FROM (
-    SELECT id_reserva FROM public.reserva_evento_google
-    WHERE pendiente
-      AND (bloqueada_hasta IS NULL OR bloqueada_hasta < now())
-      AND (intentos < 20 OR updated_at < now() - interval '1 hour')
-      AND public.barberia_tiene_modulo(id_barberia, 'calendario')
-    ORDER BY updated_at
+    SELECT e.id_reserva FROM public.reserva_evento_google e
+    WHERE e.pendiente
+      AND (e.bloqueada_hasta IS NULL OR e.bloqueada_hasta < now())
+      AND (e.intentos < 20 OR e.updated_at < now() - interval '1 hour')
+      AND (public.barberia_tiene_modulo(e.id_barberia, 'calendario')
+           -- quitar un evento no depende del módulo: si no, al eliminar la barbería quedan citas fantasma
+           OR EXISTS (SELECT 1 FROM public.reserva r WHERE r.id_reserva = e.id_reserva AND r.estado IN ('cancelada','no_asistio')))
+    ORDER BY e.updated_at
     LIMIT p_limite
-    FOR UPDATE SKIP LOCKED
+    FOR UPDATE OF e SKIP LOCKED
   ) c
   WHERE q.id_reserva = c.id_reserva
   RETURNING q.*;

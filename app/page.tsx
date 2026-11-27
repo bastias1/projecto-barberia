@@ -147,7 +147,7 @@ export default async function PlataformaHome() {
 
         <Seccion id="planes" titulo="Planes simples, en pesos chilenos" className="border-t border-border">
           <p className="-mt-6 mb-10 max-w-2xl text-lg text-muted-foreground md:-mt-8">
-            Todos los planes incluyen {DIAS_PRUEBA} días de prueba sin tarjeta. Cancelas cuando quieras desde tu panel.
+            El plan {planes.find((p) => p.es_plan_prueba)?.nombre ?? "Pro"} incluye {DIAS_PRUEBA} días de prueba sin tarjeta, una vez por cuenta. Cancelas cuando quieras desde tu panel.
           </p>
           {planes.length === 0 ? (
             <p className="text-muted-foreground">Los planes no están disponibles en este momento.</p>

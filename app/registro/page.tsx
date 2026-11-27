@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { HeaderPlataforma } from "@/components/plataforma/header";
 import { RegistroForm } from "@/components/registro/registro-form";
 import { createClient } from "@/utils/supabase/server";
-import { getPlanes, DIAS_PRUEBA } from "@/lib/planes";
+import { getPlanes, planesRegistrables, DIAS_PRUEBA } from "@/lib/planes";
 import { resolverAcceso } from "@/lib/acceso";
 
 export const dynamic = "force-dynamic";
@@ -19,10 +19,13 @@ export default async function RegistroPage({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [planes, membresias] = await Promise.all([
+  const [planes, membresias, { data: usuario }] = await Promise.all([
     getPlanes(supabase),
     user ? resolverAcceso(supabase, user.id).then((a) => a.membresias) : Promise.resolve([]),
+    user ? supabase.from("usuario").select("prueba_usada_at").eq("id_usuario", user.id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
+  const planPrueba = planes.find((p) => p.es_plan_prueba);
+  const pruebaDisponible = !!planPrueba && !usuario?.prueba_usada_at;
   const administradas = membresias.filter((m) => m.rol === "admin");
   const next = encodeURIComponent(`/registro${plan ? `?plan=${plan}` : ""}`);
 
@@ -34,7 +37,9 @@ export default async function RegistroPage({
         <div>
           <h1 className="display text-4xl sm:text-5xl mb-3">Registra tu barbería</h1>
           <p>
-            {DIAS_PRUEBA} días de prueba gratis. Después eliges si continúas.
+            {pruebaDisponible
+              ? `${DIAS_PRUEBA} días de prueba gratis con el plan ${planPrueba.nombre}, una vez por cuenta. Los demás planes se activan al pagar.`
+              : "Tu barbería se activa al pagar la suscripción."}
           </p>
         </div>
 
@@ -59,7 +64,7 @@ export default async function RegistroPage({
               <CardDescription>Podrás cambiar el logo, la descripción y agregar sucursales después.</CardDescription>
             </CardHeader>
             <CardContent>
-              <RegistroForm planes={planes} planInicial={Number(plan) || planes[0]?.id_plan} />
+              <RegistroForm planes={planesRegistrables(planes, pruebaDisponible)} planInicial={Number(plan) || planPrueba?.id_plan} pruebaDisponible={pruebaDisponible} />
             </CardContent>
           </Card>
         ) : (

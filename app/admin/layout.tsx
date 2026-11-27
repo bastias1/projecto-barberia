@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Scissors } from "lucide-react";
+import { House, Scissors } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { CerrarSesion } from "@/components/cuenta/cerrar-sesion";
@@ -28,6 +29,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminNav />
           <div className="flex items-center gap-2">
             <span className="hidden lg:inline text-sm text-muted-foreground">{admin.nombre}</span>
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link href="/" aria-label="Volver al inicio"><House className="h-4 w-4" /><span className="hidden lg:inline">Inicio</span></Link>
+            </Button>
             <ModeToggle />
             <CerrarSesion />
           </div>
