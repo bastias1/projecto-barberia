@@ -1,17 +1,62 @@
 <!doctype html>
 <html lang="es">
-  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b">
-    <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-      <tr><td>
-        <p style="margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#71717a">Sunwalk</p>
-        <h1 style="margin:0 0 20px;font-size:22px">Confirma tu correo</h1>
-        <p style="margin:0 0 16px">¡Hola! Creaste una cuenta con <strong>{{ .Email }}</strong>. Confírmala para empezar a reservar, comprar o unirte al equipo de tu barbería.</p>
-        <p style="margin:0 0 20px">
-          <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600">Confirmar mi correo</a>
-        </p>
-        <p style="margin:0;font-size:13px;color:#71717a">Si el botón no funciona, copia este link en tu navegador:<br><span style="word-break:break-all">{{ .ConfirmationURL }}</span></p>
-        <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa">Si no creaste esta cuenta, ignora este mensaje.</p>
-      </td></tr>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="format-detection" content="telephone=no,address=no,email=no,url=no">
+    <title>Confirma tu correo</title>
+  </head>
+  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:'Geist',Arial,Helvetica,sans-serif;color:#232323;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+    <!--[if mso]>
+    <noscript>
+      <xml>
+        <o:OfficeDocumentSettings xmlns:o="urn:schemas-microsoft-com:office:office">
+          <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+      </xml>
+    </noscript>
+    <![endif]-->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;margin:0 auto;">
+      <tr>
+        <td style="padding:0 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid #e6e6e6;border-radius:12px;overflow:hidden;">
+            <tr>
+              <td style="background:#a1ffcb;height:4px;"></td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#71717a">Sunwalk</p>
+                <h1 style="margin:0 0 20px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:22px;font-weight:500;line-height:1.2;letter-spacing:-0.035em;color:#232323">Confirma tu correo</h1>
+                <p style="margin:0 0 16px;color:#232323">¡Hola! Creaste una cuenta con <strong>{{ .Email }}</strong>. Confírmala para empezar a reservar, comprar o unirte al equipo de tu barbería.</p>
+                <!-- Bulletproof button -->
+                <!--[if mso]>
+                <v:rect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .ConfirmationURL }}" style="height:44px;v-text-anchor:middle;width:220px;" stroke="f" fillcolor="#18181b">
+                  <v:textbox inset="0,0,0,0"><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:600;">Confirmar mi correo</center></v:textbox>
+                </v:rect>
+                <![endif]-->
+                <!--[if !mso]><!-->
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+                  <tr>
+                    <td style="border-radius:8px;background:#18181b;" bgcolor="#18181b">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 22px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;line-height:1.2;border-radius:8px;" role="button">Confirmar mi correo</a>
+                    </td>
+                  </tr>
+                </table>
+                <!--<![endif]-->
+                <p style="margin:0;font-size:13px;color:#71717a">Si el botón no funciona, copia este link en tu navegador:<br><span style="word-break:break-all;color:#2f6b4d">{{ .ConfirmationURL }}</span></p>
+                <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa">Si no creaste esta cuenta, ignora este mensaje.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#a1a1aa;font-family:Arial,Helvetica,sans-serif">
+            Sunwalk · Agenda online, tienda y gestión para barberías<br>
+            <a href="https://sunwalk.app" style="color:#2f6b4d;text-decoration:none">sunwalk.app</a> · <a href="mailto:contact@sunwalk.app" style="color:#2f6b4d;text-decoration:none">contact@sunwalk.app</a>
+          </p>
+        </td>
+      </tr>
     </table>
   </body>
 </html>
