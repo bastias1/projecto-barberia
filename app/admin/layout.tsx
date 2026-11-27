@@ -20,7 +20,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <SidebarProvider defaultOpen={abierta}>
       <AdminSidebar nombre={admin.nombre} />
-      <SidebarInset>
+      {/* min-w-0: sin esto la tabla ancha estira la página en vez de hacer scroll dentro de su tarjeta */}
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" aria-label="Mostrar u ocultar menú" />
           <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />

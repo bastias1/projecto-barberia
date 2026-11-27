@@ -87,7 +87,7 @@ export default async function AdminUsuarios({
       </div>
 
       <Suspense>
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="flex items-center gap-2">
           <Buscador placeholder="Buscar por correo o nombre" />
           <LimpiarFiltros params={["q", "tipo", "membresia", "desde", "hasta"]} />
         </div>

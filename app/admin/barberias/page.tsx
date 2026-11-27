@@ -43,7 +43,7 @@ export default async function AdminBarberias({
       </div>
 
       <Suspense>
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="flex items-center gap-2">
           <Buscador placeholder="Buscar por nombre, slug o correo del dueño" />
           <LimpiarFiltros params={FILTROS} />
         </div>
