@@ -62,6 +62,8 @@ export async function sendEmail({ to, subject, html, fromName, replyTo }: EmailM
       subject,
       html,
       text: htmlATexto(html),
+      // Valor único por envío: Gmail no agrupa los correos en una conversación ni oculta lo repetido tras "…"
+      headers: { "X-Entity-Ref-ID": crypto.randomUUID() },
       ...(replyTo ? { replyTo } : {}),
     });
     if (error) {
@@ -83,34 +85,129 @@ export function escapeHtml(value: string | null | undefined): string {
     .replace(/"/g, "&quot;");
 }
 
-export function emailButton(href: string, label: string, color = "#18181b"): string {
-  return `<a href="${href}" style="display:inline-block;background:${color};color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;margin:4px 6px 4px 0">${escapeHtml(label)}</a>`;
+const BOTON = {
+  principal: { fondo: "#a1ffcb", texto: "#0f2a1c", borde: "#a1ffcb" }, // --brand / --brand-foreground de la web
+  secundario: { fondo: "#ffffff", texto: "#232323", borde: "#e6e6e6" }, // variante outline de la web
+} as const;
+
+/**
+ * Botón de ancho completo (tabla + VML para Outlook). Es un bloque: va en un <div>, nunca dentro de un <p>.
+ * Varios botones seguidos quedan apilados.
+ */
+export function emailButton(href: string, label: string, variante: keyof typeof BOTON = "principal"): string {
+  const safeLabel = escapeHtml(label);
+  const safeHref = escapeHtml(href);
+  const c = BOTON[variante];
+  return `<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${safeHref}" style="height:48px;v-text-anchor:middle;width:464px;" arcsize="17%" strokecolor="${c.borde}" fillcolor="${c.fondo}">
+  <center style="color:${c.texto};font-family:Arial,sans-serif;font-size:16px;font-weight:600;">${safeLabel}</center>
+</v:roundrect>
+<![endif]-->
+<!--[if !mso]><!-->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 12px;">
+  <tr>
+    <td align="center" bgcolor="${c.fondo}" style="border-radius:8px;background:${c.fondo};border:1px solid ${c.borde};">
+      <a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="display:block;padding:14px 22px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;line-height:1.2;color:${c.texto};text-decoration:none;text-align:center;border-radius:8px;">${safeLabel}</a>
+    </td>
+  </tr>
+</table>
+<!--<![endif]-->`;
 }
 
+/**
+ * Layout base del email con tokens de diseño de la web:
+ * - Fondo #f4f4f5 (neutral-100), tarjeta blanca con borde #e6e6e6 (border)
+ * - Radio 12px (tarjeta), 8px (botones)
+ * - Tipografía Geist Sans (fallback Arial)
+ * - Acento menta #a1ffcb solo en barra superior decorativa y badges
+ * - Preheader invisible para preview en bandeja de entrada
+ */
 export function emailLayout(
   titulo: string,
   cuerpo: string,
   barberia: string,
-  pie = `Recibes este correo por tu reserva o compra en ${barberia}.`,
+  opciones?: {
+    pie?: string;
+    preheader?: string;
+    logoUrl?: string | null;
+    instagram?: string | null;
+  },
 ): string {
+  const pie = opciones?.pie ?? `Recibes este correo por tu reserva o compra en ${barberia}.`;
+  const safeTitulo = escapeHtml(titulo);
+  const safeBarberia = escapeHtml(barberia);
+  const safePie = escapeHtml(pie);
+  const preheader = opciones?.preheader ? escapeHtml(opciones.preheader) : "";
+  const logoUrl = opciones?.logoUrl ? escapeHtml(opciones.logoUrl) : "";
+  const instagram = opciones?.instagram ? escapeHtml(opciones.instagram) : "";
+
+  const logoHtml = logoUrl
+    ? `<img src="${logoUrl}" alt="" style="display:block;height:40px;width:auto;margin:0 auto 16px;border:0;outline:none;text-decoration:none;">`
+    : `<p style="margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#71717a">${safeBarberia}</p>`;
+
+  const instagramHtml = instagram
+    ? `<p style="margin:16px 0 0;font-size:12px;color:#a1a1aa">Síguenos: <a href="https://instagram.com/${instagram}" style="color:#2f6b4d;text-decoration:none" target="_blank" rel="noopener">@${instagram}</a></p>`
+    : "";
+
   return `<!doctype html>
 <html lang="es">
-  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b">
-    <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-      <tr><td>
-        <p style="margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#71717a">${escapeHtml(barberia)}</p>
-        <h1 style="margin:0 0 20px;font-size:22px">${escapeHtml(titulo)}</h1>
-        ${cuerpo}
-        <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa">${escapeHtml(pie)}</p>
-      </td></tr>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="format-detection" content="telephone=no,address=no,email=no,url=no">
+    <!-- Solo modo claro: así Gmail/Outlook no invierten los colores -->
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light">
+    <style>:root{color-scheme:light only;supported-color-schemes:light}</style>
+    <title>${safeTitulo}</title>
+  </head>
+  <body style="margin:0;padding:24px 0;background:#f4f4f5;font-family:'Geist',Arial,Helvetica,sans-serif;color:#232323;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+    ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;font-size:1px;line-height:1px">${preheader}</div>` : ""}
+    <!--[if mso]>
+    <noscript>
+      <xml>
+        <o:OfficeDocumentSettings xmlns:o="urn:schemas-microsoft-com:office:office">
+          <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+      </xml>
+    </noscript>
+    <![endif]-->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;margin:0 auto;">
+      <tr>
+        <td style="padding:0 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid #e6e6e6;border-radius:12px;overflow:hidden;">
+            <tr>
+              <!-- Barra superior decorativa con acento menta -->
+              <td style="background:#a1ffcb;height:4px;"></td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                ${logoHtml}
+                <h1 style="margin:0 0 20px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:22px;font-weight:500;line-height:1.2;letter-spacing:-0.035em;color:#232323">${safeTitulo}</h1>
+                ${cuerpo}
+                <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa">${safePie}</p>
+                ${instagramHtml}
+              </td>
+            </tr>
+          </table>
+          <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#a1a1aa;font-family:Arial,Helvetica,sans-serif">
+            Sunwalk · Agenda online, tienda y gestión para barberías<br>
+            <a href="https://sunwalk.app" style="color:#2f6b4d;text-decoration:none">sunwalk.app</a> · <a href="mailto:contact@sunwalk.app" style="color:#2f6b4d;text-decoration:none">contact@sunwalk.app</a>
+          </p>
+        </td>
+      </tr>
     </table>
   </body>
 </html>`;
 }
 
+/** Tabla de detalle (key/value) con estilo de tarjeta suave. */
 export function emailDetalle(filas: Array<[string, string]>): string {
   const rows = filas
-    .map(([k, v]) => `<tr><td style="padding:6px 0;color:#71717a">${escapeHtml(k)}</td><td style="padding:6px 0;text-align:right;font-weight:600">${escapeHtml(v)}</td></tr>`)
+    .map(([k, v]) => `<tr><td style="padding:8px 0;color:#71717a;font-size:14px">${escapeHtml(k)}</td><td style="padding:8px 0;text-align:right;font-weight:600;font-size:14px;color:#232323">${escapeHtml(v)}</td></tr>`)
     .join("");
-  return `<table role="presentation" width="100%" style="background:#f4f4f5;border-radius:8px;padding:12px 16px;margin:0 0 20px">${rows}</table>`;
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f4f5;border-radius:8px;padding:16px;margin:0 0 20px">${rows}</table>`;
 }

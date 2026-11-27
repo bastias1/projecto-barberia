@@ -26,6 +26,10 @@ Domain terms used in the code. Names stay in Spanish where the code uses them.
 
 **Renovación automática**: the suscripción's Mercado Pago preapproval (`id_suscripcion_externa`). Cancelling it, by the owner or by webhook, is one transition: the suscripción stays in force until `fecha_termino` and the owner is told once.
 
+**Reserva agendada**: a reserva just created, still `pendiente`. Not "confirmada".
+
+**Confirmada**: the client said they will attend, from the link in their email. Only this estado is called "confirmada".
+
 **Apariencia**: how a barbería's public pages look, as chosen by its admin: Secciones, Modo, Tema and Diseño.
 
 **Sección**: one block of the barbería's home page that can be shown, hidden and reordered. The encabezado (header) is not one: it is always first.

@@ -1,17 +1,66 @@
 <!doctype html>
 <html lang="es">
-  <body style="margin:0;padding:24px;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b">
-    <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-      <tr><td>
-        <p style="margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#71717a">Sunwalk</p>
-        <h1 style="margin:0 0 20px;font-size:22px">Tu link para entrar</h1>
-        <p style="margin:0 0 16px">Usa este link para iniciar sesión con <strong>{{ .Email }}</strong>. Es válido por una hora y sirve una sola vez.</p>
-        <p style="margin:0 0 20px">
-          <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600">Iniciar sesión</a>
-        </p>
-        <p style="margin:0;font-size:13px;color:#71717a">Si el botón no funciona, copia este link en tu navegador:<br><span style="word-break:break-all">{{ .ConfirmationURL }}</span></p>
-        <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa">Si no pediste entrar, ignora este mensaje.</p>
-      </td></tr>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="format-detection" content="telephone=no,address=no,email=no,url=no">
+    <!-- Solo modo claro: así Gmail/Outlook no invierten los colores -->
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light">
+    <style>:root{color-scheme:light only;supported-color-schemes:light}</style>
+    <title>Tu link para entrar</title>
+  </head>
+  <body style="margin:0;padding:24px 0;background:#f4f4f5;font-family:'Geist',Arial,Helvetica,sans-serif;color:#232323;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+    <!--[if mso]>
+    <noscript>
+      <xml>
+        <o:OfficeDocumentSettings xmlns:o="urn:schemas-microsoft-com:office:office">
+          <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+      </xml>
+    </noscript>
+    <![endif]-->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;margin:0 auto;">
+      <tr>
+        <td style="padding:0 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid #e6e6e6;border-radius:12px;overflow:hidden;">
+            <tr>
+              <td style="background:#a1ffcb;height:4px;"></td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#71717a">Sunwalk</p>
+                <h1 style="margin:0 0 20px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:22px;font-weight:500;line-height:1.2;letter-spacing:-0.035em;color:#232323">Tu link para entrar</h1>
+                <p style="margin:0 0 16px;color:#232323">Usa este link para iniciar sesión con <strong>{{ .Email }}</strong>. Es válido por una hora y sirve una sola vez.</p>
+                <!-- Bulletproof button -->
+                <!--[if mso]>
+                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ .ConfirmationURL }}" style="height:48px;v-text-anchor:middle;width:464px;" arcsize="17%" strokecolor="#a1ffcb" fillcolor="#a1ffcb">
+                  <center style="color:#0f2a1c;font-family:Arial,sans-serif;font-size:16px;font-weight:600;">Iniciar sesión</center>
+                </v:roundrect>
+                <![endif]-->
+                <!--[if !mso]><!-->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+                  <tr>
+                    <td align="center" bgcolor="#a1ffcb" style="border-radius:8px;background:#a1ffcb;border:1px solid #a1ffcb;">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer" style="display:block;padding:14px 22px;font-family:'Geist',Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;line-height:1.2;color:#0f2a1c;text-decoration:none;text-align:center;border-radius:8px;">Iniciar sesión</a>
+                    </td>
+                  </tr>
+                </table>
+                <!--<![endif]-->
+                <p style="margin:0;font-size:13px;color:#71717a">Si el botón no funciona, copia este link en tu navegador:<br><span style="word-break:break-all;color:#2f6b4d">{{ .ConfirmationURL }}</span></p>
+                <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa">Si no pediste entrar, ignora este mensaje.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#a1a1aa;font-family:Arial,Helvetica,sans-serif">
+            Sunwalk · Agenda online, tienda y gestión para barberías<br>
+            <a href="https://sunwalk.app" style="color:#2f6b4d;text-decoration:none">sunwalk.app</a> · <a href="mailto:contact@sunwalk.app" style="color:#2f6b4d;text-decoration:none">contact@sunwalk.app</a>
+          </p>
+        </td>
+      </tr>
     </table>
   </body>
 </html>

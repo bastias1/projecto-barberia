@@ -9,7 +9,7 @@ const supabaseHosts = [
 
 // Antes de ser multi-barbería el sitio era solo de BENJVMIN: los links viejos
 // (Instagram, correos, Mercado Pago) siguen llevando a su página.
-const RUTAS_ANTIGUAS = ['agendar', 'tienda', 'cart', 'carrito', 'checkout', 'dashboard', 'booking-confirmed', 'booking-cancelled'];
+const RUTAS_ANTIGUAS = ['agendar', 'tienda', 'cart', 'carrito', 'checkout', 'dashboard'];
 
 const nextConfig: NextConfig = {
   async redirects() {

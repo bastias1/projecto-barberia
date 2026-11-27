@@ -25,14 +25,14 @@ const enviarDeBarberia = (b: Barberia, to: string, subject: string, html: string
 const enviarDePlataforma = (to: string, subject: string, html: string) =>
   sendEmail({ to, subject, html, fromName: PLATAFORMA.nombre, replyTo: PLATAFORMA.emailContacto });
 
-async function cargarReserva(idReserva: number) {
+export async function cargarReserva(idReserva: number) {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("reserva")
     .select(`
       id_reserva, id_barberia, estado, fecha_hora_inicio, monto,
       servicio:servicio!reserva_servicio_fkey (nombre),
-      sucursal:sucursal!reserva_sucursal_fkey (nombre, direccion, comuna, zona_horaria),
+      sucursal:sucursal!reserva_sucursal_fkey (nombre, slug, direccion, comuna, telefono, zona_horaria),
       profesional:profesional!reserva_profesional_fkey (alias, usuario:usuario!profesional_usuario_fkey (nombre, apellido)),
       guest:guest_usuario!reserva_guest_fkey (nombre, correo),
       cliente:usuario!reserva_cliente_fkey (nombre, email)
@@ -55,7 +55,7 @@ async function cargarReserva(idReserva: number) {
 
   const profesional = one<{ alias: string | null; usuario: unknown }>(data.profesional);
   const usuarioProf = one<{ nombre: string; apellido: string | null }>(profesional?.usuario);
-  const sucursal = one<{ nombre: string; direccion: string; comuna: string; zona_horaria: string }>(data.sucursal);
+  const sucursal = one<{ nombre: string; slug: string; direccion: string; comuna: string; telefono: string | null; zona_horaria: string }>(data.sucursal);
   const { fecha, hora } = toZoned(data.fecha_hora_inicio, sucursal?.zona_horaria || DEFAULT_TZ);
 
   const barberia = await getBarberiaById(supabase, data.id_barberia);
@@ -73,6 +73,9 @@ async function cargarReserva(idReserva: number) {
     hora,
   };
 }
+
+/** "sáb 5 dic, 19:15": va en el asunto para que cada correo de cita sea distinto (Gmail agrupa asuntos iguales). */
+const fechaCorta = (info: NonNullable<Awaited<ReturnType<typeof cargarReserva>>>) => `${formatFecha(info.fecha, "EEE d MMM")}, ${info.hora}`;
 
 /** Tabla con los datos de la cita (`extra`: filas finales, p. ej. el total). */
 function detalleCita(info: NonNullable<Awaited<ReturnType<typeof cargarReserva>>>, extra: Array<[string, string]> = []): string {
@@ -97,14 +100,18 @@ export async function notificarReservaCreada(idReserva: number): Promise<void> {
 
   const html = emailLayout(
     "Recibimos tu reserva",
-    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, estos son los datos de tu cita:</p>
-     ${detalleCita(info, [["Total", formatCLP(info.reserva.monto)]])}
-     <p style="margin:0 0 12px">Por favor confirma tu asistencia:</p>
-     <p style="margin:0">${emailButton(confirmar, "Confirmar cita", "#16a34a")}${emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora")}${emailButton(cancelar, "Cancelar cita", "#dc2626")}</p>`,
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, por favor confirma tu asistencia:</p>
+     <div style="margin:0 0 20px">${emailButton(confirmar, "Confirmar asistencia")}${emailButton(cancelar, "Cancelar cita", "secundario")}</div>
+     ${detalleCita(info, [["Total", formatCLP(info.reserva.monto)]])}`,
     barberia.nombre,
+    {
+      preheader: `Tu cita el ${formatFecha(info.fecha, "EEEE d 'de' MMMM")} a las ${info.hora} — Confirma o cancela`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
 
-  const enviado = await enviarDeBarberia(barberia, info.contacto.correo, `Tu reserva en ${barberia.nombre}`, html);
+  const enviado = await enviarDeBarberia(barberia, info.contacto.correo, `Tu cita del ${fechaCorta(info)} · ${barberia.nombre}`, html);
   if (!enviado) console.info(`[notificaciones] Links reserva ${idReserva}: confirmar=${confirmar} cancelar=${cancelar}`);
 }
 
@@ -117,21 +124,28 @@ export async function notificarCambioReserva(idReserva: number, cambio: "cancela
   const cancelada = cambio === "cancelada";
   const html = emailLayout(
     cancelada ? "Tu cita fue cancelada" : "Tu cita cambió de hora",
-    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, ${cancelada ? "cancelamos esta cita y el horario quedó libre:" : "estos son los nuevos datos de tu cita:"}</p>
-     ${detalleCita(info)}
-     <p style="margin:0">${cancelada
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, ${cancelada ? "cancelamos esta cita y el horario quedó libre." : "tu cita tiene una nueva hora."}</p>
+     <div style="margin:0 0 20px">${cancelada
        // slug "eliminada-…": la barbería se borró (RPC eliminar_barberia) y ya no tiene página
        ? barberia.slug.startsWith("eliminada-")
          ? emailButton(`${getSiteUrl()}/barberias`, "Buscar otra barbería")
          : emailButton(`${getSiteUrl()}/${barberia.slug}/agendar`, "Agendar otra cita")
-       : emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora") + emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "#dc2626")}</p>`,
+       : emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora") + emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "secundario")}</div>
+     ${detalleCita(info)}`,
     barberia.nombre,
+    {
+      preheader: cancelada
+        ? `Tu cita del ${formatFecha(info.fecha, "EEEE d 'de' MMMM")} a las ${info.hora} fue cancelada`
+        : `Tu cita cambió a ${formatFecha(info.fecha, "EEEE d 'de' MMMM")} a las ${info.hora}`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
 
   await enviarDeBarberia(
     barberia,
     info.contacto.correo,
-    cancelada ? `Cita cancelada en ${barberia.nombre}` : `Nueva hora para tu cita en ${barberia.nombre}`,
+    cancelada ? `Tu cita del ${fechaCorta(info)} fue cancelada · ${barberia.nombre}` : `Tu cita cambió al ${fechaCorta(info)} · ${barberia.nombre}`,
     html,
   );
 }
@@ -155,11 +169,16 @@ export async function notificarResenaReserva(idReserva: number): Promise<void> {
     `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, gracias por visitarnos.
      Nos encantaría saber qué te pareció tu ${escapeHtml(info.servicio.toLowerCase())} con ${escapeHtml(info.barbero)}
      del ${escapeHtml(formatFecha(info.fecha, "d 'de' MMMM"))}.</p>
-     <p style="margin:0">${emailButton(link, "Dejar mi reseña")}</p>`,
+     <div>${emailButton(link, "Dejar mi reseña")}</div>`,
     barberia.nombre,
+    {
+      preheader: `Cuéntanos cómo fue tu ${info.servicio} con ${info.barbero} — Deja tu reseña`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
 
-  const enviado = await enviarDeBarberia(barberia, info.contacto.correo, `¿Qué te pareció tu visita a ${barberia.nombre}?`, html);
+  const enviado = await enviarDeBarberia(barberia, info.contacto.correo, `¿Qué te pareció tu visita del ${formatFecha(info.fecha, "d 'de' MMMM")}? · ${barberia.nombre}`, html);
   if (!enviado) console.info(`[notificaciones] Link reseña reserva ${idReserva}: ${link}`);
 }
 
@@ -206,8 +225,13 @@ export async function notificarResenaPedido(idPedido: number): Promise<void> {
     `<p style="margin:0 0 12px">Hola ${escapeHtml(cliente.nombre)}, tu pedido #${idPedido} ya fue entregado.
      Cuéntanos qué te parecieron:</p>
      <ul style="margin:0 0 20px;padding-left:20px">${lista}</ul>
-     <p style="margin:0">${emailButton(link, "Calificar productos")}</p>`,
+     <div>${emailButton(link, "Calificar productos")}</div>`,
     barberia.nombre,
+    {
+      preheader: `Tu pedido #${idPedido} fue entregado — Califica los productos`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
 
   const enviado = await enviarDeBarberia(barberia, cliente.email, `Califica tu pedido #${idPedido}`, html);
@@ -234,8 +258,13 @@ export async function notificarStockBajo(idBarberia: string): Promise<void> {
     "Productos con stock bajo",
     `<p style="margin:0 0 16px">Estos productos llegaron a su stock mínimo:</p>
      ${emailDetalle(bajos.map((p) => [p.nombre, `quedan ${p.stock} (mínimo ${p.stock_minimo})`]))}
-     <p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/productos`, "Ver productos")}</p>`,
+     <div>${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/productos`, "Ver productos")}</div>`,
     barberia.nombre,
+    {
+      preheader: `${bajos.length} producto${bajos.length > 1 ? "s" : ""} con stock bajo — Revisar inventario`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
   for (const to of correos) {
     await sendEmail({ to, subject: `Stock bajo en ${barberia.nombre}`, html, fromName: barberia.nombre });
@@ -290,6 +319,11 @@ export async function notificarPedidoPagado(idPedido: number): Promise<void> {
      ])}
      <p style="margin:0">Te avisaremos cuando esté listo.</p>`,
     barberia.nombre,
+    {
+      preheader: `Pago confirmado para tu pedido #${idPedido} — Total ${formatCLP(pedido.monto_total)}`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
   await enviarDeBarberia(barberia, cliente.email, `Pago recibido · pedido #${idPedido}`, html);
 }
@@ -305,6 +339,13 @@ export async function notificarEstadoPedido(idPedido: number, estado: "listo_ret
     listo ? "Tu pedido está listo para retirar" : "Tu pedido va en camino",
     `<p style="margin:0">Hola ${escapeHtml(cliente.nombre)}, tu pedido #${idPedido} ${listo ? "ya puedes retirarlo en la barbería." : "fue enviado a tu dirección."}</p>`,
     barberia.nombre,
+    {
+      preheader: listo
+        ? `Tu pedido #${idPedido} está listo para retirar`
+        : `Tu pedido #${idPedido} va en camino a tu dirección`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
   await enviarDeBarberia(barberia, cliente.email, listo ? `Tu pedido #${idPedido} está listo` : `Tu pedido #${idPedido} va en camino`, html);
 }
@@ -325,8 +366,13 @@ export async function notificarSuscripcion(idBarberia: string, aviso: AvisoSuscr
   const a = AVISOS_SUSCRIPCION[aviso];
   const html = emailLayout(
     a.titulo,
-    `<p style="margin:0 0 16px">${escapeHtml(a.texto)}</p><p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/suscripcion`, a.boton)}</p>`,
+    `<p style="margin:0 0 16px">${escapeHtml(a.texto)}</p><div>${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/suscripcion`, a.boton)}</div>`,
     barberia.nombre,
+    {
+      preheader: a.texto,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
   let enviado = false;
   for (const to of await correosAdmins(supabase, idBarberia)) {
@@ -342,8 +388,11 @@ export async function notificarBarberiaRegistrada(correo: string, nombre: string
     `${nombre} ya está en ${PLATAFORMA.nombre}`,
     `<p style="margin:0 0 16px">Tu barbería quedó registrada ${conPrueba ? "con 14 días de prueba" : "y se activa al pagar la suscripción"}. Para empezar:</p>
      <ol style="margin:0 0 20px;padding-left:20px"><li>Agrega tus servicios y barberos.</li><li>Define tus horarios de atención.</li><li>Comparte tu página: ${escapeHtml(base)}</li></ol>
-     <p style="margin:0">${emailButton(`${base}/dashboard`, "Ir a mi panel")}</p>`,
+     <div>${emailButton(`${base}/dashboard`, "Ir a mi panel")}</div>`,
     PLATAFORMA.nombre,
+    {
+      preheader: `Tu barbería ${nombre} está lista ${conPrueba ? "con 14 días de prueba" : ""} — Accede a tu panel`,
+    },
   );
   await enviarDePlataforma(correo, `Tu barbería ${nombre} está lista`, html);
 }
@@ -368,8 +417,13 @@ export async function notificarInvitacionAceptada(token: string, correoSesion: s
   const html = emailLayout(
     "Aceptaron tu invitación",
     `<p style="margin:0 0 16px">${escapeHtml(inv.correo)} ya es parte del equipo de <strong>${escapeHtml(barberia.nombre)}</strong> como ${inv.rol === "admin" ? "administrador" : "barbero"}.</p>
-     <p style="margin:0">${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/usuarios`, "Ver equipo")}</p>`,
+     <div>${emailButton(`${getSiteUrl()}/${barberia.slug}/dashboard/usuarios`, "Ver equipo")}</div>`,
     barberia.nombre,
+    {
+      preheader: `${inv.correo} se unió a ${barberia.nombre} como ${inv.rol === "admin" ? "administrador" : "barbero"}`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
   await enviarDePlataforma(quien.email, `${inv.correo} aceptó unirse a ${barberia.nombre}`, html);
 }
@@ -383,6 +437,9 @@ export async function notificarSeguridad(correo: string, cambio: "clave" | "corr
       : `Se pidió cambiar el correo de tu cuenta a <strong>${escapeHtml(nuevoCorreo)}</strong>.`}
      Si no fuiste tú, recupera tu cuenta desde "¿Olvidaste tu contraseña?" y escríbenos a ${escapeHtml(PLATAFORMA.emailContacto)}.</p>`,
     PLATAFORMA.nombre,
+    {
+      preheader: cambio === "clave" ? "Tu contraseña fue cambiada" : `Solicitud de cambio de correo a ${nuevoCorreo}`,
+    },
   );
   await enviarDePlataforma(correo, cambio === "clave" ? "Tu contraseña fue cambiada" : "Solicitud de cambio de correo", html);
 }
@@ -408,8 +465,15 @@ export async function notificarBienvenida(
     `Te damos la bienvenida a ${PLATAFORMA.nombre}`,
     `<p style="margin:0 0 16px">Hola${nombre ? ` ${escapeHtml(nombre)}` : ""}, tu cuenta ya está lista.</p>
      <p style="margin:0 0 16px">${barberia ? `Ya puedes reservar en <strong>${escapeHtml(barberia.nombre)}</strong> y ver tus citas desde tu cuenta.` : "Desde tu cuenta puedes ver tus reservas, tus barberías y registrar la tuya."}</p>
-     <p style="margin:0">${emailButton(destino, barberia ? `Ir a ${barberia.nombre}` : "Ir a mi cuenta")}</p>`,
+     <div>${emailButton(destino, barberia ? `Ir a ${barberia.nombre}` : "Ir a mi cuenta")}</div>`,
     PLATAFORMA.nombre,
+    {
+      preheader: barberia
+        ? `Bienvenido a ${barberia.nombre} — Tu cuenta ya está lista`
+        : `Bienvenido a ${PLATAFORMA.nombre} — Tu cuenta ya está lista`,
+      logoUrl: barberia?.logo_url,
+      instagram: barberia?.instagram,
+    },
   );
 
   const enviado = await enviarDePlataforma(user.email, `Bienvenido a ${PLATAFORMA.nombre}`, html);
@@ -450,12 +514,17 @@ async function enviarRecordatorio(idReserva: number): Promise<boolean> {
   const { barberia } = info;
   const html = emailLayout(
     "Te esperamos pronto",
-    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, te recordamos tu cita:</p>
-     ${detalleCita(info)}
-     <p style="margin:0">${emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora")}${emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "#dc2626")}</p>`,
+    `<p style="margin:0 0 16px">Hola ${escapeHtml(info.contacto.nombre)}, te recordamos tu cita. Si no puedes venir, avísanos:</p>
+     <div style="margin:0 0 20px">${emailButton(reprogramarUrl(barberia.slug, idReserva), "Cambiar la hora")}${emailButton(bookingActionUrl("cancel", idReserva), "Cancelar cita", "secundario")}</div>
+     ${detalleCita(info)}`,
     barberia.nombre,
+    {
+      preheader: `Recordatorio: tu cita es mañana ${formatFecha(info.fecha, "EEEE d 'de' MMMM")} a las ${info.hora}`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
-  return enviarDeBarberia(barberia, info.contacto.correo, `Recordatorio de tu cita en ${barberia.nombre}`, html);
+  return enviarDeBarberia(barberia, info.contacto.correo, `Recordatorio: tu cita del ${fechaCorta(info)} · ${barberia.nombre}`, html);
 }
 
 /** Correo de invitación al equipo de una barbería (link a /invitacion/<token>). Devuelve si se envió. */
@@ -491,9 +560,14 @@ export async function notificarInvitacion(idInvitacion: number): Promise<boolean
      <strong>${escapeHtml(barberia.nombre)}</strong> como ${rol}.</p>
      <p style="margin:0 0 16px">Si aún no tienes cuenta, podrás crearla gratis con este mismo correo.
      La invitación vence el ${escapeHtml(vence)}.</p>
-     <p style="margin:0">${emailButton(link, "Ver invitación")}</p>`,
+     <div>${emailButton(link, "Ver invitación")}</div>`,
     barberia.nombre,
-    `Recibes este correo porque ${barberia.nombre} te invitó a su equipo. Si no esperabas esta invitación, ignora este mensaje.`,
+    {
+      pie: `Recibes este correo porque ${barberia.nombre} te invitó a su equipo. Si no esperabas esta invitación, ignora este mensaje.`,
+      preheader: `${invitador} te invitó a unirte a ${barberia.nombre} como ${rol} — Vence el ${vence}`,
+      logoUrl: barberia.logo_url,
+      instagram: barberia.instagram,
+    },
   );
 
   const enviado = await enviarDeBarberia(barberia, inv.correo, `${barberia.nombre} te invita a su equipo`, html);

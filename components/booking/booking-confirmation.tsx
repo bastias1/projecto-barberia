@@ -62,7 +62,7 @@ export function BookingConfirmation({
         <span className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-brand text-brand-foreground">
           <Check className="size-7" aria-hidden="true" />
         </span>
-        <h2 className="display text-3xl">Reserva confirmada</h2>
+        <h2 className="display text-3xl">Reserva agendada</h2>
         <p className="mt-2 text-muted-foreground">Te enviamos un correo a <span className="break-all text-foreground">{formData.email}</span> con los links para confirmar o cancelar.</p>
       </div>
 
